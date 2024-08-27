@@ -15,7 +15,7 @@ variable {K V : Type}
 Definition 1
 
 TODO(REVIEW): I _think_ the `m` is to be understood as total with respect to `keys`.
-              As such, `total` established `k ∈ m`, which then gives `m.lookup k = some _`.
+              As such, `total` establishes `k ∈ m`, which then gives `m.lookup k = some _`.
 
 Feel free to ignore this bit:
               This lets us remove all the `Option`s without artifically returning a default element for keys not in the map.
@@ -159,12 +159,11 @@ Definition 2
 NB - From the paper, we have `D₁(k), if k ∈ K₁`, i.e. the merge is _left biased_.
      This just happens to be the case `Finmap.union`, see the sanity-check `example` below.
 -/
-def Merge : Dict K V → Dict K V → Dict K V :=
-  λ ⟨p₁, m₁, total₁⟩ ⟨p₂, m₂, total₂⟩ ↦
+def Merge (dict₁ dict₂ : Dict K V) : Dict K V :=
   {
-    keys  := p₁ ∪ p₂
-    m     := m₁ ∪ m₂
-    total := by aesop
+    keys  := dict₁.keys ∪ dict₂.keys
+    m     := dict₁.m ∪ dict₂.m
+    total := by cases dict₁; cases dict₂; aesop
   }
 
 end Merge
