@@ -182,6 +182,34 @@ instance : Union (Dict K V) := ⟨Dict.Merge⟩
 --           let d₂ : Dict ℕ ℕ := ⟨{2, 3}, ⟨Multiset.ofList [⟨2, 24601⟩, ⟨2, 0xdeadbeef⟩], sorry⟩, sorry⟩
 --           (d₁ ∪ d₂)[2] = 1337 := rfl
 
+namespace Merge
+
+section Merge
+
+variable {dict₁ dict₂ : Dict K V}
+
+section Projections
+
+@[simp]
+lemma m_union_eq : (dict₁ ∪ dict₂).m = dict₁.m ∪ dict₂.m := rfl
+
+@[simp]
+lemma keys_union_eq : (dict₁ ∪ dict₂).keys = dict₁.keys ∪ dict₂.keys := rfl
+
+end Projections
+
+section Mem
+
+@[simp]
+lemma mem_union : k ∈ dict₁ ∪ dict₂ ↔ k ∈ dict₁ ∨ k ∈ dict₂ := by
+  simp [Dict.mem_dict_iff_mem_map]
+
+end Mem
+
+end Merge
+
+end Merge
+
 end Dict
 
 end Dictionaries
