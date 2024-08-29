@@ -170,16 +170,10 @@ end Merge
 
 end Dict
 
-/--
-Enables the notation:
-- `dict₁ ∪ dict₂`
--/
-instance : Union (Dict K V) := ⟨Dict.Merge⟩ 
-
--- NB (d₁ ∪ d₂)[2] works without an explicit proof that `2 ∈ (d₁ ∪ d₂)` and yet is in `Nat`, not in `Option Nat`.
+-- NB (d₁.Merge d₂)[2] works without an explicit proof that `2 ∈ (d₁.Merge d₂)` and yet is in `Nat`, not in `Option Nat`.
 -- example : let d₁ : Dict ℕ ℕ := ⟨{1, 2}, ⟨Multiset.ofList [⟨1, 42⟩, ⟨2, 1337⟩], sorry⟩, sorry⟩
 --           let d₂ : Dict ℕ ℕ := ⟨{2, 3}, ⟨Multiset.ofList [⟨2, 24601⟩, ⟨2, 0xdeadbeef⟩], sorry⟩, sorry⟩
---           (d₁ ∪ d₂)[2] = 1337 := rfl
+--           (d₁.Merge d₂)[2] = 1337 := rfl
 
 namespace Merge
 
@@ -190,17 +184,17 @@ variable {dict₁ dict₂ : Dict K V}
 section Projections
 
 @[simp]
-lemma m_union_eq : (dict₁ ∪ dict₂).m = dict₁.m ∪ dict₂.m := rfl
+lemma m_union_eq : (dict₁.Merge dict₂).m = dict₁.m ∪ dict₂.m := rfl
 
 @[simp]
-lemma keys_union_eq : (dict₁ ∪ dict₂).keys = dict₁.keys ∪ dict₂.keys := rfl
+lemma keys_union_eq : (dict₁.Merge dict₂).keys = dict₁.keys ∪ dict₂.keys := rfl
 
 end Projections
 
 section Mem
 
 @[simp]
-lemma mem_union : k ∈ dict₁ ∪ dict₂ ↔ k ∈ dict₁ ∨ k ∈ dict₂ := by
+lemma mem_union : k ∈ dict₁.Merge dict₂ ↔ k ∈ dict₁ ∨ k ∈ dict₂ := by
   simp [Dict.mem_dict_iff_mem_map]
 
 end Mem
