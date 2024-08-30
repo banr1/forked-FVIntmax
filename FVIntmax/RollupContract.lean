@@ -1,4 +1,11 @@
+import Mathlib.Data.Fintype.Basic
+
+import FVIntmax.Wheels.Oracle
+import FVIntmax.Wheels.Wheels
+
 import FVIntmax.Block
+import FVIntmax.TransactionBatch
+import FVIntmax.Wheels
 
 namespace Intmax
 
@@ -9,7 +16,7 @@ section RollupContract
 
 - Scontract := 𝔹*
 -/
-abbrev RollupState (K₁ K₂ V : Type) [OfNat V 0] [LE V] (C Sigma : Type) :=
+def RollupState (K₁ K₂ V : Type) [OfNat V 0] [LE V] (C Sigma : Type) :=
   List (Block K₁ K₂ C Sigma V)
 
 namespace RollupState
@@ -35,11 +42,41 @@ TODO(REVIEW): Does the order in which these get into the state matter? I'm choos
               It's not a big deal tho, we can do `s ++ [Block.deposit addr value]` and then shuffle.
 -/
 def deposit {K₁ K₂ C Sigma V : Type} [OfNat V 0] [LE V]
-            (addr : K₂) (value : {x : V // 0 ≤ x}) (s : RollupState K₁ K₂ V C Sigma) : RollupState K₁ K₂ V C Sigma :=
+            (addr : K₂) (value : { x : V // 0 ≤ x }) (s : RollupState K₁ K₂ V C Sigma) : RollupState K₁ K₂ V C Sigma :=
   Block.deposit addr value :: s
 
 end Depositing
 
+/-
+2.6
+-/
+section Transferring
+
+variable {K₁ : Type} [DecidableEq K₁] [Finite K₁]
+         {K₂ : Type} [Finite K₂]
+         {sender sender' : K₂} {senders : List K₂}
+         {V : Type} [DecidableEq V] [Finite V]
+
+/-
+Phase 1
+-/
+
+noncomputable def salt : UniquelyIndexed K₂ := default
+
+/--
+This is a corollary following from the way that `UniquelyIndexed` types are constructed.
+-/
+theorem salt_injective : Function.Injective (salt (K₂ := K₂)) := salt.injective
+
+noncomputable def salts : List K₂ → List (UniqueTokenT K₂) := List.map salt
+
+/--
+The only relevant property of salts.
+-/
+theorem injective_salts : Function.Injective (salts (K₂ := K₂)) :=
+  List.map_injective_iff.2 salt.injective
+
+end Transferring
 
 end RollupContract
 

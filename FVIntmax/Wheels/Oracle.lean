@@ -1,7 +1,7 @@
 import Mathlib.Data.Fintype.Basic
 import Mathlib.Data.Finmap
 
-namespace IntMax
+namespace Intmax
 
 /-
 _Random oracle_ is an idealised model that associates a new unique value with every input it has not yet encountered.
@@ -13,6 +13,7 @@ section RandomOracle
 /--
 Random oracle state.
 -/
+@[deprecated]
 structure RandomOracle (α : Type) (ω : Type) [Fintype ω] where
   m                 : Finmap (λ _ : α ↦ ω)
 
@@ -39,6 +40,7 @@ variable {α : Type}
 NB using `#1`, so we magically (using `choice`) obtain a `List` of all the elements from the codomain.
 This is convenient to simplify `hash`, hence this is chosen over `#0`.
 -/
+@[deprecated]
 noncomputable def RandomOracle.initial : RandomOracle α ω :=
   {
     m                 := ∅
@@ -53,7 +55,8 @@ Random oracle function.
 NB this is only computable because the process of creating the initial oracle state is not.
 We are using `#1`.
 -/
-def hash (st : RandomOracle α ω) (x : α) : Option (ω × RandomOracle α ω) :=
+@[deprecated]
+def RandomOracle.hash (st : RandomOracle α ω) (x : α) : Option (ω × RandomOracle α ω) :=
   match st.m.lookup x with
   | .some val => .some (val, st)
   | .none     => match st.availableCodomain with
@@ -62,4 +65,4 @@ def hash (st : RandomOracle α ω) (x : α) : Option (ω × RandomOracle α ω) 
 
 end RandomOracle
 
-end IntMax
+end Intmax
