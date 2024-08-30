@@ -6,6 +6,15 @@ This repository mechanises proofs of following statements from [0]:
 
 ### Assumptions / Trust base (TODO)
 
+#### Axioms
+
+We introduce the following axioms:
+`Wheels/Wheels.lean` - `axiom computationallyInfeasible_axiom : ∀ {p : Prop}, ComputationallyInfeasible p → ¬p`
+
+To model the semantics of computational infeasibility; this technically makes the environment inconsistent;
+as such, we make sure to disallow Lean to use this reasoning in any automated way whatsoever in addition
+to restricting our own usage of this statement to the least degree possible.
+
 TODO - We will add assumptions and such (e.g. what is our notion of computationally infeasible)
 as we go, along with the fact that we trust Lean, that the model could in theory be wrong, etc.
 Very standard, but needs to be articulated carefully.
