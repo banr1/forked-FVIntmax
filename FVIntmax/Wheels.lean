@@ -3,6 +3,8 @@ import Mathlib.Data.Finmap
 import Mathlib.Data.Set.Image
 import Mathlib.Logic.Embedding.Basic
 
+import FVIntmax.Wheels.Wheels
+
 namespace Intmax
 
 section UniquelyIndexed
@@ -29,6 +31,13 @@ theorem injective {α : Type} [Finite α]
 end UniquelyIndexed
 
 end UniquelyIndexed
+
+def codomainPred {α : Type} [DecidableEq α] {β : Type}
+  (m : Finmap (λ _ : α ↦ β)) (P : β → Prop) : Prop :=
+  ∀ key : α, (h : key ∈ m) → P (m.lookup_h h)
+
+def isCodomainNonneg {α : Type} [DecidableEq α] {β : Type} [LE β] [OfNat β 0]
+  (m : Finmap (λ _ : α ↦ β)) : Prop := codomainPred m (0 ≤ ·)
 
 end Intmax
 

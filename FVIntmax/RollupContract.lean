@@ -9,6 +9,8 @@ import FVIntmax.Wheels
 
 namespace Intmax
 
+set_option autoImplicit false
+
 section RollupContract
 
 /--
@@ -16,7 +18,7 @@ section RollupContract
 
 - Scontract := 𝔹*
 -/
-def RollupState (K₁ K₂ V : Type) [OfNat V 0] [LE V] (C Sigma : Type) :=
+abbrev RollupState (K₁ K₂ V : Type) (C Sigma : Type) :=
   List (Block K₁ K₂ C Sigma V)
 
 namespace RollupState
@@ -27,7 +29,21 @@ namespace RollupState
 - When the rollup contract is deployed to the blockchain, it is initialized with
   the state () consisting of the empty list.
 -/
-def initial (K₁ K₂ V : Type) [OfNat V 0] [LE V] (C Sigma : Type) : RollupState K₁ K₂ V C Sigma := []
+def initial (K₁ K₂ V : Type) (C Sigma : Type) : RollupState K₁ K₂ V C Sigma := []
+
+section Valid
+
+variable {K₁ : Type} [DecidableEq K₁] {K₂ C Sigma V : Type} [LE V] [OfNat V 0]
+
+def isValid (s : RollupState K₁ K₂ V C Sigma) := ∀ block ∈ s, block.isValid
+
+lemma isValid_cons {block : Block K₁ K₂ C Sigma V} {s : RollupState K₁ K₂ V C Sigma}
+  (h : block.isValid) (h₁ : s.isValid) : RollupState.isValid (block :: s) := by unfold isValid; aesop
+
+lemma isValid_initial {K₁ : Type} [DecidableEq K₁] {K₂ C Sigma V : Type} [LE V] [OfNat V 0] :
+  (initial K₁ K₂ V C Sigma).isValid := by simp [isValid, initial]
+
+end Valid
 
 end RollupState
 
@@ -41,9 +57,30 @@ TODO(REVIEW): Does the order in which these get into the state matter? I'm choos
               here because it's the more natural operation on `List` with better reduction behaviour.
               It's not a big deal tho, we can do `s ++ [Block.deposit addr value]` and then shuffle.
 -/
-def deposit {K₁ K₂ C Sigma V : Type} [OfNat V 0] [LE V]
-            (addr : K₂) (value : { x : V // 0 ≤ x }) (s : RollupState K₁ K₂ V C Sigma) : RollupState K₁ K₂ V C Sigma :=
-  Block.deposit addr value :: s
+def RollupState.deposit {K₁ K₂ C Sigma V : Type}
+                        (addr : K₂) (value : V) (s : RollupState K₁ K₂ V C Sigma) :
+                        RollupState K₁ K₂ V C Sigma := Block.mkDepositBlock _ _ _ addr value :: s
+
+namespace Block
+
+section Block
+
+variable {K₁ : Type} [DecidableEq K₁]
+         {K₂ C Sigma V : Type} [OfNat V 0] [LE V]
+         {addr : K₂} {value : V}
+
+/-
+`deposit` preserves validity of the rollup state assuming the value is being deposited is nonnegative
+and the state was valid in the first place.
+-/
+lemma isValid_deposit_of_nonneg
+  {addr : K₂} {value : V} {s : RollupState K₁ K₂ V C Sigma}
+  (h : 0 ≤ value) (h₁ : s.isValid) : (s.deposit addr value).isValid :=
+  RollupState.isValid_cons (isValid_mkDepositBlock_of_nonneg h) h₁
+
+end Block
+
+end Block
 
 end Depositing
 
@@ -66,14 +103,14 @@ noncomputable def salt : UniquelyIndexed K₂ := default
 /--
 This is a corollary following from the way that `UniquelyIndexed` types are constructed.
 -/
-theorem salt_injective : Function.Injective (salt (K₂ := K₂)) := salt.injective
+lemma salt_injective : Function.Injective (salt (K₂ := K₂)) := salt.injective
 
 noncomputable def salts : List K₂ → List (UniqueTokenT K₂) := List.map salt
 
 /--
 The only relevant property of salts.
 -/
-theorem injective_salts : Function.Injective (salts (K₂ := K₂)) :=
+lemma injective_salts : Function.Injective (salts (K₂ := K₂)) :=
   List.map_injective_iff.2 salt.injective
 
 section Transaction
@@ -86,7 +123,7 @@ PAPER:
 -/
 noncomputable def H : UniquelyIndexed (TransactionBatch K₁ K₂ V × UniqueTokenT K₂) := default
 
-theorem injective_H : Function.Injective (H (K₁ := K₁) (K₂ := K₂) (V := V)) := H.injective
+lemma injective_H : Function.Injective (H (K₁ := K₁) (K₂ := K₂) (V := V)) := H.injective
 
 /--
 TODO(REVIEW) - Re. @Denisa wrt. one salt per one transaction;
@@ -110,7 +147,7 @@ noncomputable def firstStep
   let salts := salts users
   List.zipWith (Function.curry H) batches salts
 
-theorem injective_firstStep : Function.Injective (firstStep (K₁ := K₁) (K₂ := K₂) (V := V)) := by
+lemma injective_firstStep : Function.Injective (firstStep (K₁ := K₁) (K₂ := K₂) (V := V)) := by
   unfold firstStep
   simp [salts]; simp [Function.Injective]
 

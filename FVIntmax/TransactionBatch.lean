@@ -4,10 +4,7 @@ import Mathlib.Data.Fintype.Card
 import Mathlib.Data.Fintype.Powerset
 
 import FVIntmax.Wheels.Wheels
-
 import FVIntmax.Wheels
-
-import Mathlib
 
 namespace Intmax
 
@@ -85,7 +82,7 @@ A _valid transaction batch_ only contains nonnegative values of `V`.
 NB there is now a restriction on `V` such that the notion of nonnegative makes sense.
 -/
 abbrev TransactionBatch.isValid [DecidableEq K₁] [DecidableEq K₂] [LE V] [OfNat V 0]
-  (tb : TransactionBatch K₁ K₂ V) := ∀ x, 0 ≤ tb.1.lookup_h (a := x) (by cases tb; aesop)
+  (tb : TransactionBatch K₁ K₂ V) := isCodomainNonneg tb.1
 
 set_option linter.unusedVariables false in
 /--
