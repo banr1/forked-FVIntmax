@@ -39,7 +39,7 @@ structure Dict (K V : Type) : Type :=
 
 section Dict
 
-variable {dict : Dict K V} {k : K} [DecidableEq K]
+variable {dict : Dict K V} {k : K}
 
 def Dict.contains (k : K) (dict : Dict K V) : Prop := k ∈ dict.m
 
@@ -56,7 +56,7 @@ instance : Membership K (Dict K V) := ⟨Dict.contains⟩
 /--
 `k ∈ dict` is decidable. Useful for development.
 -/
-instance : Decidable (k ∈ dict) := inferInstanceAs (Decidable (k ∈ dict.m))
+instance [DecidableEq K] : Decidable (k ∈ dict) := inferInstanceAs (Decidable (k ∈ dict.m))
 
 namespace Dict
 
@@ -113,6 +113,8 @@ end Mem
 
 section Lookup
 
+variable [DecidableEq K]
+
 /--
 NB As mentioned, I am hoping automation makes most of the membership yoga transparent.
 It is reasonably simple to switch to a different option as per discussion in `Definition 1`.
@@ -142,7 +144,8 @@ end Dict
 Enables the notation:
 - `dict[k]'h`
 -/
-instance : GetElem (Dict K V) K V (λ dict k ↦ k ∈ dict) := ⟨λ dict _ h ↦ dict.lookup h⟩
+instance [DecidableEq K] :
+  GetElem (Dict K V) K V (λ dict k ↦ k ∈ dict) := ⟨λ dict _ h ↦ dict.lookup h⟩
 
 namespace Dict
 
@@ -183,6 +186,8 @@ variable {dict₁ dict₂ : Dict K V}
 
 section Projections
 
+variable [DecidableEq K]
+
 @[simp]
 lemma m_union_eq : (dict₁.Merge dict₂).m = dict₁.m ∪ dict₂.m := rfl
 
@@ -192,6 +197,8 @@ lemma keys_union_eq : (dict₁.Merge dict₂).keys = dict₁.keys ∪ dict₂.ke
 end Projections
 
 section Mem
+
+variable [DecidableEq K]
 
 @[simp]
 lemma mem_union : k ∈ dict₁.Merge dict₂ ↔ k ∈ dict₁ ∨ k ∈ dict₂ := by
