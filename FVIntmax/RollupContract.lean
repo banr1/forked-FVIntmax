@@ -76,6 +76,42 @@ The only relevant property of salts.
 theorem injective_salts : Function.Injective (salts (K₂ := K₂)) :=
   List.map_injective_iff.2 salt.injective
 
+section Transaction
+
+variable [DecidableEq K₂]
+
+/--
+PAPER:
+- hₛ ← H(tₛ, saltₛ)
+-/
+noncomputable def H : UniquelyIndexed (TransactionBatch K₁ K₂ V × UniqueTokenT K₂) := default
+
+theorem injective_H : Function.Injective (H (K₁ := K₁) (K₂ := K₂) (V := V)) := H.injective
+
+/--
+TODO(REVIEW) - Re. @Denisa wrt. one salt per one transaction;
+
+I actually think this first step is correct irrespective of salting multiple transactions.
+This is because this definition takes: `senders : List (K₂ × TransactionBatch K₁ K₂ V)`, IOW
+it already only expresses the relationship of a single batch being sent by each user.
+
+As such, if there is some other definition further down the line that expresses the notion of transactions
+being sent over and over or whatever else, the first step will repeat and you get a new salt - note that in this model,
+you can't actually prove that the new salt is distinct (or even the same, for that matter), and this to me seems
+like actually a good thing.
+-/
+noncomputable def firstStep
+  (senders : List (K₂ × TransactionBatch K₁ K₂ V)) : List (UniqueTokenT (TransactionBatch K₁ K₂ V × UniqueTokenT K₂)) :=
+  let (users, batches) := senders.unzip
+  let salts := salts users
+  List.zipWith (Function.curry H) batches salts
+
+theorem injective_firstStep : Function.Injective (firstStep (K₁ := K₁) (K₂ := K₂) (V := V)) := by
+  unfold firstStep
+  simp [salts]; simp [Function.Injective]
+
+end Transaction
+
 end Transferring
 
 end RollupContract
