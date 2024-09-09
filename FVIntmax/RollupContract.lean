@@ -99,6 +99,10 @@ As such, if there is some other definition further down the line that expresses 
 being sent over and over or whatever else, the first step will repeat and you get a new salt - note that in this model,
 you can't actually prove that the new salt is distinct (or even the same, for that matter), and this to me seems
 like actually a good thing.
+
+PAPER:
+First, each sender s chooses a random salt salts, hashes their transaction batch with the salt
+hs ← H(ts, salts) and sends hs to the aggregator.
 -/
 noncomputable def firstStep
   (senders : List (K₂ × TransactionBatch K₁ K₂ V)) : List (UniqueTokenT (TransactionBatch K₁ K₂ V × UniqueTokenT K₂)) :=
