@@ -11,7 +11,7 @@ variable {K : Type} [DecidableEq K]
          {M : Type}
 
 /--
-`ADScheme.Commit` returns `C × Dict K Pi` - this is a thin wrapper over said product. 
+`ADScheme.Commit` returns `C × Dict K Pi` - this is a thin wrapper over said product.
 -/
 structure CommitT (C K Pi : Type) :=
   commitment : C
@@ -26,7 +26,6 @@ namespace CommitT
 def lookup (ct : CommitT C K Pi) {k : K} (h : k ∈ ct.dict) : Pi :=
   ct.dict[k]
 
-@[simp]
 abbrev keys (ct : CommitT C K Pi) : Set K := ct.dict.keys
 
 end CommitT
@@ -59,10 +58,10 @@ So they are not parameterizing the functions by `λ : ℕ` to express the intent
 NB This might end up being a `class` based on usage later, it changes very little in terms of
 refactoring needed.
 -/
-structure ADScheme (K : Type) [DecidableEq K]
-                   (M : Type) (C Pi : Type) where
+class ADScheme (K : Type) [DecidableEq K]
+               (M : Type) (C Pi : Type) where
   Λ : ℕ
-              
+
   Commit : ℕ → Dict K M → CommitT C K Pi
   Verify : ℕ → Pi → K → M → C → Bool -- Curried. NB (α × β → γ) ≅ α → β → γ (by `Function.curry`).
 
@@ -106,6 +105,8 @@ structure ADScheme (K : Type) [DecidableEq K]
                 Verify Λ π₁ k m₁ c = true ∧
                 Verify Λ π₂ k m₂ c = true ∧
                 m₁ ≠ m₂
+
+attribute [aesop norm (rule_sets := [Intmax.aesop_dict])] ADScheme.correct_keys_eq
 
 end AuthenticatedDictionaries
 

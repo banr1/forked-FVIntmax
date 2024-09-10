@@ -5,7 +5,7 @@ import FVIntmax.Wheels.Wheels
 namespace Intmax
 
 /-
-A - A.3  
+A - A.3
 
 NB `Σ` has a known meaning in Lean, so we diverge a little:
 - `Σ = Sigma`
@@ -23,7 +23,7 @@ TODO(REVIEW):
   Does it seem sensible? Do we need anything better than that? Actually, we could probably
   even get away with less?
 -/
-structure SignatureAggregation (M Kₚ Kₛ Sigma : Type) where
+class SignatureAggregation (M Kₚ Kₛ Sigma : Type) where
   Λ         : ℕ
 
   KeyGen    : ℕ → SimpleRandom.Seed → Kₚ × Kₛ
@@ -39,7 +39,7 @@ structure SignatureAggregation (M Kₚ Kₛ Sigma : Type) where
               for the time being is that the relationship between `kₚ` and `kₛ` is more explicit
               if `unzip` and `zip` are used.
   -/
-  Correctness : ∀ (l : List (Kₚ × Kₛ)) (h : ∀ pair ∈ l, pair ←ᵣ KeyGen Λ) (m : M), 
+  Correctness : ∀ (l : List (Kₚ × Kₛ)) (h : ∀ pair ∈ l, pair ←ᵣ KeyGen Λ) (m : M),
                   let (kₚs, kₛs) := l.unzip
                   Verify Λ kₚs m (Aggregate Λ (kₚs.zip (kₛs.map (Sign Λ · m)))) = true
 
@@ -60,8 +60,8 @@ structure SignatureAggregation (M Kₚ Kₛ Sigma : Type) where
         -- sign the message m with their secret key.
         ∃ userIdx : Fin k.length,
           let (honestₚ, honestₛ) := k[userIdx]
-          honestₚ ∈ kₚs ∧ ∃ key : Kₛ, key ≠ honestₛ ∧ Sign Λ key m = σ 
-     
+          honestₚ ∈ kₚs ∧ ∃ key : Kₛ, key ≠ honestₛ ∧ Sign Λ key m = σ
+
 end SignatureAggregation
 
 end Intmax

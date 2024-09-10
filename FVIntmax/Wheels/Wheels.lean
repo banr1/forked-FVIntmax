@@ -33,6 +33,13 @@ end Finmap
 
 namespace Intmax
 
+/-
+NB it seems to not matter what extradata is at all; I won't make it a Unit to not
+get some unintended properties for free, but ℕ seems just as good as a the 'closer' model
+Bytearray.
+-/
+abbrev ExtraDataT : Type := ℕ
+
 section RubeGoldberg
 
 /--

@@ -97,7 +97,7 @@ open Lean.Elab.Tactic in
 - uses the `Intmax.aesop_dict` set
 -/
 elab "dict" : tactic => do
-  evalTactic <| ← `(tactic| (aesop (rule_sets := [Intmax.aesop_dict]); done))
+  evalTactic <| ← `(tactic| aesop (erase simp Sum.exists) (rule_sets := [Intmax.aesop_dict]))
 
 /--
 Resolve membership proof obligation by the custom `dict` tactic.
