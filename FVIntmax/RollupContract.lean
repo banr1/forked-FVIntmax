@@ -287,7 +287,7 @@ noncomputable def thirdStep (commits : CommitT C K₂ Pi × List (K₂ × !(Tran
 /--
   We assume no duplicate users. This is safe because the paper uses sets anyway.
 -/
-def constructTransferBlock
+def transferBlockOfUsersWithBatches
   (usersWithBatches : List (K₂ × TransactionBatch K₁ K₂ V))
   (h : (usersWithBatches.map Prod.fst).Nodup) : Nat :=
   /-
@@ -341,6 +341,21 @@ def constructTransferBlock
     rw [dict_keys_secondStep_eq]
     dict
 
+  /-
+    PAPER: 3.
+    
+    Upon receiving the dictionary commitment and lookup proof, each user s
+    checks if the lookup proof is valid with the commitment:
+    AD.Verify(πs, s, hs, C) ?= True.
+    If the lookup proof is valid, the user generates the signature
+    σs ← SA.Sign(sks,(C, aggregator, extradata))
+    The protocol allows anyone to be an aggregator for a transfer block, enabling
+    maximum censorship resistance.
+    Sending the transaction hash instead of the transaction itself gives privacy from
+    the aggregator.
+    See Appendix A.1 for the definition of a dictionary.
+    and sends this signature to the aggregator.
+  -/
   let signedMessages := thirdStep (K₁ := K₁) (K₂ := K₂) (V := V) (C := C) (Pi := Pi) (Sigma := Sigma) (Kₚ := Kₚ) (Kₛ := Kₛ) aggregator extradata s₁
                           (by dsimp only [s₁, s₀]; dict)
   42 
