@@ -180,12 +180,12 @@ lemma injective_firstStep : Function.Injective (firstStep (K₁ := K₁) (K₂ :
 
 section LikelyUseless
 
-@[deprecated]
+@[deprecated firstStep]
 noncomputable def firstStep'
   (senders : List (K₂ × TransactionBatch K₁ K₂ V)) : List (K₂ × !(TransactionBatch K₁ K₂ V × !K₂)) :=
   (senders.map Prod.fst).zip (firstStep senders)
 
-@[deprecated]
+@[deprecated injective_firstStep]
 lemma injective_firstStep' : Function.Injective (firstStep' (K₁ := K₁) (K₂ := K₂) (V := V)) := by
   /-
     We construct second components of pairs in an injective fashion.
