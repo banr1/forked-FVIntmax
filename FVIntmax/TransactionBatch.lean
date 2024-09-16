@@ -96,9 +96,9 @@ noncomputable def univFinmap (K : Type) [Fintype K] [DecidableEq K]
   {
     toFun := λ m k ↦ m.1.lookup_h (a := k) (m.2 k)
     invFun := λ f ↦
-      let fvals := { Sigma.mk x (f x) | x ∈ Finset.univ (α := K) }
+      let fvals := { Sigma.mk x (f x) | x : K }
       have : Fintype ↑fvals := by
-        apply Fintype.subtype (s := { Sigma.mk x (f x) | x ∈ Finset.univ (α := K) })
+        apply Fintype.subtype (s := { Sigma.mk x (f x) | x : K })
         aesop
       ⟨⟨
         Multiset.ofList fvals.toFinset.toList,
