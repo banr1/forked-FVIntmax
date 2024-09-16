@@ -3,8 +3,11 @@ import Mathlib.Data.Finmap
 import Mathlib.Data.Fintype.Card
 import Mathlib.Data.Fintype.Powerset
 
+import FVIntmax.Key
 import FVIntmax.Wheels.Wheels
 import FVIntmax.Wheels
+
+import Mathlib.Tactic
 
 namespace Intmax
 
@@ -12,61 +15,6 @@ namespace Intmax
 2.6 - Transaction batch
 -/
 section TransactionBatch
-
-/--
-PAPER: K := K1 ⨿ K2
-
-TODO(REVIEW): Can we assume that `addr₁ : K₁` and `addr₂ : K₂` are incomparable?
-              This is currently based on this assumption, as we have automatically
-              `[DecidableEq (K₁ ⊕ K₂)]` given `[DecidableEq K₁]` and `[DecidableEq K₂`],
-              but the instance compares e.g. `.inl 42 : Key Nat Nat`
-              and `.inr 42 : Key Nat Nat` _UNEQUAL_.
-
-              Of course this is fixable, essentially I'm just wondering if L₁ addresses can coincide with L₂ addresses. 
--/
-abbrev Key (K₁ K₂ : Type) := K₁ ⊕ K₂
-
-section Finite
-
-variable {K₁ : Type} [Finite K₁]
-         {K₂ : Type} [Finite K₂]
-
-instance : Finite (Key K₁ K₂) := by
-  /-
-    We make a codomain `|K₁| + |K₂|` big. We put `K₁`s starting at 0 and we put `K₂`s starting at `|K₁|`.
-    To recover these, we map `K₁`s directly and subtract `|K₁|` for `K₂`s.
-    It is easy to show these are inverse to each other, thus yielding a bijection with a finite set of size `|K₁| + |K₂|`,
-    which is finite by definition.
-  -/
-  unfold Key
-  rw [finite_iff_exists_equiv_fin]
-  obtain ⟨w₁, hw₁⟩ := Finite.exists_equiv_fin K₁
-  obtain ⟨w₂, hw₂⟩ := Finite.exists_equiv_fin K₂
-  have h₁ := hw₁.some
-  have h₂ := hw₂.some
-  use w₁ + w₂
-  constructor
-  exact {
-    toFun := λ sum ↦
-               match sum with
-               | .inl k₁ => ⟨h₁ k₁, by omega⟩
-               | .inr k₂ => ⟨h₂ k₂ + w₁, by omega⟩
-    invFun := λ fin ↦
-                if h : fin < w₁
-                then .inl (h₁.invFun ⟨fin.1, h⟩)
-                else .inr (h₂.invFun ⟨fin.1 - w₁, by omega⟩)
-    left_inv := by unfold Function.LeftInverse
-                   intros sum
-                   rcases sum with k₁ | k₂ <;> simp
-    right_inv := by unfold Function.RightInverse Function.LeftInverse
-                    intros fin
-                    by_cases eq : fin < w₁ <;> aesop
-  }
-
-noncomputable instance : Fintype (Key K₁ K₂) :=
-  have := Fintype.ofFinite K₁
-  have := Fintype.ofFinite K₂
-  inferInstance
 
 /--
 PAPER: a transaction batch is an element of V₊ᵏ
@@ -81,8 +29,14 @@ abbrev TransactionBatch (K₁ : Type) [Finite K₁] (K₂ : Type) [Finite K₂] 
 A _valid transaction batch_ only contains nonnegative values of `V`.
 NB there is now a restriction on `V` such that the notion of nonnegative makes sense.
 -/
-abbrev TransactionBatch.isValid [DecidableEq K₁] [DecidableEq K₂] [LE V] [OfNat V 0]
+abbrev TransactionBatch.isValid {K₁ : Type} [Finite K₁] [DecidableEq K₁]
+                                {K₂ : Type} [Finite K₂] [DecidableEq K₂] [LE V] [OfNat V 0]
   (tb : TransactionBatch K₁ K₂ V) := isCodomainNonneg tb.1
+
+section Finite
+
+variable {K₁ : Type} [Finite K₁]
+         {K₂ : Type} [Finite K₂]
 
 set_option linter.unusedVariables false in
 /--

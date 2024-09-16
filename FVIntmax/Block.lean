@@ -20,12 +20,12 @@ inductive Block (K₁ K₂ : Type) (C Sigma : Type) (V : Type) :=
   -/
   | deposit (recipient : K₂) (amount : V)
   /--
-    Btransfer - (2.6 - Btransfer = Btransf er = K1 × {0, 1}∗ × AD.C × P(K) × SA.Σ)
+    Btransfer - (2.6 - Btransfer = K1 × {0, 1}∗ × AD.C × P(K) × SA.Σ)
 
-    NB I can _not_ bring myself to abuse DTT to express `validUsers : K₂` beyond `K₂`.
-    The intent is to subset en passant in subsequent statements about transfers.
+    NB `senders` is currently a list with potentially duplicates, this can morph into a set
+    or at least a list with `List.Nodup`, let's see if this is needed.
   -/
-  | transfer (aggregator : K₁) (extradata : ExtraDataT) (commitment : C) (validUsers : K₂) (sigma : Sigma)
+  | transfer (aggregator : K₁) (extradata : ExtraDataT) (commitment : C) (senders : List K₂) (sigma : Sigma)
   /--
     Bwithdrawal - (2.7 - Bwithdrawal = V^{K_1}_+)
 
@@ -35,16 +35,27 @@ inductive Block (K₁ K₂ : Type) (C Sigma : Type) (V : Type) :=
 
 namespace Block
 
-def mkDepositBlock {K₂ V : Type}
-  (K₁ C Sigma : Type) (addr : K₂) (value : V) : Block K₁ K₂ C Sigma V := Block.deposit addr value
+section Block
 
-def mkTransferBlock {K₁ K₂ V Sigma : Type}
-  (aggregator : K₁) (extradata : ExtraDataT) (commitment : C) (validUsers : K₂) (sigma : Sigma) :
-  Block K₁ K₂ C Sigma V := Block.transfer aggregator extradata commitment validUsers sigma
+variable {K₁ K₂ C V Sigma : Type}
 
-def mkWithdrawalBlock {K₁ V : Type}
-  (K₂ C Sigma : Type) (withdrawals : Finmap (λ _ : K₁ ↦ V)) : Block K₁ K₂ C Sigma V :=
+def mkDepositBlock (K₁ C Sigma : Type) (addr : K₂) (value : V) : Block K₁ K₂ C Sigma V :=
+  Block.deposit addr value
+
+def mkTransferBlock (aggregator : K₁) (extradata : ExtraDataT)
+                    (commitment : C) (senders : List K₂) (sigma : Sigma) : Block K₁ K₂ C Sigma V :=
+  Block.transfer aggregator extradata commitment senders sigma
+
+def mkWithdrawalBlock (K₂ C Sigma : Type) (withdrawals : Finmap (λ _ : K₁ ↦ V)) : Block K₁ K₂ C Sigma V :=
   Block.withdrawal withdrawals
+
+abbrev isDepositBlock (b : Block K₁ K₂ C Sigma V) := b matches (Block.deposit _ _) 
+
+abbrev isTransferBlock (b : Block K₁ K₂ C Sigma V) := b matches (Block.transfer _ _ _ _ _)
+
+abbrev isWithdrawalBlock (b : Block K₁ K₂ C Sigma V) := b matches (Block.withdrawal _)
+
+end Block
 
 section ValidBlock
 

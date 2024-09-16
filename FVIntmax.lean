@@ -5,7 +5,9 @@ import «FVIntmax».Wheels.SignatureAggregation
 import «FVIntmax».Wheels.Wheels
 
 import «FVIntmax».Account
+import «FVIntmax».Balance
 import «FVIntmax».Block
+import «FVIntmax».Key
 import «FVIntmax».RollupContract
 import «FVIntmax».TransactionBatch
 import «FVIntmax».Wheels
