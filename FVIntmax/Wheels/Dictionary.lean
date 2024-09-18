@@ -144,7 +144,7 @@ end Dict
 Enables the notation:
 - `dict[k]'h`
 -/
-instance [DecidableEq K] :
+instance obla [DecidableEq K] :
   GetElem (Dict K V) K V (λ dict k ↦ k ∈ dict) := ⟨λ dict _ h ↦ dict.lookup h⟩
 
 namespace Dict
