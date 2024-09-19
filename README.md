@@ -21,7 +21,7 @@ Very standard, but needs to be articulated carefully.
 
 ### Building / Proof checking
 
-Using `leanprover/lean4:v4.11.0-rc1` we simply run `lake build`.
+Using `leanprover/lean4:v4.11.0` we simply run `lake build`.
 Successful compilation of this project means that Lean has checked the proofs of the pertinent statements.
 
 [0] - https://eprint.iacr.org/2023/1082.pdf
