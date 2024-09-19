@@ -41,9 +41,26 @@ NB further, we postpone nonnegativity of V into `Τ.isValid`.
 -/
 abbrev Τ (K₁ K₂ V : Type) := Kbar K₁ K₂ × Kbar K₁ K₂ × Option V
 
+/--
+PAPER: complete transactions, consisting of the transactions
+((s, r), v) ∈ T where v ̸= ⊥
+-/
+def Τ.isComplete (τ : Τ K₁ K₂ V) :=
+  match τ with | (_, _, v) => v.isSome
+
+/--
+NB the notion of `isComplete` is here to keep 'parity' (for some loose definition thereof) with
+the paper. The immediate `v.isSome` here is for the time being more convenient than `T.isComplete` here,
+unless we happen to add a lot of lemmas with respect to `T.isComplete`, which I doubt will be the case.
+-/
 def Τ.isValid (τ : Τ K₁ K₂ V) [LE V] [OfNat V 0] :=
   match τ with
   | (s, r, v) => s ≠ r ∧ v.elim True (0 ≤ ·) ∧ s matches .Source → v.isSome 
+
+/-
+B.1 Step 1: Extracting a list of partial transaction
+-/
+section Extraction
 
 section Deposit
 
@@ -66,6 +83,10 @@ instance [LinearOrder K₁] [LinearOrder K₂] : DecidableRel (lexLe (K₁ := K�
 
 section Transfer
 
+/-
+TODO(REVIEW):
+PAPER FIX? -> for each sender-recipient pair (s, r) ∈ K2 × K where s ̸= r
+-/
 def keysUneq (k₂ : K₂) (k : Key K₁ K₂) : Prop :=
   match k with
   | .inl _   => True
@@ -77,8 +98,7 @@ infix:50 " ≠ₖ " => keysUneq
 instance [DecidableEq K₂] : DecidablePred (Function.uncurry (keysUneq (K₁ := K₁) (K₂ := K₂))) :=
   λ keys ↦
     by unfold Function.uncurry keysUneq
-       rcases keys with ⟨_, k₂'⟩
-       cases k₂' <;> infer_instance
+       rcases keys with ⟨_, _ | _⟩ <;> infer_instance
 
 instance {k₂ : K₂} {k : Key K₁ K₂} [DecidableEq K₂] : Decidable (k₂ ≠ₖ k) := by
   unfold keysUneq
@@ -110,7 +130,7 @@ instance : IsTotal (K₂ × Key K₁ K₂) lexLe := by
   · have : a.1 < b.1 ∨ b.1 < a.1 := by aesop
     rcases this with h | h <;> tauto
 
-noncomputable def TransactionsInBlock_transfer [Finite K₁] [Finite K₂] [MulOneClass V]
+noncomputable def TransactionsInBlock_transfer [Finite K₁] [Finite K₂] [AddZeroClass V]
   (π : BalanceProof K₁ K₂ V C Pi)
   (b : { b : Block K₁ K₂ C Sigma V // b.isTransferBlock }) :
   List (Τ K₁ K₂ V) :=
@@ -137,9 +157,7 @@ noncomputable def TransactionsInBlock_transfer [Finite K₁] [Finite K₂] [MulO
       NB this is using the old notion of `Dict` because it's half a day's of work to restitch to the new one.
     -/
     let v (s : K₂) (r : Key K₁ K₂) : Option V :=
-      -- NB Lean's default groups are multiplicative
-      -- if this bothers anyone reading this, I can switch to AddGroup somehow I think
-      if s ∉ S then .some 1 else 
+      if s ∉ S then .some 0 else 
       if h : (commitment, s) ∈ π.keys
       then let (_, _, t) := π[(commitment, s)]
            t.lookup r
@@ -148,6 +166,8 @@ noncomputable def TransactionsInBlock_transfer [Finite K₁] [Finite K₂] [MulO
   | .deposit .. | .withdrawal .. => by aesop
 
 end Transfer
+
+section Withdrawal
 
 /--
 TODO(REVIEW):
@@ -175,7 +195,55 @@ noncomputable def TransactionsInBlock_withdrawal [Finite K₁]
     -- Might be worth giving it a think to avoid reproving random stuff in the future.
   | .deposit r v | .transfer .. => by aesop
 
+noncomputable def TransactionsInBlock [Finite K₁] [Finite K₂] [AddZeroClass V] 
+  (π : BalanceProof K₁ K₂ V C Pi) (b : Block K₁ K₂ C Sigma V) : List (Τ K₁ K₂ V) := 
+  match h : b with
+  | .deposit ..    => TransactionsInBlock_deposit ⟨b, by simp only [h]⟩
+  | .transfer ..   => TransactionsInBlock_transfer π ⟨b, by simp only [h]⟩
+  | .withdrawal .. => TransactionsInBlock_withdrawal ⟨b, by simp only [h]⟩
+
+noncomputable def TransactionsInBlocks [Finite K₁] [Finite K₂] [AddZeroClass V] 
+  (π : BalanceProof K₁ K₂ V C Pi) (bs : List (Block K₁ K₂ C Sigma V)) : List (Τ K₁ K₂ V) :=
+  (bs.map (TransactionsInBlock π)).join
+
+end Withdrawal
+
 end Order
+
+end Extraction
+
+/-
+B.2 Step 2: Computing balances from a list of partial transactions
+-/
+section Computation
+
+/--
+TODO(MY ESTEEMED SELF): Is this horrible dependent type going to come bite me in the behind?
+Let's find out!
+-/
+@[deprecated]
+def S' [OfNat V 0] [LE V] := Finmap (λ (k : Kbar K₁ K₂) ↦ { v : V // k matches .Source ∨ 0 ≤ v })
+
+/--
+TODO(REVIEW):
+PAPER FIX? -> In our case, a state is an assignment of a balance to each account, where every
+non-source account has a positive balance:
+                         ^^^^^^^^ - I am guessing nonnegative? PAPER FIX? 
+-/
+abbrev S (K₁ K₂ V : Type) [OfNat V 0] [LE V] := Kbar K₁ K₂ → V
+
+def S.isValid [OfNat V 0] [LE V] (s : S K₁ K₂ V) :=
+  ∀ k : Kbar K₁ K₂, k matches .Source ∨ 0 ≤ s k
+
+/--
+PAPER: where the set of transactions is the subset Tc ⊆ T , called the complete transactions
+-/
+def Τc (K₁ K₂ V : Type) : Type := { τ : Τ K₁ K₂ V // τ.isComplete }
+
+def fc [OfNat V 0] [LE V] (τc : Τc K₁ K₂ V) (s : S K₁ K₂ V) : S K₁ K₂ V :=
+  
+
+end Computation
 
 end Balance
 

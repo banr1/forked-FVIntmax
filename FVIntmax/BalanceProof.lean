@@ -41,11 +41,11 @@ section Valid
 V is a lattice ordered abelian group
 -/
 variable [Lattice V]
-         [CommGroup V]
-         [CovariantClass V V (· * ·) (· ≤ ·)]
-         [CovariantClass V V (Function.swap (· * ·)) (· ≤ ·)]
+         [AddCommGroup V]
+         [CovariantClass V V (· + ·) (· ≤ ·)]
+         [CovariantClass V V (Function.swap (· + ·)) (· ≤ ·)]
 
-def Meet (s : Finset V) : V := s.1.fold (·⊓·) 1
+def Meet (s : Finset V) : V := s.1.fold (·⊓·) 0
 
 set_option linter.unusedVariables false in
 /--
