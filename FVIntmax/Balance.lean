@@ -1,4 +1,5 @@
 import Mathlib
+import Mathlib.Algebra.Group.Int
 
 import FVIntmax.BalanceProof
 import FVIntmax.Block
@@ -107,6 +108,8 @@ instance {k₂ : K₂} {k : Key K₁ K₂} [DecidableEq K₂] : Decidable (k₂ 
 /-
 Sort will behave.
 -/
+section SortNotNaughty
+
 instance : IsTrans (K₂ × Key K₁ K₂) lexLe := by
   constructor; dsimp [lexLe]
   intros a b c h₁ h₂
@@ -129,6 +132,8 @@ instance : IsTotal (K₂ × Key K₁ K₂) lexLe := by
     apply le_total
   · have : a.1 < b.1 ∨ b.1 < a.1 := by aesop
     rcases this with h | h <;> tauto
+
+end SortNotNaughty
 
 noncomputable def TransactionsInBlock_transfer [Finite K₁] [Finite K₂] [AddZeroClass V]
   (π : BalanceProof K₁ K₂ V C Pi)
@@ -236,12 +241,52 @@ def S.isValid [OfNat V 0] [LE V] (s : S K₁ K₂ V) :=
   ∀ k : Kbar K₁ K₂, k matches .Source ∨ 0 ≤ s k
 
 /--
-PAPER: where the set of transactions is the subset Tc ⊆ T , called the complete transactions
+PAPER: where the set of transactions is the subset Tc ⊆ T, called the complete transactions
 -/
 def Τc (K₁ K₂ V : Type) : Type := { τ : Τ K₁ K₂ V // τ.isComplete }
 
-def fc [OfNat V 0] [LE V] (τc : Τc K₁ K₂ V) (s : S K₁ K₂ V) : S K₁ K₂ V :=
-  
+noncomputable def e (i : Kbar K₁ K₂) : Kbar K₁ K₂ → ℤ := λ j ↦ if i = j then 1 else 0
+
+/-
+We use the full lattice oredered ableian group structure with reckless abandon here.
+There is technically still no need to for all the upcoming definitions
+but we are at the core of the protocol and so might as well.
+-/
+section WithProperV
+
+variable [Lattice V]
+         [AddCommGroup V]
+         [CovariantClass V V (· + ·) (· ≤ ·)]
+         [CovariantClass V V (Function.swap (· + ·)) (· ≤ ·)]
+
+def v' (v : V) (b : S K₁ K₂ V) (s : Kbar K₁ K₂) : V :=
+  match s with
+  | .Source => v
+  | .key _  => v ⊓ b s
+
+/--
+TODO(REVIEW):
+The subtraction is simple - we can subtract integers in their additive group.
+The scalar multiplication (·•·) comes initially from the underlying `SubNegMonoid`, i.e.
+> A `SubNegMonoid` is an `AddMonoid` with unary `-` and binary `-` operations
+satisfying `sub_eq_add_neg : ∀ a b, a - b = a + -b`.
+
+Do we really care about the fact that we have a `Module ℤ V`? If 1 and 0 come from the integer
+additive group `ℤ`, they're no special vOv. I probably need to revisit my algebra, but Lean seems
+to accept this (maybe with unintended semantics! :grin:)
+
+Of course this module exists, because any additive commutative group `G` can be spooned into
+`Module ℤ G`; I am jus tnot sure we care. Cf. the `_removeLater` below as a sanity check.
+-/
+noncomputable def fc (τc : Τc K₁ K₂ V) (b : S K₁ K₂ V) : S K₁ K₂ V :=
+  have _removeLater : Module ℤ V := inferInstance
+  λ k : Kbar K₁ K₂ ↦
+    match τc with
+    | ⟨⟨s, r, v⟩, hτ⟩ =>
+      let v' := v' (v.get hτ) b s 
+      b k + (e r - e s) k • v'
+
+end WithProperV
 
 end Computation
 
