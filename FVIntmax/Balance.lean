@@ -9,6 +9,9 @@ import FVIntmax.Wheels
 
 import FVIntmax.Wheels.Dictionary
 
+set_option autoImplicit false
+set_option relaxedAutoImplicit false
+
 namespace Intmax
 
 open Classical -- Don't care :).
@@ -269,22 +272,148 @@ TODO(REVIEW):
 The subtraction is simple - we can subtract integers in their additive group.
 The scalar multiplication (·•·) comes initially from the underlying `SubNegMonoid`, i.e.
 > A `SubNegMonoid` is an `AddMonoid` with unary `-` and binary `-` operations
-satisfying `sub_eq_add_neg : ∀ a b, a - b = a + -b`.
+> satisfying `sub_eq_add_neg : ∀ a b, a - b = a + -b`.
+This is kinda of a Mathlib artifact they use, but it looks to me that this is really just the 'fundamental'
+multiplication by scalar in an additive monoid, a'la `k * V` is `V + V + ... + V` k times.
+So there's not super-deep analysis necessary here, I.. think???? - use `ℤ`'s 0 and 1 as 'the'
+two special elements and abuse the fact that multiplcation by scalar here is repeated addition. Done.
+Not sure what the best way to express this algebraically is but Lean seems to accept this just fine.
 
-Do we really care about the fact that we have a `Module ℤ V`? If 1 and 0 come from the integer
-additive group `ℤ`, they're no special vOv. I probably need to revisit my algebra, but Lean seems
-to accept this (maybe with unintended semantics! :grin:)
-
-Of course this module exists, because any additive commutative group `G` can be spooned into
-`Module ℤ G`; I am jus tnot sure we care. Cf. the `_removeLater` below as a sanity check.
+Of course, we can pretend that we have this `Module ℤ G`, because any additive commutative group `G` can be spooned into
+it; cf. the `_removeLater` below as a sanity check, but I am not sure reasoning along these lines is necessary.
 -/
 noncomputable def fc (τc : Τc K₁ K₂ V) (b : S K₁ K₂ V) : S K₁ K₂ V :=
   have _removeLater : Module ℤ V := inferInstance
   λ k : Kbar K₁ K₂ ↦
     match τc with
     | ⟨⟨s, r, v⟩, hτ⟩ =>
-      let v' := v' (v.get hτ) b s 
+      let v' := v' (v.get hτ) b s
       b k + (e r - e s) k • v'
+
+/-
+NB Lean's `Preorder` class has an addition requirement on how it expects `<` to be defined,
+which we don't want with the discrete preorder.
+
+`lt_iff_le_not_le : ∀ a b : α, a < b ↔ a ≤ b ∧ ¬b ≤ a := by intros; rfl`
+
+Note that if `≤ := =`, we have `∀ a b : α, a < b ↔ a = b ∧ ¬b = a`, where `a < b → False` is not provable.
+We use `IsPreoder (·≤·)` instead.
+-/
+section Order
+
+/--
+PAPER: We first equip K2 with the discrete preorder.
+-/
+instance : LE (Kbar K₁ K₂) := ⟨(·=·)⟩
+
+instance : Preorder (Kbar K₁ K₂) where
+  le_refl := Eq.refl
+  le_trans := λ _ _ _ ↦ Eq.trans
+
+instance : Preorder (Kbar K₁ K₂ × Kbar K₁ K₂) := inferInstance
+
+/--
+PAPER: Then we equip V+ with the discrete preorder.
+-/
+instance (priority := high) : LE { v : V // 0 ≤ v } := ⟨(·=·)⟩
+instance (priority := high) : LT { v : V // 0 ≤ v } := ⟨λ a b ↦ a ≤ b ∧ ¬ b ≤ a⟩ -- 😈
+
+/--
+High priority is imperative if we want Lean to pick this one up consistently.
+Note that Lean already has `[Preorder α] (p : α → Prop) : Preorder (Subtype p)`, but we want ours.
+-/
+instance (priority := high) : Preorder { v : V // 0 ≤ v } where
+  le_refl := Eq.refl
+  le_trans := λ _ _ _ ↦ Eq.trans
+
+/--
+Definition 15
+Let (X, ≤X) be a proset. We define the induced preorder ≤ on
+Maybe(X) where for all x, y ∈ M aybe(X) we have
+x ≤ y ⇔ x = ⊥ ∨ (x, y ∈ X ∧ x ≤X y)
+-/
+instance (priority := high) {α : Type} [Preorder α] : Preorder (Option α) :=
+  let le : Option α → Option α → Prop := λ x y ↦
+                                           match x, y with
+                                           | .none, .none | .none, .some _ => True
+                                           | .some x, .some y => x ≤ y
+                                           | .some _, .none   => False
+  {
+    le := le
+    lt := λ a b ↦ le a b ∧ ¬ le b a
+    le_refl := by dsimp [le]; aesop
+    le_trans := by dsimp [le, (·≤·)]; aesop (add safe forward le_trans)
+  }
+
+/--
+PAPER: which induces a preorder on Maybe(V+)
+
+NB This gives us `Option.lt` which happens to coincide with PAPER: Definition 15.
+-/
+instance : Preorder (Option { v : V // 0 ≤ v }) := inferInstance
+
+/--
+PAPER: We then get the induced product preorder on K2 × Maybe(V+)
+-/
+instance : Preorder (Kbar K₁ K₂ × Kbar K₁ K₂ × Option V) := inferInstance
+
+/--
+PAPER: and an induced subset preorder on the subset T
+-/
+instance : IsPreorder (Τ K₁ K₂ V) (·≤·) := inferInstance
+
+/--
+PAPER: To get the preorder on S = V K, we use the underlying preorder on V coming from the fact that V is a lattice
+-/
+instance : Preorder V := inferInstance
+
+/--
+PAPER: and give S the subset preorder
+-/
+instance : Preorder (S K₁ K₂ V) := inferInstance
+
+-- instance : IsPreorder (Kbar K₁ K₂) (·≤·) where
+--   refl := Eq.refl
+--   trans := λ _ _ _ ↦ Eq.trans
+
+-- instance : IsPreorder (Kbar K₁ K₂ × Kbar K₁ K₂) (·≤·) where
+--   refl := by simp [(·≤·)]
+--   trans := by dsimp [(·≤·)]; aesop
+
+-- /--
+-- PAPER: Then we equip V+ with the discrete preorder.
+-- -/
+-- instance : LE V := ⟨(·=·)⟩
+
+-- instance : IsPreorder V (·≤·) where
+--   refl := Eq.refl
+--   trans := λ _ _ _ ↦ Eq.trans
+
+-- /--
+-- PAPER: which induces a preorder on M aybe(V+)
+-- -/
+-- instance : IsPreorder (Option V) (·≤·) where
+
+-- /--
+-- PAPER: We then get the induced product preorder on K2 × M aybe(V+)
+-- -/
+-- instance : IsPreorder (Kbar K₁ K₂ × Kbar K₁ K₂ × Option V) (·≤·) where
+--   refl := by simp [(·≤·)]
+--   trans := by dsimp [(·≤·)]; aesop
+
+-- /--
+-- PAPER: and an induced subset preorder on the subset T
+-- -/
+-- instance : IsPreorder (Τ K₁ K₂ V) (·≤·) := inferInstance
+
+-- /--
+-- PAPER: To get the preorder on S = V K, we use the underlying preorder on V coming from the fact that V is a lattice
+-- -/
+-- instance : Preorder V := inferInstance
+-- instance : IsPreorder V (·≤·) := inferInstance
+
+
+end Order
 
 end WithProperV
 
