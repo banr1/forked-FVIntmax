@@ -22,9 +22,10 @@ Appendix B - Computing balances
 section Balance
 
 variable {Pi : Type}
-         {K₁ : Type} -- [DecidableEq K₁]
-         {K₂ : Type} -- [DecidableEq K₂]
-         {V C Sigma : Type}
+         {K₁ : Type} [Finite K₁]
+         {K₂ : Type} [Finite K₂]
+         {V : Type} [Finite V]
+         {C Sigma : Type}
 
 /--
 PAPER: Formally, let K := K1 ⨿ K2 ⨿ {Source}
@@ -37,6 +38,22 @@ deriving DecidableEq
 instance : Coe (Key K₁ K₂) (Kbar K₁ K₂) := ⟨.key⟩
 
 /--
+NB not important. There's an obvious equivalence between the inductive `Kbar` and the
+`Key K₁ K₂ ⊕ Unit` sum, which we can infer is finite given the `Key` is finite.
+I prefer the wrapped inductive.
+-/
+def univKbar : Kbar K₁ K₂ ≃ Key K₁ K₂ ⊕ Unit :=
+  {
+    toFun := λ kbar ↦ match kbar with | .key k => k | .Source => ()
+    invFun := λ sum ↦ match sum with | .inl k => .key k | .inr _ => .Source
+    left_inv := by simp [Function.LeftInverse]; aesop
+    right_inv := by simp [Function.RightInverse, Function.LeftInverse]
+  }
+
+instance : Finite (Kbar K₁ K₂ : Type) :=
+  Finite.of_equiv _ univKbar.symm
+  
+/--
 NB we use Lean's natural associativity for products to get some freebies.
 As such, our tuples are technically `(a, (b, c))` here. Obviously, this is associative
 so not much changes.
@@ -45,21 +62,18 @@ NB further, we postpone nonnegativity of V into `Τ.isValid`.
 -/
 abbrev Τ (K₁ K₂ V : Type) := Kbar K₁ K₂ × Kbar K₁ K₂ × Option V
 
+noncomputable instance : Fintype V := Fintype.ofFinite _
+
+def Τ.isValid (τ : Τ K₁ K₂ V) [LE V] [OfNat V 0] :=
+  match τ with
+  | (s, r, v) => s ≠ r ∧ v.elim True (0 ≤ ·) ∧ s matches .Source → v.isSome 
+
 /--
 PAPER: complete transactions, consisting of the transactions
 ((s, r), v) ∈ T where v ̸= ⊥
 -/
-def Τ.isComplete (τ : Τ K₁ K₂ V) :=
-  match τ with | (_, _, v) => v.isSome
-
-/--
-NB the notion of `isComplete` is here to keep 'parity' (for some loose definition thereof) with
-the paper. The immediate `v.isSome` here is for the time being more convenient than `T.isComplete` here,
-unless we happen to add a lot of lemmas with respect to `T.isComplete`, which I doubt will be the case.
--/
-def Τ.isValid (τ : Τ K₁ K₂ V) [LE V] [OfNat V 0] :=
-  match τ with
-  | (s, r, v) => s ≠ r ∧ v.elim True (0 ≤ ·) ∧ s matches .Source → v.isSome 
+def Τ.isComplete [LE V] [OfNat V 0] (τ : Τ K₁ K₂ V) :=
+  τ.isValid ∧ match τ with | (_, _, v) => v.isSome
 
 /-
 B.1 Step 1: Extracting a list of partial transaction
@@ -243,10 +257,12 @@ abbrev S (K₁ K₂ V : Type) [OfNat V 0] [LE V] := Kbar K₁ K₂ → V
 def S.isValid [OfNat V 0] [LE V] (s : S K₁ K₂ V) :=
   ∀ k : Kbar K₁ K₂, k matches .Source ∨ 0 ≤ s k
 
+instance [OfNat V 0] [LE V] : Finite (S K₁ K₂ V) := inferInstance 
+
 /--
 PAPER: where the set of transactions is the subset Tc ⊆ T, called the complete transactions
 -/
-def Τc (K₁ K₂ V : Type) : Type := { τ : Τ K₁ K₂ V // τ.isComplete }
+abbrev Τc (K₁ K₂ V : Type) [OfNat V 0] [LE V] : Type := { τ : Τ K₁ K₂ V // τ.isComplete }
 
 noncomputable def e (i : Kbar K₁ K₂) : Kbar K₁ K₂ → ℤ := λ j ↦ if i = j then 1 else 0
 
@@ -257,7 +273,11 @@ but we are at the core of the protocol and so might as well.
 -/
 section WithProperV
 
-variable [Lattice V]
+/-
+TODO(REVIEW):
+Given they're doing the big meet, I think the paper can say the lattice is complete, and implify [Finite V] anyway?
+-/
+variable [CompleteLattice V]
          [AddCommGroup V]
          [CovariantClass V V (· + ·) (· ≤ ·)]
          [CovariantClass V V (Function.swap (· + ·)) (· ≤ ·)]
@@ -287,17 +307,12 @@ noncomputable def fc (τc : Τc K₁ K₂ V) (b : S K₁ K₂ V) : S K₁ K₂ V
   λ k : Kbar K₁ K₂ ↦
     match τc with
     | ⟨⟨s, r, v⟩, hτ⟩ =>
-      let v' := v' (v.get hτ) b s
+      let v' := v' (v.get hτ.2) b s
       b k + (e r - e s) k • v'
 
 /-
 NB Lean's `Preorder` class has an addition requirement on how it expects `<` to be defined,
-which we don't want with the discrete preorder.
-
-`lt_iff_le_not_le : ∀ a b : α, a < b ↔ a ≤ b ∧ ¬b ≤ a := by intros; rfl`
-
-Note that if `≤ := =`, we have `∀ a b : α, a < b ↔ a = b ∧ ¬b = a`, where `a < b → False` is not provable.
-We use `IsPreoder (·≤·)` instead.
+We'll use `False` stated as `a ≤ b ∧ ¬ b ≤ a`. Don't worry about it :).
 -/
 section Order
 
@@ -332,7 +347,7 @@ Let (X, ≤X) be a proset. We define the induced preorder ≤ on
 Maybe(X) where for all x, y ∈ M aybe(X) we have
 x ≤ y ⇔ x = ⊥ ∨ (x, y ∈ X ∧ x ≤X y)
 -/
-instance (priority := high) {α : Type} [Preorder α] : Preorder (Option α) :=
+instance (priority := high) maybeInduced {α : Type} [Preorder α] : Preorder (Option α) :=
   let le : Option α → Option α → Prop := λ x y ↦
                                            match x, y with
                                            | .none, .none | .none, .some _ => True
@@ -348,72 +363,74 @@ instance (priority := high) {α : Type} [Preorder α] : Preorder (Option α) :=
 /--
 PAPER: which induces a preorder on Maybe(V+)
 
-NB This gives us `Option.lt` which happens to coincide with PAPER: Definition 15.
+NB this finds the custom high priority instance `maybeInduced`, i.e. Definition 15.
 -/
 instance : Preorder (Option { v : V // 0 ≤ v }) := inferInstance
 
 /--
-PAPER: We then get the induced product preorder on K2 × Maybe(V+)
+PAPER: We then get the induced product preorder on K2 × Maybe(V+).
+
+NB the default behavviour is iso with the Definition 19. (cf. `Prod.mk_le_mk`)
 -/
 instance : Preorder (Kbar K₁ K₂ × Kbar K₁ K₂ × Option V) := inferInstance
 
 /--
 PAPER: and an induced subset preorder on the subset T
+
+NB the default behaviour is iso with the Definition 18. (cf. `Preorder.lift`)
 -/
-instance : IsPreorder (Τ K₁ K₂ V) (·≤·) := inferInstance
+instance : IsPreorder { τ : Τ K₁ K₂ V // τ.isValid } (·≤·) := inferInstance
 
 /--
-PAPER: To get the preorder on S = V K, we use the underlying preorder on V coming from the fact that V is a lattice
+PAPER: we use the underlying preorder on V coming from the fact that V is a lattice
+
+NB the default behaviour is the lattice-induced preorder. (cf. `PartialOrder.toPreorder`)
 -/
 instance : Preorder V := inferInstance
 
 /--
 PAPER: and give S the subset preorder
+
+NB the default behaviour is iso with the Definition 18. (cf. `Preorder.lift`)
+NB the default behaviour to find the preorder for the underlying function is iso with 
+Definition 16. (cf. `Pi.le_def`)
 -/
-instance : Preorder (S K₁ K₂ V) := inferInstance
+instance : Preorder { s : S K₁ K₂ V // s.isValid } := inferInstance
 
--- instance : IsPreorder (Kbar K₁ K₂) (·≤·) where
---   refl := Eq.refl
---   trans := λ _ _ _ ↦ Eq.trans
+/--
+PAPER: Given these preorders on T and S, we get an induced product preorder on T × S
 
--- instance : IsPreorder (Kbar K₁ K₂ × Kbar K₁ K₂) (·≤·) where
---   refl := by simp [(·≤·)]
---   trans := by dsimp [(·≤·)]; aesop
+NB the default behavviour is iso with the Definition 19. (cf. `Prod.mk_le_mk`)
+-/
+instance : Preorder ({ τ : Τ K₁ K₂ V // τ.isValid } × { s : S K₁ K₂ V // s.isValid }) := inferInstance
 
--- /--
--- PAPER: Then we equip V+ with the discrete preorder.
--- -/
--- instance : LE V := ⟨(·=·)⟩
+section Plumbing
 
--- instance : IsPreorder V (·≤·) where
---   refl := Eq.refl
---   trans := λ _ _ _ ↦ Eq.trans
+/--
+Noncomputable Fintype might seem strange but `Fintyp` fits better in Lean's hierarchy and removes
+a bit of friction when converting to finset.
+-/
+noncomputable instance : Fintype (Τ K₁ K₂ V) := Fintype.ofFinite _
+noncomputable instance : Fintype (Τc K₁ K₂ V) := Fintype.ofFinite _
+noncomputable instance : Fintype { s : S K₁ K₂ V // s.isValid } := Fintype.ofFinite _
 
--- /--
--- PAPER: which induces a preorder on M aybe(V+)
--- -/
--- instance : IsPreorder (Option V) (·≤·) where
+/--
+And the obvious lift from `Τ.isComplete` to `Τ.isValid` to make Lean happy.
+-/
+instance : Coe (Τc K₁ K₂ V) { τ : Τ K₁ K₂ V // τ.isValid } := ⟨λ x ↦ ⟨x.1, x.2.1⟩⟩
 
--- /--
--- PAPER: We then get the induced product preorder on K2 × M aybe(V+)
--- -/
--- instance : IsPreorder (Kbar K₁ K₂ × Kbar K₁ K₂ × Option V) (·≤·) where
---   refl := by simp [(·≤·)]
---   trans := by dsimp [(·≤·)]; aesop
-
--- /--
--- PAPER: and an induced subset preorder on the subset T
--- -/
--- instance : IsPreorder (Τ K₁ K₂ V) (·≤·) := inferInstance
-
--- /--
--- PAPER: To get the preorder on S = V K, we use the underlying preorder on V coming from the fact that V is a lattice
--- -/
--- instance : Preorder V := inferInstance
--- instance : IsPreorder V (·≤·) := inferInstance
-
+end Plumbing
 
 end Order
+
+/--
+NB might be subject to change, I'd rather prove the subset properties post facto, just want to make sure
+that the orders we get here are appropriate.
+-/
+noncomputable def f (T : { τ : Τ K₁ K₂ V // τ.isValid })
+                    (b : { s : S K₁ K₂ V // s.isValid }) : S K₁ K₂ V :=
+  let univ := { (T', b') | (T' : Τc K₁ K₂ V) (b' : { s : S K₁ K₂ V // s.isValid }) (_h : (T, b) ≤ (↑T', b')) }
+  ⨅ x ∈ univ, fc x.1 x.2
 
 end WithProperV
 

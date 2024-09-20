@@ -6,6 +6,7 @@ import «FVIntmax».Wheels.Wheels
 
 import «FVIntmax».Account
 import «FVIntmax».Balance
+import «FVIntmax».BalanceProof
 import «FVIntmax».Block
 import «FVIntmax».Key
 import «FVIntmax».RollupContract

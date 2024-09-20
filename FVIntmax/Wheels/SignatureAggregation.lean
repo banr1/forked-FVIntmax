@@ -14,7 +14,6 @@ section SignatureAggregation
 
 open scoped SimpleRandom
 
-set_option linter.unusedVariables false in
 /--
 TODO(REVIEW):
 - As with `AuthenticatedDictionary`, the same `Λ` question; please cf. Definition 3 TODO(REVIEW)
@@ -39,7 +38,7 @@ class SignatureAggregation (M Kₚ Kₛ Sigma : Type) where
               for the time being is that the relationship between `kₚ` and `kₛ` is more explicit
               if `unzip` and `zip` are used.
   -/
-  Correctness : ∀ (l : List (Kₚ × Kₛ)) (h : ∀ pair ∈ l, pair ←ᵣ KeyGen Λ) (m : M),
+  Correctness : ∀ (l : List (Kₚ × Kₛ)) (_ : ∀ pair ∈ l, pair ←ᵣ KeyGen Λ) (m : M),
                   let (kₚs, kₛs) := l.unzip
                   Verify Λ kₚs m (Aggregate Λ (kₚs.zip (kₛs.map (Sign Λ · m)))) = true
 

@@ -8,8 +8,6 @@ import Mathlib.Algebra.BigOperators.Ring
 
 import Mathlib
 
-set_option autoImplicit false
-
 namespace Intmax
 
 section Pi
@@ -40,12 +38,16 @@ section Valid
 /-
 V is a lattice ordered abelian group
 -/
-variable [Lattice V]
+variable [CompleteLattice V]
          [AddCommGroup V]
          [CovariantClass V V (· + ·) (· ≤ ·)]
          [CovariantClass V V (Function.swap (· + ·)) (· ≤ ·)]
 
-def Meet (s : Finset V) : V := s.1.fold (·⊓·) 0
+-- def Meet' {α : Type} (s : Finset α) (f : α → V) : V := (s.1.map f).fold (·⊓·) 0
+
+-- def Meet'' {α : Type} (s : Finset α) (f : α → V) : V := ⨅ s, f s
+
+open scoped BigOperators
 
 set_option linter.unusedVariables false in
 /--

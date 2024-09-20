@@ -38,7 +38,6 @@ section Finite
 variable {K₁ : Type} [Finite K₁]
          {K₂ : Type} [Finite K₂]
 
-set_option linter.unusedVariables false in
 /--
 We define an equivalence between maps `K → V` and finmaps that are defined for all keys.
 This will be used to show that `TransactionBatch` is finite as long as the domain and codomain
@@ -108,7 +107,7 @@ noncomputable def univFinmap (K : Type) [Fintype K] [DecidableEq K]
         rw [←Finmap.lookup_eq_some_iff] at eq₁ eq₂
         aesop -- cc is too slow here but it works...
       rw [Multiset.count_eq_of_nodup nodupm', Multiset.count_eq_of_nodup nodupm]
-      set map' : Finmap (λ _ : K ↦ V) := { entries := m, nodupKeys := hm } with eqm
+      set map' : Finmap (λ _ : K ↦ V) := { entries := m, nodupKeys := hm } with _eqm
       by_cases eq : kv ∈ m <;> (rcases kv with ⟨k, v⟩; simp [eq])
       · by_contra contra
         simp [eqm'] at contra
