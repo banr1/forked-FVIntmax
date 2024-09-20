@@ -93,10 +93,10 @@ section Order
 
 variable [LinearOrder K₁] [LinearOrder K₂]
 
-def lexLe [LinearOrder K₁] [LinearOrder K₂] (a b : K₂ × Key K₁ K₂) : Prop :=
+def lexLe (a b : K₂ × Key K₁ K₂) : Prop :=
   a.1 < b.1 ∨ (a.1 = b.1 ∧ a.2 ≤ b.2)
 
-instance [LinearOrder K₁] [LinearOrder K₂] : DecidableRel (lexLe (K₁ := K₁) (K₂ := K₂)) :=
+instance : DecidableRel (lexLe (K₁ := K₁) (K₂ := K₂)) :=
   λ a b ↦ by unfold lexLe; infer_instance
 
 section Transfer
