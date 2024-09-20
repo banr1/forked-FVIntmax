@@ -271,13 +271,15 @@ We use the full lattice oredered ableian group structure with reckless abandon h
 There is technically still no need to for all the upcoming definitions
 but we are at the core of the protocol and so might as well.
 -/
-section WithProperV
+section WithStructuredTypes
 
 /-
 TODO(REVIEW):
 Given they're doing the big meet, I think the paper can say the lattice is complete, and implify [Finite V] anyway?
 -/
-variable [CompleteLattice V]
+variable [LinearOrder K₁]
+         [LinearOrder K₂]
+         [CompleteLattice V]
          [AddCommGroup V]
          [CovariantClass V V (· + ·) (· ≤ ·)]
          [CovariantClass V V (Function.swap (· + ·)) (· ≤ ·)]
@@ -409,9 +411,14 @@ section Plumbing
 /--
 Noncomputable Fintype might seem strange but `Fintyp` fits better in Lean's hierarchy and removes
 a bit of friction when converting to finset.
+
+NB the current setup is such that this is unnecessary, will likely remove.
 -/
+@[deprecated]
 noncomputable instance : Fintype (Τ K₁ K₂ V) := Fintype.ofFinite _
+@[deprecated]
 noncomputable instance : Fintype (Τc K₁ K₂ V) := Fintype.ofFinite _
+@[deprecated]
 noncomputable instance : Fintype { s : S K₁ K₂ V // s.isValid } := Fintype.ofFinite _
 
 /--
@@ -427,12 +434,23 @@ end Order
 NB might be subject to change, I'd rather prove the subset properties post facto, just want to make sure
 that the orders we get here are appropriate.
 -/
-noncomputable def f (T : { τ : Τ K₁ K₂ V // τ.isValid })
-                    (b : { s : S K₁ K₂ V // s.isValid }) : S K₁ K₂ V :=
+noncomputable def f (b : { s : S K₁ K₂ V // s.isValid })
+                    (T : { τ : Τ K₁ K₂ V // τ.isValid }) : { s : S K₁ K₂ V // s.isValid } :=
   let univ := { (T', b') | (T' : Τc K₁ K₂ V) (b' : { s : S K₁ K₂ V // s.isValid }) (_h : (T, b) ≤ (↑T', b')) }
-  ⨅ x ∈ univ, fc x.1 x.2
+  ⟨⨅ x ∈ univ, fc x.1 x.2, sorry⟩
 
-end WithProperV
+def S.initial (K₁ K₂ V : Type) [OfNat V 0] [LE V] : S K₁ K₂ V := λ _ ↦ 0
+
+noncomputable def fStar (Ts : List { τ : Τ K₁ K₂ V // τ.isValid })
+                        (s₀ : { s : S K₁ K₂ V // s.isValid }) : { s : S K₁ K₂ V // s.isValid } :=
+  Ts.foldl f s₀
+
+noncomputable def Bal (π : BalanceProof K₁ K₂ V C Pi) (bs : List (Block K₁ K₂ C Sigma V)) : { s : S K₁ K₂ V // s.isValid } :=
+  have temporaryHole₁ : Τ K₁ K₂ V → { τ : Τ K₁ K₂ V // τ.isValid } := sorry
+  have temporaryHole₂ : (S.initial K₁ K₂ V).isValid := sorry
+  fStar ((TransactionsInBlocks π bs).map temporaryHole₁) ⟨S.initial K₁ K₂ V, temporaryHole₂⟩
+
+end WithStructuredTypes
 
 end Computation
 
