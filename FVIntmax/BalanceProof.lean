@@ -29,7 +29,8 @@ variable {K₁ : Type} [Finite K₁] [DecidableEq K₁]
 
 NB we postpone nonnegative V into validity.
 -/
-abbrev BalanceProof (K₁ K₂ V C Pi : Type) : Type := Dict (C × K₂) (Pi × ExtraDataT × Finmap (λ _ : Key K₁ K₂ ↦ V)) 
+abbrev BalanceProof (K₁ K₂ C Pi V : Type) [Zero V] [Preorder V] : Type :=
+  Dict (C × K₂) (Pi × ExtraDataT × Finmap (λ _ : Key K₁ K₂ ↦ V₊)) 
 
 namespace BalanceProof
 
@@ -59,7 +60,7 @@ DO NOT FORGET NONNEG
 
 TODO(MYSELF)
 -/
-def isValid [Finite V] (π : BalanceProof K₁ K₂ V C Pi) : Bool :=
+def isValid [Finite V] [LE V] [OfNat V 0] [IsRefl V (·≤·)] (π : BalanceProof K₁ K₂ C Pi V) : Bool :=
   match π with
   | ⟨K, D, h⟩ => true
 

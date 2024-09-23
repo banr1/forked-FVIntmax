@@ -22,7 +22,7 @@ section RollupContract
 
 - Scontract := 𝔹*
 -/
-abbrev RollupState (K₁ K₂ V : Type) (C Sigma : Type) :=
+abbrev RollupState (K₁ K₂ V : Type) [Zero V] [Preorder V] (C Sigma : Type) :=
   List (Block K₁ K₂ C Sigma V)
 
 namespace RollupState
@@ -33,21 +33,21 @@ namespace RollupState
 - When the rollup contract is deployed to the blockchain, it is initialized with
   the state () consisting of the empty list.
 -/
-def initial (K₁ K₂ V : Type) (C Sigma : Type) : RollupState K₁ K₂ V C Sigma := []
+def initial (K₁ K₂ V : Type) [Zero V] [Preorder V] (C Sigma : Type) : RollupState K₁ K₂ V C Sigma := []
 
-section Valid
+-- section Valid
 
-variable {K₁ : Type} [DecidableEq K₁] {K₂ C Sigma V : Type} [LE V] [OfNat V 0]
+-- variable {K₁ : Type} [DecidableEq K₁] {K₂ C Sigma V : Type} [LE V] [OfNat V 0]
 
-def isValid (s : RollupState K₁ K₂ V C Sigma) := ∀ block ∈ s, block.isValid
+-- def isValid (s : RollupState K₁ K₂ V C Sigma) := ∀ block ∈ s, block.isValid
 
-lemma isValid_cons {block : Block K₁ K₂ C Sigma V} {s : RollupState K₁ K₂ V C Sigma}
-  (h : block.isValid) (h₁ : s.isValid) : RollupState.isValid (block :: s) := by unfold isValid; aesop
+-- lemma isValid_cons {block : Block K₁ K₂ C Sigma V} {s : RollupState K₁ K₂ V C Sigma}
+--   (h : block.isValid) (h₁ : s.isValid) : RollupState.isValid (block :: s) := by unfold isValid; aesop
 
-lemma isValid_initial {K₁ : Type} [DecidableEq K₁] {K₂ C Sigma V : Type} [LE V] [OfNat V 0] :
-  (initial K₁ K₂ V C Sigma).isValid := by simp [isValid, initial]
+-- lemma isValid_initial {K₁ : Type} [DecidableEq K₁] {K₂ C Sigma V : Type} [LE V] [OfNat V 0] :
+--   (initial K₁ K₂ V C Sigma).isValid := by simp [isValid, initial]
 
-end Valid
+-- end Valid
 
 end RollupState
 
@@ -61,26 +61,26 @@ TODO(REVIEW): Does the order in which these get into the state matter? I'm choos
               here because it's the more natural operation on `List` with better reduction behaviour.
               It's not a big deal tho, we can do `s ++ [Block.deposit addr value]` and then shuffle.
 -/
-def RollupState.deposit {K₁ K₂ C Sigma V : Type}
-                        (addr : K₂) (value : V) (s : RollupState K₁ K₂ V C Sigma) :
+def RollupState.deposit {K₁ K₂ C Sigma V : Type} [Zero V] [Preorder V]
+                        (addr : K₂) (value : V₊) (s : RollupState K₁ K₂ V C Sigma) :
                         RollupState K₁ K₂ V C Sigma := Block.mkDepositBlock _ _ _ addr value :: s
 
 namespace Block
 
 section Block
 
-variable {K₁ : Type} [DecidableEq K₁]
-         {K₂ C Sigma V : Type} [OfNat V 0] [LE V]
-         {addr : K₂} {value : V}
+-- variable {K₁ : Type} [DecidableEq K₁]
+--          {K₂ C Sigma V : Type} [OfNat V 0] [LE V]
+--          {addr : K₂} {value : V}
 
-/-
-`deposit` preserves validity of the rollup state assuming the value is being deposited is nonnegative
-and the state was valid in the first place.
--/
-lemma isValid_deposit_of_nonneg
-  {addr : K₂} {value : V} {s : RollupState K₁ K₂ V C Sigma}
-  (h : 0 ≤ value) (h₁ : s.isValid) : (s.deposit addr value).isValid :=
-  RollupState.isValid_cons (isValid_mkDepositBlock_of_nonneg h) h₁
+-- /-
+-- `deposit` preserves validity of the rollup state assuming the value is being deposited is nonnegative
+-- and the state was valid in the first place.
+-- -/
+-- lemma isValid_deposit_of_nonneg
+--   {addr : K₂} {value : V} {s : RollupState K₁ K₂ V C Sigma}
+--   (h : 0 ≤ value) (h₁ : s.isValid) : (s.deposit addr value).isValid :=
+--   RollupState.isValid_cons (isValid_mkDepositBlock_of_nonneg h) h₁
 
 end Block
 

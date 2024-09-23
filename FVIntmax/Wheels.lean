@@ -1,7 +1,11 @@
+import Mathlib.Algebra.Order.Ring.Unbundled.Nonneg
+
 import Mathlib.Data.Finite.Defs
 import Mathlib.Data.Finmap
 import Mathlib.Data.Set.Image
 import Mathlib.Logic.Embedding.Basic
+
+import Mathlib.Tactic
 
 import FVIntmax.Wheels.Wheels
 
@@ -40,6 +44,27 @@ def codomainPred {α : Type} [DecidableEq α] {β : Type}
 
 def isCodomainNonneg {α : Type} [DecidableEq α] {β : Type} [LE β] [OfNat β 0]
   (m : Finmap (λ _ : α ↦ β)) : Prop := codomainPred m (0 ≤ ·)
+
+section NonNeg
+
+-- #check Nonneg.toNonneg
+
+abbrev NonNeg (α : Type) [Zero α] [Preorder α] := { a : α // 0 ≤ a }
+
+postfix:max "₊" => NonNeg
+
+-- instance {α : Type} [OfNat α 0] [LE α] [IsRefl α (·≤·)] : OfNat α₊ 0 := ⟨0, IsRefl.refl _⟩
+
+-- instance {α : Type} [OfNat α 0] [Lattice α] : Inf α₊ := by
+--   unfold NonNeg
+--   constructor
+--   intros a b
+--   exact ⟨a ⊓ b, by cases a; cases b; apply le_inf <;> aesop⟩
+
+-- instance {α : Type} [OfNat α 0] [Lattice α] [HSMul ℤ α α] : HSMul ℤ α₊ α₊ :=
+--   ⟨λ z a ↦ match a with | ⟨a, ha⟩ => ⟨z • _, _⟩⟩
+
+end NonNeg
 
 end Intmax
 
@@ -130,3 +155,20 @@ theorem nodup_filter_of_nodup [DecidableEq α] [DecidablePred P]
 end Multiset
 
 end Multiset
+
+namespace Nonneg
+
+-- instance zsmul [AddGroup α] [Preorder α] [CovariantClass α α (· + ·) (· ≤ ·)] :
+--     SMul ℤ { x : α // 0 ≤ x } :=
+--   ⟨fun n x => ⟨n • (x : α), zsmul_nonneg x.prop n⟩⟩
+
+-- @[simp]
+-- theorem nsmul_mk [AddMonoid α] [Preorder α] [CovariantClass α α (· + ·) (· ≤ ·)] (n : ℕ) {x : α}
+--     (hx : 0 ≤ x) : (n • (⟨x, hx⟩ : { x : α // 0 ≤ x })) = ⟨n • x, nsmul_nonneg hx n⟩ :=
+--   rfl
+
+-- @[simp, norm_cast]
+-- protected theorem coe_nsmul [AddMonoid α] [Preorder α] [CovariantClass α α (· + ·) (· ≤ ·)]
+--     (n : ℕ) (a : { x : α // 0 ≤ x }) : ((n • a : { x : α // 0 ≤ x }) : α) = n • (a : α) :=
+--   rfl
+end Nonneg

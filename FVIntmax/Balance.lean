@@ -14,6 +14,8 @@ set_option relaxedAutoImplicit false
 
 namespace Intmax
 
+noncomputable section
+
 open Classical -- Don't care :).
 
 /-
@@ -22,9 +24,9 @@ Appendix B - Computing balances
 section Balance
 
 variable {Pi : Type}
-         {K₁ : Type} [Finite K₁]
-         {K₂ : Type} [Finite K₂]
-         {V : Type} [Finite V]
+         {K₁ : Type}
+         {K₂ : Type}
+         {V : Type}
          {C Sigma : Type}
 
 /--
@@ -50,30 +52,45 @@ def univKbar : Kbar K₁ K₂ ≃ Key K₁ K₂ ⊕ Unit :=
     right_inv := by simp [Function.RightInverse, Function.LeftInverse]
   }
 
-instance : Finite (Kbar K₁ K₂ : Type) :=
+instance [Finite K₁] [Finite K₂] : Finite (Kbar K₁ K₂ : Type) :=
   Finite.of_equiv _ univKbar.symm
   
 /--
 NB we use Lean's natural associativity for products to get some freebies.
 As such, our tuples are technically `(a, (b, c))` here. Obviously, this is associative
 so not much changes.
-
-NB further, we postpone nonnegativity of V into `Τ.isValid`.
 -/
-abbrev Τ (K₁ K₂ V : Type) := Kbar K₁ K₂ × Kbar K₁ K₂ × Option V
+abbrev Τ (K₁ K₂ V : Type) [Zero V] [Preorder V] := Kbar K₁ K₂ × Kbar K₁ K₂ × Option V₊
 
-noncomputable instance : Fintype V := Fintype.ofFinite _
+instance [Finite V] : Fintype V := Fintype.ofFinite _
 
-def Τ.isValid (τ : Τ K₁ K₂ V) [LE V] [OfNat V 0] :=
+section IsValid
+
+variable [Zero V] [Preorder V]
+
+variable {v? : Option V₊} {k₁ : K₁} {k₂ : K₂} {kb kb₁ kb₂ : Kbar K₁ K₂} {τ : Τ K₁ K₂ V}
+
+def Τ.isValid (τ : Τ K₁ K₂ V) :=
   match τ with
-  | (s, r, v) => s ≠ r ∧ v.elim True (0 ≤ ·) ∧ s matches .Source → v.isSome 
+  | (s, r, v) => s ≠ r ∧ (s matches .Source → v.isSome)
 
 /--
 PAPER: complete transactions, consisting of the transactions
 ((s, r), v) ∈ T where v ̸= ⊥
 -/
-def Τ.isComplete [LE V] [OfNat V 0] (τ : Τ K₁ K₂ V) :=
+def Τ.isComplete (τ : Τ K₁ K₂ V) :=
   τ.isValid ∧ match τ with | (_, _, v) => v.isSome
+
+lemma Τ.isSome_of_complete
+  (h : Τ.isComplete ⟨kb₁, kb₂, v?⟩) : v?.isSome := by
+  unfold Τ.isComplete Τ.isValid at h
+  aesop
+
+lemma Τ.s_ne_r_of_complete (h : Τ.isComplete ⟨kb₁, kb₂, v?⟩) : kb₁ ≠ kb₂ := by
+  unfold Τ.isComplete Τ.isValid at h
+  aesop
+
+end IsValid
 
 /-
 B.1 Step 1: Extracting a list of partial transaction
@@ -82,7 +99,8 @@ section Extraction
 
 section Deposit
 
-def TransactionsInBlock_deposit (b : { b : Block K₁ K₂ C Sigma V // b.isDepositBlock }) : List (Τ K₁ K₂ V) :=
+def TransactionsInBlock_deposit [Zero V] [Preorder V]
+  (b : { b : Block K₁ K₂ C Sigma V // b.isDepositBlock }) : List (Τ K₁ K₂ V) :=
   match h : b.1 with
   | .deposit r v => [(.Source, r, v)]
   | .withdrawal .. | .transfer .. => by aesop
@@ -152,8 +170,9 @@ instance : IsTotal (K₂ × Key K₁ K₂) lexLe := by
 
 end SortNotNaughty
 
-noncomputable def TransactionsInBlock_transfer [Finite K₁] [Finite K₂] [AddZeroClass V]
-  (π : BalanceProof K₁ K₂ V C Pi)
+def TransactionsInBlock_transfer [Finite K₁] [Finite K₂] [AddZeroClass V]
+                                 [Zero V] [Preorder V]
+  (π : BalanceProof K₁ K₂ C Pi V)
   (b : { b : Block K₁ K₂ C Sigma V // b.isTransferBlock }) :
   List (Τ K₁ K₂ V) :=
   match h : b.1 with
@@ -178,7 +197,7 @@ noncomputable def TransactionsInBlock_transfer [Finite K₁] [Finite K₂] [AddZ
 
       NB this is using the old notion of `Dict` because it's half a day's of work to restitch to the new one.
     -/
-    let v (s : K₂) (r : Key K₁ K₂) : Option V :=
+    let v (s : K₂) (r : Key K₁ K₂) : Option V₊ :=
       if s ∉ S then .some 0 else 
       if h : (commitment, s) ∈ π.keys
       then let (_, _, t) := π[(commitment, s)]
@@ -198,7 +217,7 @@ TODO(REVIEW):
 
 In... what order?
 -/
-noncomputable def TransactionsInBlock_withdrawal [Finite K₁]
+def TransactionsInBlock_withdrawal [Finite K₁] [Zero V] [Preorder V]
   (b : { b : Block K₁ K₂ C Sigma V // b.isWithdrawalBlock }) :
   List (Τ K₁ K₂ V) :=
   match h : b.1 with
@@ -217,15 +236,15 @@ noncomputable def TransactionsInBlock_withdrawal [Finite K₁]
     -- Might be worth giving it a think to avoid reproving random stuff in the future.
   | .deposit r v | .transfer .. => by aesop
 
-noncomputable def TransactionsInBlock [Finite K₁] [Finite K₂] [AddZeroClass V] 
-  (π : BalanceProof K₁ K₂ V C Pi) (b : Block K₁ K₂ C Sigma V) : List (Τ K₁ K₂ V) := 
+def TransactionsInBlock [Finite K₁] [Finite K₂] [AddZeroClass V] [Zero V] [Preorder V]
+  (π : BalanceProof K₁ K₂ C Pi V) (b : Block K₁ K₂ C Sigma V) : List (Τ K₁ K₂ V) := 
   match h : b with
   | .deposit ..    => TransactionsInBlock_deposit ⟨b, by simp only [h]⟩
   | .transfer ..   => TransactionsInBlock_transfer π ⟨b, by simp only [h]⟩
   | .withdrawal .. => TransactionsInBlock_withdrawal ⟨b, by simp only [h]⟩
 
-noncomputable def TransactionsInBlocks [Finite K₁] [Finite K₂] [AddZeroClass V] 
-  (π : BalanceProof K₁ K₂ V C Pi) (bs : List (Block K₁ K₂ C Sigma V)) : List (Τ K₁ K₂ V) :=
+def TransactionsInBlocks [Finite K₁] [Finite K₂] [AddZeroClass V] [Zero V] [Preorder V]
+  (π : BalanceProof K₁ K₂ C Pi V) (bs : List (Block K₁ K₂ C Sigma V)) : List (Τ K₁ K₂ V) :=
   (bs.map (TransactionsInBlock π)).join
 
 end Withdrawal
@@ -239,12 +258,16 @@ B.2 Step 2: Computing balances from a list of partial transactions
 -/
 section Computation
 
+section S
+
+variable [Preorder V] [Zero V]
+
 /--
 TODO(MY ESTEEMED SELF): Is this horrible dependent type going to come bite me in the behind?
 Let's find out!
 -/
 @[deprecated]
-def S' [OfNat V 0] [LE V] := Finmap (λ (k : Kbar K₁ K₂) ↦ { v : V // k matches .Source ∨ 0 ≤ v })
+def S' := Finmap (λ (k : Kbar K₁ K₂) ↦ { v : V // k matches .Source ∨ 0 ≤ v })
 
 /--
 TODO(REVIEW):
@@ -252,19 +275,35 @@ PAPER FIX? -> In our case, a state is an assignment of a balance to each account
 non-source account has a positive balance:
                          ^^^^^^^^ - I am guessing nonnegative? PAPER FIX? 
 -/
-abbrev S (K₁ K₂ V : Type) [OfNat V 0] [LE V] := Kbar K₁ K₂ → V
+abbrev S (K₁ K₂ V : Type) := Kbar K₁ K₂ → V
 
-def S.isValid [OfNat V 0] [LE V] (s : S K₁ K₂ V) :=
-  ∀ k : Kbar K₁ K₂, k matches .Source ∨ 0 ≤ s k
+def S.isValid (s : S K₁ K₂ V) := ∀ k : Kbar K₁ K₂, k matches .Source ∨ 0 ≤ s k
 
-instance [OfNat V 0] [LE V] : Finite (S K₁ K₂ V) := inferInstance 
+lemma S.nonneg_key_of_isValid {b : S K₁ K₂ V} {k} (h : b.isValid) : 0 ≤ b (.key k) := by
+  unfold S.isValid at h
+  specialize h k
+  aesop
+
+end S
+
+instance [Finite K₁] [Finite K₂] [Finite V] [Zero V] [Preorder V] : Finite (S K₁ K₂ V) := inferInstance 
 
 /--
 PAPER: where the set of transactions is the subset Tc ⊆ T, called the complete transactions
 -/
-abbrev Τc (K₁ K₂ V : Type) [OfNat V 0] [LE V] : Type := { τ : Τ K₁ K₂ V // τ.isComplete }
+abbrev Τc (K₁ K₂ V : Type) [Zero V] [Preorder V] : Type := { τ : Τ K₁ K₂ V // τ.isComplete }
 
-noncomputable def e (i : Kbar K₁ K₂) : Kbar K₁ K₂ → ℤ := λ j ↦ if i = j then 1 else 0
+/--
+And the obvious lift from `Τ.isComplete` to `Τ.isValid` to make Lean happy.
+-/
+instance [Zero V] [Preorder V] : Coe (Τc K₁ K₂ V) { τ : Τ K₁ K₂ V // τ.isValid } := ⟨λ x ↦ ⟨x.1, x.2.1⟩⟩
+
+def e (i : Kbar K₁ K₂) : Kbar K₁ K₂ → ℤ := λ j ↦ if i = j then 1 else 0
+
+@[simp]
+lemma e_def {i : Kbar K₁ K₂} : e i = λ j ↦ if i = j then 1 else 0 := rfl
+
+lemma nonneg_e {i j : Kbar K₁ K₂} : 0 ≤ e i j := by unfold e; aesop
 
 /-
 We use the full lattice oredered ableian group structure with reckless abandon here.
@@ -273,21 +312,43 @@ but we are at the core of the protocol and so might as well.
 -/
 section WithStructuredTypes
 
-/-
-TODO(REVIEW):
-Given they're doing the big meet, I think the paper can say the lattice is complete, and implify [Finite V] anyway?
--/
-variable [LinearOrder K₁]
-         [LinearOrder K₂]
-         [CompleteLattice V]
-         [AddCommGroup V]
-         [CovariantClass V V (· + ·) (· ≤ ·)]
-         [CovariantClass V V (Function.swap (· + ·)) (· ≤ ·)]
+-- /-
+-- TODO(REVIEW):
+-- Given they're doing the big meet, I think the paper can say the lattice is complete, and implify [Finite V] anyway?
+-- -/
+-- variable [LinearOrder K₁]
+--          [LinearOrder K₂]
+--          [CompleteLattice V]
+--          [AddCommGroup V]
+--         
 
-def v' (v : V) (b : S K₁ K₂ V) (s : Kbar K₁ K₂) : V :=
+section v'
+
+variable [Zero V] [CompleteLattice V]
+
+def v' (v : V₊) (b : S K₁ K₂ V) (s : Kbar K₁ K₂) : V :=
   match s with
   | .Source => v
   | .key _  => v ⊓ b s
+
+variable {v : V₊} {b : S K₁ K₂ V} {s : Kbar K₁ K₂}
+
+lemma v'_nonneg_of_valid (h : b.isValid) : 0 ≤ v' v b s := by
+  unfold v'
+  rcases s with k | _ <;> aesop (add simp S.nonneg_key_of_isValid)
+
+@[simp]
+lemma v'_source_eq_v : v' v b .Source = v := by unfold v'; aesop
+
+@[simp]
+lemma v'_key_eq_meet {k : Key K₁ K₂} : v' v b (Kbar.key k) = v.1 ⊓ b k := by unfold v'; aesop
+
+end v'
+
+variable [CompleteLattice V]
+         [AddCommGroup V]
+         [CovariantClass V V (· + ·) (· ≤ ·)]
+         [CovariantClass V V (Function.swap (· + ·)) (· ≤ ·)]
 
 /--
 TODO(REVIEW):
@@ -304,13 +365,26 @@ Not sure what the best way to express this algebraically is but Lean seems to ac
 Of course, we can pretend that we have this `Module ℤ G`, because any additive commutative group `G` can be spooned into
 it; cf. the `_removeLater` below as a sanity check, but I am not sure reasoning along these lines is necessary.
 -/
-noncomputable def fc (τc : Τc K₁ K₂ V) (b : S K₁ K₂ V) : S K₁ K₂ V :=
-  have _removeLater : Module ℤ V := inferInstance
+def fc (τc : Τc K₁ K₂ V) (b : S K₁ K₂ V) : S K₁ K₂ V :=
+  -- have _removeLater : Module ℤ V := inferInstance
   λ k : Kbar K₁ K₂ ↦
     match τc with
     | ⟨⟨s, r, v⟩, hτ⟩ =>
       let v' := v' (v.get hτ.2) b s
       b k + (e r - e s) k • v'
+
+/--
+The transition function for complete transactions leaves every nonsource actor with nonnegative balance.
+-/
+lemma fc_valid {τc : Τc K₁ K₂ V} {b : S K₁ K₂ V} (h : b.isValid) : (fc τc b).isValid := by
+  unfold fc; dsimp
+  rintro (k | _) <;> [skip; aesop]
+  simp only [Bool.false_eq_true, false_or, ge_iff_le]
+  have eq₁ : 0 ≤ b (Kbar.key k) := S.nonneg_key_of_isValid h
+  have eq₂ : 0 ≤ v' (τc.1.2.2.get τc.2.2) b τc.1.1 := v'_nonneg_of_valid h
+  rcases τc with ⟨⟨kb₁, kb₂, v?⟩, hτ⟩
+  replace hτ : kb₁ ≠ kb₂ ∧ v?.isSome := ⟨Τ.s_ne_r_of_complete hτ, Τ.isSome_of_complete hτ⟩
+  aesop (add simp (le_add_of_le_of_nonneg eq₁)) -- poff
 
 /-
 NB Lean's `Preorder` class has an addition requirement on how it expects `<` to be defined,
@@ -321,7 +395,7 @@ section Order
 /--
 PAPER: We first equip K2 with the discrete preorder.
 -/
-instance : LE (Kbar K₁ K₂) := ⟨(·=·)⟩
+instance (priority := high) : LE (Kbar K₁ K₂) := ⟨(·=·)⟩
 
 instance : Preorder (Kbar K₁ K₂) where
   le_refl := Eq.refl
@@ -332,14 +406,14 @@ instance : Preorder (Kbar K₁ K₂ × Kbar K₁ K₂) := inferInstance
 /--
 PAPER: Then we equip V+ with the discrete preorder.
 -/
-instance (priority := high) : LE { v : V // 0 ≤ v } := ⟨(·=·)⟩
-instance (priority := high) : LT { v : V // 0 ≤ v } := ⟨λ a b ↦ a ≤ b ∧ ¬ b ≤ a⟩ -- 😈
+instance (priority := high) : LE V₊ := ⟨(·=·)⟩
+instance (priority := high) : LT V₊ := ⟨λ a b ↦ a ≤ b ∧ ¬ b ≤ a⟩ -- 😈 (NB this is `False`)
 
 /--
 High priority is imperative if we want Lean to pick this one up consistently.
 Note that Lean already has `[Preorder α] (p : α → Prop) : Preorder (Subtype p)`, but we want ours.
 -/
-instance (priority := high) : Preorder { v : V // 0 ≤ v } where
+instance (priority := high) : Preorder V₊ where
   le_refl := Eq.refl
   le_trans := λ _ _ _ ↦ Eq.trans
 
@@ -348,6 +422,8 @@ Definition 15
 Let (X, ≤X) be a proset. We define the induced preorder ≤ on
 Maybe(X) where for all x, y ∈ M aybe(X) we have
 x ≤ y ⇔ x = ⊥ ∨ (x, y ∈ X ∧ x ≤X y)
+
+NB whatever you do, do NOT remove the priority from the instance.
 -/
 instance (priority := high) maybeInduced {α : Type} [Preorder α] : Preorder (Option α) :=
   let le : Option α → Option α → Prop := λ x y ↦
@@ -367,21 +443,21 @@ PAPER: which induces a preorder on Maybe(V+)
 
 NB this finds the custom high priority instance `maybeInduced`, i.e. Definition 15.
 -/
-instance : Preorder (Option { v : V // 0 ≤ v }) := inferInstance
+instance : Preorder (Option V₊) := inferInstance
 
 /--
 PAPER: We then get the induced product preorder on K2 × Maybe(V+).
 
 NB the default behavviour is iso with the Definition 19. (cf. `Prod.mk_le_mk`)
 -/
-instance : Preorder (Kbar K₁ K₂ × Kbar K₁ K₂ × Option V) := inferInstance
+instance : Preorder (Kbar K₁ K₂ × Kbar K₁ K₂ × Option V₊) := inferInstance
 
 /--
 PAPER: and an induced subset preorder on the subset T
 
 NB the default behaviour is iso with the Definition 18. (cf. `Preorder.lift`)
 -/
-instance : IsPreorder { τ : Τ K₁ K₂ V // τ.isValid } (·≤·) := inferInstance
+instance : Preorder { τ : Τ K₁ K₂ V // τ.isValid } := inferInstance
 
 /--
 PAPER: we use the underlying preorder on V coming from the fact that V is a lattice
@@ -408,6 +484,8 @@ instance : Preorder ({ τ : Τ K₁ K₂ V // τ.isValid } × { s : S K₁ K₂ 
 
 section Plumbing
 
+variable [Finite K₁] [Finite K₂] [Finite V]
+
 /--
 Noncomputable Fintype might seem strange but `Fintyp` fits better in Lean's hierarchy and removes
 a bit of friction when converting to finset.
@@ -421,21 +499,18 @@ noncomputable instance : Fintype (Τc K₁ K₂ V) := Fintype.ofFinite _
 @[deprecated]
 noncomputable instance : Fintype { s : S K₁ K₂ V // s.isValid } := Fintype.ofFinite _
 
-/--
-And the obvious lift from `Τ.isComplete` to `Τ.isValid` to make Lean happy.
--/
-instance : Coe (Τc K₁ K₂ V) { τ : Τ K₁ K₂ V // τ.isValid } := ⟨λ x ↦ ⟨x.1, x.2.1⟩⟩
-
 end Plumbing
 
 end Order
+
+variable [LinearOrder K₁] [LinearOrder K₂] [Finite K₁] [Finite K₂]
 
 /--
 NB might be subject to change, I'd rather prove the subset properties post facto, just want to make sure
 that the orders we get here are appropriate.
 -/
-noncomputable def f (b : { s : S K₁ K₂ V // s.isValid })
-                    (T : { τ : Τ K₁ K₂ V // τ.isValid }) : { s : S K₁ K₂ V // s.isValid } :=
+def f (b : { s : S K₁ K₂ V // s.isValid })
+      (T : { τ : Τ K₁ K₂ V // τ.isValid }) : { s : S K₁ K₂ V // s.isValid } :=
   let univ := { (T', b') | (T' : Τc K₁ K₂ V) (b' : { s : S K₁ K₂ V // s.isValid }) (_h : (T, b) ≤ (↑T', b')) }
   ⟨⨅ x ∈ univ, fc x.1 x.2, sorry⟩
 
@@ -445,7 +520,7 @@ noncomputable def fStar (Ts : List { τ : Τ K₁ K₂ V // τ.isValid })
                         (s₀ : { s : S K₁ K₂ V // s.isValid }) : { s : S K₁ K₂ V // s.isValid } :=
   Ts.foldl f s₀
 
-noncomputable def Bal (π : BalanceProof K₁ K₂ V C Pi) (bs : List (Block K₁ K₂ C Sigma V)) : { s : S K₁ K₂ V // s.isValid } :=
+def Bal (π : BalanceProof K₁ K₂ C Pi V) (bs : List (Block K₁ K₂ C Sigma V)) : { s : S K₁ K₂ V // s.isValid } :=
   have temporaryHole₁ : Τ K₁ K₂ V → { τ : Τ K₁ K₂ V // τ.isValid } := sorry
   have temporaryHole₂ : (S.initial K₁ K₂ V).isValid := sorry
   fStar ((TransactionsInBlocks π bs).map temporaryHole₁) ⟨S.initial K₁ K₂ V, temporaryHole₂⟩
@@ -455,5 +530,7 @@ end WithStructuredTypes
 end Computation
 
 end Balance
+
+end
 
 end Intmax
