@@ -284,6 +284,17 @@ lemma S.nonneg_key_of_isValid {b : S K₁ K₂ V} {k} (h : b.isValid) : 0 ≤ b 
   specialize h k
   aesop
 
+/--
+The infimum of valid values is valid.
+-/
+lemma isValid_inf_of_valid {V : Type} [CompleteLattice V] [AddCommGroup V]
+                           {α : Type} {s : Set α} {f : α → S K₁ K₂ V}
+                           (h : ∀ (a : α), (f a).isValid) : (⨅ x ∈ s, f x).isValid := by
+  rintro (k | _)
+  · simp; intros _ _
+    exact S.nonneg_key_of_isValid (h _)
+  · simp
+
 end S
 
 instance [Finite K₁] [Finite K₂] [Finite V] [Zero V] [Preorder V] : Finite (S K₁ K₂ V) := inferInstance 
@@ -376,11 +387,17 @@ def fc (τc : Τc K₁ K₂ V) (b : S K₁ K₂ V) : S K₁ K₂ V :=
 /--
 The transition function for complete transactions leaves every nonsource actor with nonnegative balance.
 -/
-lemma fc_valid {τc : Τc K₁ K₂ V} {b : S K₁ K₂ V} (h : b.isValid) : (fc τc b).isValid := by
+lemma isValid_fc {τc : Τc K₁ K₂ V} {b : S K₁ K₂ V} (h : b.isValid) : (fc τc b).isValid := by
+  /-
+    `h` yields both `0 ≤ b ..` and `0 ≤ v' ..`.
+  -/
   unfold fc
   rintro (k | _) <;> [skip; aesop]
   have eq₁ : 0 ≤ b (Kbar.key k) := S.nonneg_key_of_isValid h
   have eq₂ : 0 ≤ v' (τc.1.2.2.get τc.2.2) b τc.1.1 := v'_nonneg_of_valid h
+  /-
+    Simple case analysis on the obvious.
+  -/
   aesop (add simp (le_add_of_le_of_nonneg eq₁ eq₂))
 
 /-
@@ -509,7 +526,10 @@ that the orders we get here are appropriate.
 def f (b : { s : S K₁ K₂ V // s.isValid })
       (T : { τ : Τ K₁ K₂ V // τ.isValid }) : { s : S K₁ K₂ V // s.isValid } :=
   let univ := { (T', b') | (T' : Τc K₁ K₂ V) (b' : { s : S K₁ K₂ V // s.isValid }) (_h : (T, b) ≤ (↑T', b')) }
-  ⟨⨅ x ∈ univ, fc x.1 x.2, sorry⟩
+  ⟨
+    ⨅ x ∈ univ, fc x.1 x.2,
+    isValid_inf_of_valid (λ x ↦ isValid_fc x.2.2)
+  ⟩
 
 def S.initial (K₁ K₂ V : Type) [OfNat V 0] [LE V] : S K₁ K₂ V := λ _ ↦ 0
 
