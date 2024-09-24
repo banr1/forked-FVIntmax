@@ -377,14 +377,11 @@ def fc (τc : Τc K₁ K₂ V) (b : S K₁ K₂ V) : S K₁ K₂ V :=
 The transition function for complete transactions leaves every nonsource actor with nonnegative balance.
 -/
 lemma fc_valid {τc : Τc K₁ K₂ V} {b : S K₁ K₂ V} (h : b.isValid) : (fc τc b).isValid := by
-  unfold fc; dsimp
+  unfold fc
   rintro (k | _) <;> [skip; aesop]
-  simp only [Bool.false_eq_true, false_or, ge_iff_le]
   have eq₁ : 0 ≤ b (Kbar.key k) := S.nonneg_key_of_isValid h
   have eq₂ : 0 ≤ v' (τc.1.2.2.get τc.2.2) b τc.1.1 := v'_nonneg_of_valid h
-  rcases τc with ⟨⟨kb₁, kb₂, v?⟩, hτ⟩
-  replace hτ : kb₁ ≠ kb₂ ∧ v?.isSome := ⟨Τ.s_ne_r_of_complete hτ, Τ.isSome_of_complete hτ⟩
-  aesop (add simp (le_add_of_le_of_nonneg eq₁)) -- poff
+  aesop (add simp (le_add_of_le_of_nonneg eq₁ eq₂))
 
 /-
 NB Lean's `Preorder` class has an addition requirement on how it expects `<` to be defined,
