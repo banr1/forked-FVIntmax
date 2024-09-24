@@ -279,6 +279,14 @@ abbrev S (K₁ K₂ V : Type) := Kbar K₁ K₂ → V
 
 def S.isValid (s : S K₁ K₂ V) := ∀ k : Kbar K₁ K₂, k matches .Source ∨ 0 ≤ s k
 
+def S.initial (K₁ K₂ V : Type) [Zero V] : S K₁ K₂ V := λ _ ↦ 0
+
+lemma S.isValid_initial : (S.initial K₁ K₂ V).isValid := by
+  unfold initial isValid; aesop
+
+def S.validInitial (K₁ K₂ V : Type) [Preorder V] [Zero V] : { s : S K₁ K₂ V // s.isValid } :=
+  ⟨S.initial K₁ K₂ V, S.isValid_initial⟩
+
 lemma S.nonneg_key_of_isValid {b : S K₁ K₂ V} {k} (h : b.isValid) : 0 ≤ b (.key k) := by
   unfold S.isValid at h
   specialize h k
@@ -528,10 +536,8 @@ def f (b : { s : S K₁ K₂ V // s.isValid })
   let univ := { (T', b') | (T' : Τc K₁ K₂ V) (b' : { s : S K₁ K₂ V // s.isValid }) (_h : (T, b) ≤ (↑T', b')) }
   ⟨
     ⨅ x ∈ univ, fc x.1 x.2,
-    isValid_inf_of_valid (λ x ↦ isValid_fc x.2.2)
+    isValid_inf_of_valid (isValid_fc ·.2.2)
   ⟩
-
-def S.initial (K₁ K₂ V : Type) [OfNat V 0] [LE V] : S K₁ K₂ V := λ _ ↦ 0
 
 noncomputable def fStar (Ts : List { τ : Τ K₁ K₂ V // τ.isValid })
                         (s₀ : { s : S K₁ K₂ V // s.isValid }) : { s : S K₁ K₂ V // s.isValid } :=
@@ -539,8 +545,7 @@ noncomputable def fStar (Ts : List { τ : Τ K₁ K₂ V // τ.isValid })
 
 def Bal (π : BalanceProof K₁ K₂ C Pi V) (bs : List (Block K₁ K₂ C Sigma V)) : { s : S K₁ K₂ V // s.isValid } :=
   have temporaryHole₁ : Τ K₁ K₂ V → { τ : Τ K₁ K₂ V // τ.isValid } := sorry
-  have temporaryHole₂ : (S.initial K₁ K₂ V).isValid := sorry
-  fStar ((TransactionsInBlocks π bs).map temporaryHole₁) ⟨S.initial K₁ K₂ V, temporaryHole₂⟩
+  fStar ((TransactionsInBlocks π bs).map temporaryHole₁) (S.validInitial ..)
 
 end WithStructuredTypes
 
