@@ -74,6 +74,9 @@ def Τ.isValid (τ : Τ K₁ K₂ V) :=
   match τ with
   | (s, r, v) => s ≠ r ∧ (s matches .Source → v.isSome)
 
+lemma Τ.isValid_iff {s : Kbar K₁ K₂} r {v : Option V₊} :
+  Τ.isValid (s, r, v) ↔ s ≠ r ∧ (s matches .Source → v.isSome) := by rfl
+
 /--
 PAPER: complete transactions, consisting of the transactions
 ((s, r), v) ∈ T where v ̸= ⊥
@@ -83,11 +86,11 @@ def Τ.isComplete (τ : Τ K₁ K₂ V) :=
 
 lemma Τ.isSome_of_complete
   (h : Τ.isComplete ⟨kb₁, kb₂, v?⟩) : v?.isSome := by
-  unfold Τ.isComplete Τ.isValid at h
+  unfold Τ.isComplete at h; rw [Τ.isValid_iff] at h
   aesop
 
 lemma Τ.s_ne_r_of_complete (h : Τ.isComplete ⟨kb₁, kb₂, v?⟩) : kb₁ ≠ kb₂ := by
-  unfold Τ.isComplete Τ.isValid at h
+  unfold Τ.isComplete at h; rw [Τ.isValid_iff] at h
   aesop
 
 end IsValid
@@ -97,6 +100,17 @@ B.1 Step 1: Extracting a list of partial transaction
 -/
 section Extraction
 
+open Lean Elab Tactic in
+/--
+`choose_leg h in h₁ with b → b p` discharges impossible cases in the `TransactionsInBlock_<X>` functions.
+-/
+scoped elab "choose_leg" h:ident "in" h₁:ident "with" b:ident "→" w:ident ws p:ident : tactic => do
+  evalTactic <| ← `(tactic| (
+    rcases $b:ident with ⟨$w, $p⟩
+    dsimp [$h:ident] at $h₁:ident
+    split at $h₁:ident <;> try { simp at $p:ident }
+  ))
+
 section Deposit
 
 def TransactionsInBlock_deposit [Zero V] [Preorder V]
@@ -104,6 +118,17 @@ def TransactionsInBlock_deposit [Zero V] [Preorder V]
   match h : b.1 with
   | .deposit r v => [(.Source, r, v)]
   | .withdrawal .. | .transfer .. => by aesop
+
+lemma isValid_TransactionsInBlock_deposit [Zero V] [Preorder V]
+  {b : { b : Block K₁ K₂ C Sigma V // b.isDepositBlock }} :
+  ∀ τ ∈ TransactionsInBlock_deposit b, τ.isValid := λ τ hτ ↦ by
+  choose_leg TransactionsInBlock_deposit in hτ with b → b hb
+  /-
+    NB I try to set things up in a manner such that `aesop` can either close everything by itself
+    or with my explicitly stating some juicy bits.
+  -/
+  rw [Τ.isValid_iff]; aesop
+  
 
 end Deposit
 
@@ -170,8 +195,8 @@ instance : IsTotal (K₂ × Key K₁ K₂) lexLe := by
 
 end SortNotNaughty
 
-def TransactionsInBlock_transfer [Finite K₁] [Finite K₂] [AddZeroClass V]
-                                 [Zero V] [Preorder V]
+def TransactionsInBlock_transfer [Finite K₁] [Finite K₂]
+                                 [AddZeroClass V] [Zero V] [Preorder V]
   (π : BalanceProof K₁ K₂ C Pi V)
   (b : { b : Block K₁ K₂ C Sigma V // b.isTransferBlock }) :
   List (Τ K₁ K₂ V) :=
@@ -206,6 +231,14 @@ def TransactionsInBlock_transfer [Finite K₁] [Finite K₂] [AddZeroClass V]
     sorted.map λ (s, r) ↦ (s, r, v s r)
   | .deposit .. | .withdrawal .. => by aesop
 
+lemma isValid_TransactionsInBlock_transfer [Finite K₁] [Finite K₂]
+                                           [AddZeroClass V] [Zero V] [Preorder V]
+  {π : BalanceProof K₁ K₂ C Pi V}
+  {b : { b : Block K₁ K₂ C Sigma V // b.isTransferBlock }} :
+  ∀ τ ∈ TransactionsInBlock_transfer π b, τ.isValid := λ τ hτ ↦ by
+  choose_leg TransactionsInBlock_transfer in hτ with b → b hb
+  rw [Τ.isValid_iff]; aesop
+
 end Transfer
 
 section Withdrawal
@@ -214,8 +247,6 @@ section Withdrawal
 TODO(REVIEW):
 > Given a withdrawal block, the list of transactions extracted from it consists of
   a transaction from each L1 account to the source account in order:
-
-In... what order?
 -/
 def TransactionsInBlock_withdrawal [Finite K₁] [Zero V] [Preorder V]
   (b : { b : Block K₁ K₂ C Sigma V // b.isWithdrawalBlock }) :
@@ -236,16 +267,39 @@ def TransactionsInBlock_withdrawal [Finite K₁] [Zero V] [Preorder V]
     -- Might be worth giving it a think to avoid reproving random stuff in the future.
   | .deposit r v | .transfer .. => by aesop
 
+omit [LinearOrder K₂] in
+lemma isValid_TransactionsInBlock_withdrawal [Finite K₁] [Zero V] [Preorder V]
+  {b : { b : Block K₁ K₂ C Sigma V // b.isWithdrawalBlock }} :
+  ∀ τ ∈ TransactionsInBlock_withdrawal b, τ.isValid := λ τ hτ ↦ by
+  choose_leg TransactionsInBlock_withdrawal in hτ with b → b hb
+  rw [Τ.isValid_iff]; aesop
+
 def TransactionsInBlock [Finite K₁] [Finite K₂] [AddZeroClass V] [Zero V] [Preorder V]
   (π : BalanceProof K₁ K₂ C Pi V) (b : Block K₁ K₂ C Sigma V) : List (Τ K₁ K₂ V) := 
   match h : b with
   | .deposit ..    => TransactionsInBlock_deposit ⟨b, by simp only [h]⟩
   | .transfer ..   => TransactionsInBlock_transfer π ⟨b, by simp only [h]⟩
   | .withdrawal .. => TransactionsInBlock_withdrawal ⟨b, by simp only [h]⟩
+  
+lemma isValid_TransactionsInBlock [Finite K₁] [Finite K₂] [AddZeroClass V] [Zero V] [Preorder V]
+  {π : BalanceProof K₁ K₂ C Pi V} {b : Block K₁ K₂ C Sigma V} :
+  ∀ τ ∈ TransactionsInBlock π b, τ.isValid := λ τ hτ ↦ by
+  unfold TransactionsInBlock at hτ
+  rcases b <;> [apply isValid_TransactionsInBlock_deposit;
+                apply isValid_TransactionsInBlock_transfer;
+                apply isValid_TransactionsInBlock_withdrawal]
+  all_goals aesop
 
 def TransactionsInBlocks [Finite K₁] [Finite K₂] [AddZeroClass V] [Zero V] [Preorder V]
   (π : BalanceProof K₁ K₂ C Pi V) (bs : List (Block K₁ K₂ C Sigma V)) : List (Τ K₁ K₂ V) :=
   (bs.map (TransactionsInBlock π)).join
+
+lemma isValid_TransactionsInBlocks [Finite K₁] [Finite K₂] [AddZeroClass V] [Zero V] [Preorder V]
+  {π : BalanceProof K₁ K₂ C Pi V} {bs : List (Block K₁ K₂ C Sigma V)} :
+  ∀ τ ∈ TransactionsInBlocks π bs, τ.isValid := λ τ hτ ↦ by
+  simp only [TransactionsInBlocks, List.mem_join, List.mem_map, exists_exists_and_eq_and] at hτ
+  rcases hτ with ⟨τ, hτ⟩
+  exact isValid_TransactionsInBlock _ hτ.2
 
 end Withdrawal
 
@@ -404,7 +458,8 @@ lemma isValid_fc {τc : Τc K₁ K₂ V} {b : S K₁ K₂ V} (h : b.isValid) : (
   have eq₁ : 0 ≤ b (Kbar.key k) := S.nonneg_key_of_isValid h
   have eq₂ : 0 ≤ v' (τc.1.2.2.get τc.2.2) b τc.1.1 := v'_nonneg_of_valid h
   /-
-    Simple case analysis on the obvious.
+    I try to set things up in a manner such that `aesop` can close everything once the juicy bits
+    of proofs are made explicit.
   -/
   aesop (add simp (le_add_of_le_of_nonneg eq₁ eq₂))
 
@@ -544,8 +599,7 @@ noncomputable def fStar (Ts : List { τ : Τ K₁ K₂ V // τ.isValid })
   Ts.foldl f s₀
 
 def Bal (π : BalanceProof K₁ K₂ C Pi V) (bs : List (Block K₁ K₂ C Sigma V)) : { s : S K₁ K₂ V // s.isValid } :=
-  have temporaryHole₁ : Τ K₁ K₂ V → { τ : Τ K₁ K₂ V // τ.isValid } := sorry
-  fStar ((TransactionsInBlocks π bs).map temporaryHole₁) (S.validInitial ..)
+  fStar ((TransactionsInBlocks π bs).attach.map (λ x ↦ ⟨x.1, isValid_TransactionsInBlocks _ x.2⟩)) (S.validInitial ..)
 
 end WithStructuredTypes
 

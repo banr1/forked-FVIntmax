@@ -55,6 +55,30 @@ abbrev isTransferBlock (b : Block K₁ K₂ C Sigma V) := b matches (Block.trans
 
 abbrev isWithdrawalBlock (b : Block K₁ K₂ C Sigma V) := b matches (Block.withdrawal _)
 
+@[simp]
+lemma transfer_ne_deposit :
+  (transfer aggregator extradata commitment senders sigma).isDepositBlock (V := V) = False := by aesop
+
+@[simp]
+lemma withdrawal_ne_deposit :
+  (withdrawal ws).isDepositBlock (V := V) (Sigma := Sigma) (C := C) (K₂ := K₂) = False := by aesop
+
+@[simp]
+lemma deposit_ne_transfer : 
+  (deposit s v).isTransferBlock (V := V) (Sigma := Sigma) (C := C) (K₁ := K₁) = False := by aesop
+
+@[simp]
+lemma withdrawal_ne_transfer : 
+  (withdrawal ws).isTransferBlock (V := V) (Sigma := Sigma) (C := C) (K₂ := K₂) = False := by aesop
+
+@[simp]
+lemma deposit_ne_widthdrawal : 
+  (deposit s v).isWithdrawalBlock (V := V) (Sigma := Sigma) (C := C) (K₁ := K₁) = False := by aesop
+
+@[simp]
+lemma transfer_ne_widthdrawal : 
+  (transfer aggregator extradata commitment senders sigma).isWithdrawalBlock (V := V) = False := by aesop
+
 end Block
 
 -- section ValidBlock
