@@ -9,36 +9,18 @@ namespace Intmax
 
 /--
 NB we do not need _yet_ that `V` is a lattice ordered abelian group.
-Postpone nonnegative requirements until `Account.Valid`.
 -/
-structure Account (V : Type) [Zero V] [Preorder V] :=
+structure Account (V : Type) [Nonnegative V] :=
   balance : V₊
 
 namespace Account
 
--- section Valid
-
--- variable {V : Type} [LE V] [OfNat V 0]
-
--- def isValid (acc : Account V) := 0 ≤ acc.balance
-
--- end Valid
-
 end Account
 
-def Accounts (K V : Type) [Zero V] [Preorder V] :=
+def Accounts (K V : Type) [Nonnegative V] :=
   Finmap (λ _ : K ↦ Account V)
 
 namespace Accounts
-
--- section Valid
-
--- variable {K : Type} [DecidableEq K]
---          {V : Type} [LE V] [OfNat V 0]
-
--- def isValid (acc : Accounts K V) := codomainPred acc (0 ≤ Account.balance ·) 
-
--- end Valid
 
 end Accounts
 

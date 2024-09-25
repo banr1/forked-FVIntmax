@@ -13,8 +13,6 @@ import FVIntmax.Wheels.SignatureAggregation
 
 namespace Intmax
 
-set_option autoImplicit false
-
 section RollupContract
 
 /--

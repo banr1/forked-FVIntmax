@@ -9,9 +9,6 @@ import FVIntmax.Wheels
 
 import FVIntmax.Wheels.Dictionary
 
-set_option autoImplicit false
-set_option relaxedAutoImplicit false
-
 namespace Intmax
 
 noncomputable section

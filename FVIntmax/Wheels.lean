@@ -11,6 +11,8 @@ import FVIntmax.Wheels.Wheels
 
 namespace Intmax
 
+class abbrev Nonnegative (α : Type) := Preorder α, Zero α
+
 section UniquelyIndexed
 
 abbrev UniqueTokenT (α : Type) [Finite α] : Type := Fin (Finite.exists_equiv_fin α |>.choose)
@@ -47,22 +49,9 @@ def isCodomainNonneg {α : Type} [DecidableEq α] {β : Type} [LE β] [OfNat β 
 
 section NonNeg
 
--- #check Nonneg.toNonneg
-
 abbrev NonNeg (α : Type) [Zero α] [Preorder α] := { a : α // 0 ≤ a }
 
 postfix:max "₊" => NonNeg
-
--- instance {α : Type} [OfNat α 0] [LE α] [IsRefl α (·≤·)] : OfNat α₊ 0 := ⟨0, IsRefl.refl _⟩
-
--- instance {α : Type} [OfNat α 0] [Lattice α] : Inf α₊ := by
---   unfold NonNeg
---   constructor
---   intros a b
---   exact ⟨a ⊓ b, by cases a; cases b; apply le_inf <;> aesop⟩
-
--- instance {α : Type} [OfNat α 0] [Lattice α] [HSMul ℤ α α] : HSMul ℤ α₊ α₊ :=
---   ⟨λ z a ↦ match a with | ⟨a, ha⟩ => ⟨z • _, _⟩⟩
 
 end NonNeg
 
@@ -158,17 +147,4 @@ end Multiset
 
 namespace Nonneg
 
--- instance zsmul [AddGroup α] [Preorder α] [CovariantClass α α (· + ·) (· ≤ ·)] :
---     SMul ℤ { x : α // 0 ≤ x } :=
---   ⟨fun n x => ⟨n • (x : α), zsmul_nonneg x.prop n⟩⟩
-
--- @[simp]
--- theorem nsmul_mk [AddMonoid α] [Preorder α] [CovariantClass α α (· + ·) (· ≤ ·)] (n : ℕ) {x : α}
---     (hx : 0 ≤ x) : (n • (⟨x, hx⟩ : { x : α // 0 ≤ x })) = ⟨n • x, nsmul_nonneg hx n⟩ :=
---   rfl
-
--- @[simp, norm_cast]
--- protected theorem coe_nsmul [AddMonoid α] [Preorder α] [CovariantClass α α (· + ·) (· ≤ ·)]
---     (n : ℕ) (a : { x : α // 0 ≤ x }) : ((n • a : { x : α // 0 ≤ x }) : α) = n • (a : α) :=
---   rfl
 end Nonneg
