@@ -11,9 +11,11 @@ import FVIntmax.Wheels.Dictionary
 
 namespace Intmax
 
+/-
+Honestly just saves a bit of time. There's nothing fundamentally noncomputable / classical here.
+-/
 noncomputable section
-
-open Classical -- Don't care :).
+open Classical
 
 /-
 Appendix B - Computing balances
@@ -38,7 +40,7 @@ instance : Coe (Key K₁ K₂) (Kbar K₁ K₂) := ⟨.key⟩
 
 /--
 NB not important. There's an obvious equivalence between the inductive `Kbar` and the
-`Key K₁ K₂ ⊕ Unit` sum, which we can infer is finite given the `Key` is finite.
+`Key K₁ K₂ ⊕ Unit` sum, for which Lean knows how to infer things.
 I prefer the wrapped inductive.
 -/
 def univKbar : Kbar K₁ K₂ ≃ Key K₁ K₂ ⊕ Unit :=
@@ -57,40 +59,45 @@ NB we use Lean's natural associativity for products to get some freebies.
 As such, our tuples are technically `(a, (b, c))` here. Obviously, this is associative
 so not much changes.
 -/
-abbrev Τ (K₁ K₂ V : Type) [Zero V] [Preorder V] := Kbar K₁ K₂ × Kbar K₁ K₂ × Option V₊
+abbrev Τ (K₁ K₂ V : Type) [Nonnegative V] := Kbar K₁ K₂ × Kbar K₁ K₂ × Option V₊
 
 instance [Finite V] : Fintype V := Fintype.ofFinite _
 
+namespace Τ
+
+variable [Nonnegative V]
+         {v? : Option V₊}
+         {k₁ : K₁} {k₂ : K₂}
+         {kb kb₁ kb₂ : Kbar K₁ K₂}
+         {τ : Τ K₁ K₂ V}
+
 section IsValid
 
-variable [Zero V] [Preorder V]
-
-variable {v? : Option V₊} {k₁ : K₁} {k₂ : K₂} {kb kb₁ kb₂ : Kbar K₁ K₂} {τ : Τ K₁ K₂ V}
-
-def Τ.isValid (τ : Τ K₁ K₂ V) :=
+def isValid (τ : Τ K₁ K₂ V) :=
   match τ with
   | (s, r, v) => s ≠ r ∧ (s matches .Source → v.isSome)
 
-lemma Τ.isValid_iff {s : Kbar K₁ K₂} r {v : Option V₊} :
+lemma isValid_iff {s r : Kbar K₁ K₂} {v : Option V₊} :
   Τ.isValid (s, r, v) ↔ s ≠ r ∧ (s matches .Source → v.isSome) := by rfl
 
 /--
 PAPER: complete transactions, consisting of the transactions
 ((s, r), v) ∈ T where v ̸= ⊥
 -/
-def Τ.isComplete (τ : Τ K₁ K₂ V) :=
+def isComplete (τ : Τ K₁ K₂ V) :=
   τ.isValid ∧ match τ with | (_, _, v) => v.isSome
 
-lemma Τ.isSome_of_complete
-  (h : Τ.isComplete ⟨kb₁, kb₂, v?⟩) : v?.isSome := by
+lemma isSome_of_complete (h : Τ.isComplete ⟨kb₁, kb₂, v?⟩) : v?.isSome := by
   unfold Τ.isComplete at h; rw [Τ.isValid_iff] at h
   aesop
 
-lemma Τ.s_ne_r_of_complete (h : Τ.isComplete ⟨kb₁, kb₂, v?⟩) : kb₁ ≠ kb₂ := by
+lemma s_ne_r_of_complete (h : Τ.isComplete ⟨kb₁, kb₂, v?⟩) : kb₁ ≠ kb₂ := by
   unfold Τ.isComplete at h; rw [Τ.isValid_iff] at h
   aesop
 
 end IsValid
+
+end Τ
 
 /-
 B.1 Step 1: Extracting a list of partial transaction
@@ -110,22 +117,24 @@ scoped elab "choose_leg" h:ident "in" h₁:ident "with" b:ident "→" w:ident ws
 
 section Deposit
 
-def TransactionsInBlock_deposit [Zero V] [Preorder V]
+def TransactionsInBlock_deposit [Nonnegative V]
   (b : { b : Block K₁ K₂ C Sigma V // b.isDepositBlock }) : List (Τ K₁ K₂ V) :=
   match h : b.1 with
   | .deposit r v => [(.Source, r, v)]
   | .withdrawal .. | .transfer .. => by aesop
 
-lemma isValid_TransactionsInBlock_deposit [Zero V] [Preorder V]
-  {b : { b : Block K₁ K₂ C Sigma V // b.isDepositBlock }} :
-  ∀ τ ∈ TransactionsInBlock_deposit b, τ.isValid := λ τ hτ ↦ by
+/--
+Shows that `TransactionsInBlock_deposit b ∈ { τ : Τ K₁ K₂ V // τ.isValid }`.
+-/
+lemma isValid_TransactionsInBlock_deposit [Nonnegative V]
+  {b : { b : Block K₁ K₂ C Sigma V // b.isDepositBlock }} {τ : Τ K₁ K₂ V}
+  (hτ : τ ∈ TransactionsInBlock_deposit b) : τ.isValid := by
   choose_leg TransactionsInBlock_deposit in hτ with b → b hb
   /-
     NB I try to set things up in a manner such that `aesop` can either close everything by itself
     or with my explicitly stating some juicy bits.
   -/
   rw [Τ.isValid_iff]; aesop
-  
 
 end Deposit
 
@@ -150,7 +159,7 @@ def keysUneq (k₂ : K₂) (k : Key K₁ K₂) : Prop :=
   | .inl _   => True
   | .inr k₂' => k₂ ≠ k₂' 
 
-infix:50 " ≠ₖ " => keysUneq 
+local infix:50 " ≠ₖ " => keysUneq 
 
 @[deprecated]
 instance [DecidableEq K₂] : DecidablePred (Function.uncurry (keysUneq (K₁ := K₁) (K₂ := K₂))) :=
@@ -192,8 +201,7 @@ instance : IsTotal (K₂ × Key K₁ K₂) lexLe := by
 
 end SortNotNaughty
 
-def TransactionsInBlock_transfer [Finite K₁] [Finite K₂]
-                                 [AddZeroClass V] [Zero V] [Preorder V]
+def TransactionsInBlock_transfer [Finite K₁] [Finite K₂] [Nonnegative V]
   (π : BalanceProof K₁ K₂ C Pi V)
   (b : { b : Block K₁ K₂ C Sigma V // b.isTransferBlock }) :
   List (Τ K₁ K₂ V) :=
@@ -228,8 +236,10 @@ def TransactionsInBlock_transfer [Finite K₁] [Finite K₂]
     sorted.map λ (s, r) ↦ (s, r, v s r)
   | .deposit .. | .withdrawal .. => by aesop
 
-lemma isValid_TransactionsInBlock_transfer [Finite K₁] [Finite K₂]
-                                           [AddZeroClass V] [Zero V] [Preorder V]
+/--
+Shows that `TransactionsInBlock_transfer π b ∈ { τ : Τ K₁ K₂ V // τ.isValid }`.
+-/
+lemma isValid_TransactionsInBlock_transfer [Finite K₁] [Finite K₂] [Nonnegative V]
   {π : BalanceProof K₁ K₂ C Pi V}
   {b : { b : Block K₁ K₂ C Sigma V // b.isTransferBlock }} :
   ∀ τ ∈ TransactionsInBlock_transfer π b, τ.isValid := λ τ hτ ↦ by
