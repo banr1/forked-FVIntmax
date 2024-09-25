@@ -49,9 +49,16 @@ def isCodomainNonneg {α : Type} [DecidableEq α] {β : Type} [LE β] [OfNat β 
 
 section NonNeg
 
-abbrev NonNeg (α : Type) [Zero α] [Preorder α] := { a : α // 0 ≤ a }
+abbrev NonNeg (α : Type) [Nonnegative α] := { a : α // 0 ≤ a }
 
 postfix:max "₊" => NonNeg
+
+@[simp]
+lemma NonNeg.coe_nonneg {α : Type} [Nonnegative α] {v : α₊} : 0 ≤ (↑v : α) := by
+  cases v; aesop
+
+@[simp]
+lemma NonNeg.nonneg {α : Type} [Nonnegative α] {v : α₊} : 0 ≤ v := by aesop
 
 end NonNeg
 

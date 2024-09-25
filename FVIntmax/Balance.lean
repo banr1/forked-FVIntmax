@@ -18,6 +18,13 @@ noncomputable section
 open Classical
 
 /-
+NB this formalisation is structured specifically to enable `simp`/`aesop` to resolve most proof obligations,
+possibly with my explicitly articulating proof structure / important invariants apriori.
+
+The proof that `fc` produces values in the appropriate subset is pretty sweet if you ask me.
+-/
+
+/-
 Appendix B - Computing balances
 -/
 section Balance
@@ -59,11 +66,32 @@ NB we use Lean's natural associativity for products to get some freebies.
 As such, our tuples are technically `(a, (b, c))` here. Obviously, this is associative
 so not much changes.
 -/
-abbrev Τ (K₁ K₂ V : Type) [Nonnegative V] := Kbar K₁ K₂ × Kbar K₁ K₂ × Option V₊
+abbrev Τ' (K₁ K₂ V : Type) [Nonnegative V] := Kbar K₁ K₂ × Kbar K₁ K₂ × Option V₊
 
 instance [Finite V] : Fintype V := Fintype.ofFinite _
 
+namespace Τ'
+
+variable [Nonnegative V]
+
+section IsValid
+
+def isValid (τ : Τ' K₁ K₂ V) :=
+  match τ with
+  | (s, r, v) => s ≠ r ∧ (s matches .Source → v.isSome)
+
+lemma isValid_iff {s r : Kbar K₁ K₂} {v? : Option V₊} :
+  isValid (s, r, v?) ↔ s ≠ r ∧ (s matches .Source → v?.isSome) := by rfl
+
+end IsValid
+
+end Τ'
+
+abbrev Τ (K₁ K₂ V : Type) [Nonnegative V] := { τ : Τ' K₁ K₂ V // τ.isValid }
+
 namespace Τ
+
+section Τ
 
 variable [Nonnegative V]
          {v? : Option V₊}
@@ -71,31 +99,21 @@ variable [Nonnegative V]
          {kb kb₁ kb₂ : Kbar K₁ K₂}
          {τ : Τ K₁ K₂ V}
 
-section IsValid
-
-def isValid (τ : Τ K₁ K₂ V) :=
-  match τ with
-  | (s, r, v) => s ≠ r ∧ (s matches .Source → v.isSome)
-
-lemma isValid_iff {s r : Kbar K₁ K₂} {v : Option V₊} :
-  Τ.isValid (s, r, v) ↔ s ≠ r ∧ (s matches .Source → v.isSome) := by rfl
-
 /--
 PAPER: complete transactions, consisting of the transactions
 ((s, r), v) ∈ T where v ̸= ⊥
 -/
 def isComplete (τ : Τ K₁ K₂ V) :=
-  τ.isValid ∧ match τ with | (_, _, v) => v.isSome
+  match τ with | ⟨(_, _, v), _⟩ => v.isSome
 
-lemma isSome_of_complete (h : Τ.isComplete ⟨kb₁, kb₂, v?⟩) : v?.isSome := by
-  unfold Τ.isComplete at h; rw [Τ.isValid_iff] at h
+lemma isSome_of_complete {t'} (h : isComplete ⟨⟨kb₁, kb₂, v?⟩, t'⟩) : v?.isSome := by
+  unfold isComplete at h; aesop
+
+lemma s_ne_r_of_complete {t'} (h : isComplete ⟨⟨kb₁, kb₂, v?⟩, t'⟩) : kb₁ ≠ kb₂ := by
+  unfold isComplete at h; rw [Τ'.isValid_iff] at t'
   aesop
 
-lemma s_ne_r_of_complete (h : Τ.isComplete ⟨kb₁, kb₂, v?⟩) : kb₁ ≠ kb₂ := by
-  unfold Τ.isComplete at h; rw [Τ.isValid_iff] at h
-  aesop
-
-end IsValid
+end Τ
 
 end Τ
 
@@ -104,37 +122,13 @@ B.1 Step 1: Extracting a list of partial transaction
 -/
 section Extraction
 
-open Lean Elab Tactic in
-/--
-`choose_leg h in h₁ with b → b p` discharges impossible cases in the `TransactionsInBlock_<X>` functions.
--/
-scoped elab "choose_leg" h:ident "in" h₁:ident "with" b:ident "→" w:ident ws p:ident : tactic => do
-  evalTactic <| ← `(tactic| (
-    rcases $b:ident with ⟨$w, $p⟩
-    dsimp [$h:ident] at $h₁:ident
-    split at $h₁:ident <;> try { simp at $p:ident }
-  ))
-
 section Deposit
 
 def TransactionsInBlock_deposit [Nonnegative V]
   (b : { b : Block K₁ K₂ C Sigma V // b.isDepositBlock }) : List (Τ K₁ K₂ V) :=
   match h : b.1 with
-  | .deposit r v => [(.Source, r, v)]
+  | .deposit r v => [⟨(.Source, r, v), by rw [Τ'.isValid_iff]; aesop⟩]
   | .withdrawal .. | .transfer .. => by aesop
-
-/--
-Shows that `TransactionsInBlock_deposit b ∈ { τ : Τ K₁ K₂ V // τ.isValid }`.
--/
-lemma isValid_TransactionsInBlock_deposit [Nonnegative V]
-  {b : { b : Block K₁ K₂ C Sigma V // b.isDepositBlock }} {τ : Τ K₁ K₂ V}
-  (hτ : τ ∈ TransactionsInBlock_deposit b) : τ.isValid := by
-  choose_leg TransactionsInBlock_deposit in hτ with b → b hb
-  /-
-    NB I try to set things up in a manner such that `aesop` can either close everything by itself
-    or with my explicitly stating some juicy bits.
-  -/
-  rw [Τ.isValid_iff]; aesop
 
 end Deposit
 
@@ -153,11 +147,13 @@ section Transfer
 /-
 TODO(REVIEW):
 PAPER FIX? -> for each sender-recipient pair (s, r) ∈ K2 × K where s ̸= r
+
+NB this is an abbrev for `aesop` to extract the obvious invariants.
 -/
-def keysUneq (k₂ : K₂) (k : Key K₁ K₂) : Prop :=
+abbrev keysUneq (k₂ : K₂) (k : Key K₁ K₂) : Prop :=
   match k with
   | .inl _   => True
-  | .inr k₂' => k₂ ≠ k₂' 
+  | .inr k₂' => k₂ ≠ k₂'
 
 local infix:50 " ≠ₖ " => keysUneq 
 
@@ -202,9 +198,7 @@ instance : IsTotal (K₂ × Key K₁ K₂) lexLe := by
 end SortNotNaughty
 
 def TransactionsInBlock_transfer [Finite K₁] [Finite K₂] [Nonnegative V]
-  (π : BalanceProof K₁ K₂ C Pi V)
-  (b : { b : Block K₁ K₂ C Sigma V // b.isTransferBlock }) :
-  List (Τ K₁ K₂ V) :=
+  (π : BalanceProof K₁ K₂ C Pi V) (b : { b : Block K₁ K₂ C Sigma V // b.isTransferBlock }) : List (Τ K₁ K₂ V) :=
   match h : b.1 with
   | .transfer _ _ commitment S _ =>
     /-
@@ -226,6 +220,8 @@ def TransactionsInBlock_transfer [Finite K₁] [Finite K₂] [Nonnegative V]
           0,                            if s /∈ S
 
       NB this is using the old notion of `Dict` because it's half a day's of work to restitch to the new one.
+
+      NB subject to being hoisted out of this function.
     -/
     let v (s : K₂) (r : Key K₁ K₂) : Option V₊ :=
       if s ∉ S then .some 0 else 
@@ -233,18 +229,8 @@ def TransactionsInBlock_transfer [Finite K₁] [Finite K₂] [Nonnegative V]
       then let (_, _, t) := π[(commitment, s)]
            t.lookup r
       else .none
-    sorted.map λ (s, r) ↦ (s, r, v s r)
+    sorted.attach.map λ ⟨(s, r), h⟩ ↦ ⟨(s, r, v s r), by rw [Τ'.isValid_iff]; aesop⟩
   | .deposit .. | .withdrawal .. => by aesop
-
-/--
-Shows that `TransactionsInBlock_transfer π b ∈ { τ : Τ K₁ K₂ V // τ.isValid }`.
--/
-lemma isValid_TransactionsInBlock_transfer [Finite K₁] [Finite K₂] [Nonnegative V]
-  {π : BalanceProof K₁ K₂ C Pi V}
-  {b : { b : Block K₁ K₂ C Sigma V // b.isTransferBlock }} :
-  ∀ τ ∈ TransactionsInBlock_transfer π b, τ.isValid := λ τ hτ ↦ by
-  choose_leg TransactionsInBlock_transfer in hτ with b → b hb
-  rw [Τ.isValid_iff]; aesop
 
 end Transfer
 
@@ -255,9 +241,8 @@ TODO(REVIEW):
 > Given a withdrawal block, the list of transactions extracted from it consists of
   a transaction from each L1 account to the source account in order:
 -/
-def TransactionsInBlock_withdrawal [Finite K₁] [Zero V] [Preorder V]
-  (b : { b : Block K₁ K₂ C Sigma V // b.isWithdrawalBlock }) :
-  List (Τ K₁ K₂ V) :=
+def TransactionsInBlock_withdrawal [Finite K₁] [Nonnegative V]
+  (b : { b : Block K₁ K₂ C Sigma V // b.isWithdrawalBlock }) : List (Τ K₁ K₂ V) :=
   match h : b.1 with
   | .withdrawal withdrawals =>
     /-
@@ -266,51 +251,30 @@ def TransactionsInBlock_withdrawal [Finite K₁] [Zero V] [Preorder V]
     have : Fintype K₁ := Fintype.ofFinite _
 
     /-
-      The paper says 'in order'. This natural linear order?
+      Careful, order.
     -/
     let k₁InOrder := { s | s : K₁ }.toFinset.sort (·≤·)
-    k₁InOrder.map λ s : K₁ ↦ (s, .Source, withdrawals.lookup s)
-    -- TODO(MY ESTEEMED SELF): This is of replication for l.map λ x ↦ (x, ...) happens in the transfer as well.
-    -- Might be worth giving it a think to avoid reproving random stuff in the future.
+    k₁InOrder.attach.map λ s : K₁ ↦ ⟨(s, .Source, withdrawals.lookup s), by rw [Τ'.isValid_iff]; aesop⟩
   | .deposit r v | .transfer .. => by aesop
-
-omit [LinearOrder K₂] in
-lemma isValid_TransactionsInBlock_withdrawal [Finite K₁] [Zero V] [Preorder V]
-  {b : { b : Block K₁ K₂ C Sigma V // b.isWithdrawalBlock }} :
-  ∀ τ ∈ TransactionsInBlock_withdrawal b, τ.isValid := λ τ hτ ↦ by
-  choose_leg TransactionsInBlock_withdrawal in hτ with b → b hb
-  rw [Τ.isValid_iff]; aesop
-
-def TransactionsInBlock [Finite K₁] [Finite K₂] [AddZeroClass V] [Zero V] [Preorder V]
-  (π : BalanceProof K₁ K₂ C Pi V) (b : Block K₁ K₂ C Sigma V) : List (Τ K₁ K₂ V) := 
-  match h : b with
-  | .deposit ..    => TransactionsInBlock_deposit ⟨b, by simp only [h]⟩
-  | .transfer ..   => TransactionsInBlock_transfer π ⟨b, by simp only [h]⟩
-  | .withdrawal .. => TransactionsInBlock_withdrawal ⟨b, by simp only [h]⟩
-  
-lemma isValid_TransactionsInBlock [Finite K₁] [Finite K₂] [AddZeroClass V] [Zero V] [Preorder V]
-  {π : BalanceProof K₁ K₂ C Pi V} {b : Block K₁ K₂ C Sigma V} :
-  ∀ τ ∈ TransactionsInBlock π b, τ.isValid := λ τ hτ ↦ by
-  unfold TransactionsInBlock at hτ
-  rcases b <;> [apply isValid_TransactionsInBlock_deposit;
-                apply isValid_TransactionsInBlock_transfer;
-                apply isValid_TransactionsInBlock_withdrawal]
-  all_goals aesop
-
-def TransactionsInBlocks [Finite K₁] [Finite K₂] [AddZeroClass V] [Zero V] [Preorder V]
-  (π : BalanceProof K₁ K₂ C Pi V) (bs : List (Block K₁ K₂ C Sigma V)) : List (Τ K₁ K₂ V) :=
-  (bs.map (TransactionsInBlock π)).join
-
-lemma isValid_TransactionsInBlocks [Finite K₁] [Finite K₂] [AddZeroClass V] [Zero V] [Preorder V]
-  {π : BalanceProof K₁ K₂ C Pi V} {bs : List (Block K₁ K₂ C Sigma V)} :
-  ∀ τ ∈ TransactionsInBlocks π bs, τ.isValid := λ τ hτ ↦ by
-  simp only [TransactionsInBlocks, List.mem_join, List.mem_map, exists_exists_and_eq_and] at hτ
-  rcases hτ with ⟨τ, hτ⟩
-  exact isValid_TransactionsInBlock _ hτ.2
-
 end Withdrawal
 
 end Order
+
+variable [Finite K₁] [LinearOrder K₁]
+         [Finite K₂] [LinearOrder K₂]
+         [Nonnegative V]
+
+local macro:max (priority := high) "↪" b:term : term => `(⟨$b, by aesop⟩)
+
+def TransactionsInBlock (π : BalanceProof K₁ K₂ C Pi V) (b : Block K₁ K₂ C Sigma V) : List (Τ K₁ K₂ V) := 
+  match h : b with
+  | .deposit ..    => TransactionsInBlock_deposit ↪b
+  | .transfer ..   => TransactionsInBlock_transfer π ↪b
+  | .withdrawal .. => TransactionsInBlock_withdrawal ↪b
+
+def TransactionsInBlocks
+  (π : BalanceProof K₁ K₂ C Pi V) (bs : List (Block K₁ K₂ C Sigma V)) : List (Τ K₁ K₂ V) :=
+  (bs.map (TransactionsInBlock π)).join
 
 end Extraction
 
@@ -321,14 +285,7 @@ section Computation
 
 section S
 
-variable [Preorder V] [Zero V]
-
-/--
-TODO(MY ESTEEMED SELF): Is this horrible dependent type going to come bite me in the behind?
-Let's find out!
--/
-@[deprecated]
-def S' := Finmap (λ (k : Kbar K₁ K₂) ↦ { v : V // k matches .Source ∨ 0 ≤ v })
+variable [Nonnegative V]
 
 /--
 TODO(REVIEW):
@@ -336,50 +293,77 @@ PAPER FIX? -> In our case, a state is an assignment of a balance to each account
 non-source account has a positive balance:
                          ^^^^^^^^ - I am guessing nonnegative? PAPER FIX? 
 -/
-abbrev S (K₁ K₂ V : Type) := Kbar K₁ K₂ → V
+abbrev S' (K₁ K₂ V : Type) := Kbar K₁ K₂ → V
 
-def S.isValid (s : S K₁ K₂ V) := ∀ k : Kbar K₁ K₂, k matches .Source ∨ 0 ≤ s k
+namespace S'
 
-def S.initial (K₁ K₂ V : Type) [Zero V] : S K₁ K₂ V := λ _ ↦ 0
+def isValid (s : S' K₁ K₂ V) := ∀ k : Kbar K₁ K₂, k matches .Source ∨ 0 ≤ s k
 
-lemma S.isValid_initial : (S.initial K₁ K₂ V).isValid := by
+def initial (K₁ K₂ V : Type) [Zero V] : S' K₁ K₂ V := λ _ ↦ 0
+
+lemma isValid_initial : (initial K₁ K₂ V).isValid := by
   unfold initial isValid; aesop
 
-def S.validInitial (K₁ K₂ V : Type) [Preorder V] [Zero V] : { s : S K₁ K₂ V // s.isValid } :=
-  ⟨S.initial K₁ K₂ V, S.isValid_initial⟩
-
-lemma S.nonneg_key_of_isValid {b : S K₁ K₂ V} {k} (h : b.isValid) : 0 ≤ b (.key k) := by
-  unfold S.isValid at h
+lemma nonneg_key_of_isValid {b : S' K₁ K₂ V} {k} (h : b.isValid) : 0 ≤ b (.key k) := by
+  unfold isValid at h
   specialize h k
   aesop
 
-/--
-The infimum of valid values is valid.
--/
-lemma isValid_inf_of_valid {V : Type} [CompleteLattice V] [AddCommGroup V]
-                           {α : Type} {s : Set α} {f : α → S K₁ K₂ V}
-                           (h : ∀ (a : α), (f a).isValid) : (⨅ x ∈ s, f x).isValid := by
-  rintro (k | _)
-  · simp; intros _ _
-    exact S.nonneg_key_of_isValid (h _)
-  · simp
+end S'
+
+abbrev S (K₁ K₂ V : Type) [Nonnegative V] := { s : S' K₁ K₂ V // s.isValid }
+
+instance : CoeFun (S K₁ K₂ V) λ _ ↦ Kbar K₁ K₂ → V := ⟨(·.1 ·)⟩ -- Ook?! OOK! 
+
+namespace S
+
+def initial (K₁ K₂ V : Type) [Nonnegative V] : S K₁ K₂ V :=
+  ⟨S'.initial K₁ K₂ V, S'.isValid_initial⟩
+
+@[simp]
+lemma nonneg {s : S K₁ K₂ V} {k : Key K₁ K₂} : 0 ≤ s k := by
+  aesop (add safe apply S'.nonneg_key_of_isValid)
+
+@[simp]
+lemma isValid_coe {s : S K₁ K₂ V} : S'.isValid ↑s := by
+  rintro (k | k) <;> aesop
+
+@[simp]
+lemma nonneg_coe {s : S K₁ K₂ V} {k : Key K₁ K₂} : 0 ≤ (↑s : S' K₁ K₂ V) k := by
+  aesop
 
 end S
 
-instance [Finite K₁] [Finite K₂] [Finite V] [Zero V] [Preorder V] : Finite (S K₁ K₂ V) := inferInstance 
+end S
+
+-- /--
+-- The infimum of valid values is valid.
+-- -/
+-- lemma isValid_inf_of_valid {V : Type} [CompleteLattice V] [AddCommGroup V]
+--                            {α : Type} {s : Set α} {f : α → S K₁ K₂ V}
+--                            (h : ∀ (a : α), (f a).isValid) : (⨅ x ∈ s, f x).isValid := by
+--   rintro (k | _)
+--   · simp; intros _ _
+--     exact S.nonneg_key_of_isValid (h _)
+--   · simp
+
+instance [Finite K₁] [Finite K₂] [Finite V] [Nonnegative V] : Finite (S K₁ K₂ V) := inferInstance 
 
 /--
 PAPER: where the set of transactions is the subset Tc ⊆ T, called the complete transactions
 -/
-abbrev Τc (K₁ K₂ V : Type) [Zero V] [Preorder V] : Type := { τ : Τ K₁ K₂ V // τ.isComplete }
+abbrev Τc (K₁ K₂ V : Type) [Nonnegative V] : Type := { τ : Τ K₁ K₂ V // τ.isComplete }
 
 /--
 And the obvious lift from `Τ.isComplete` to `Τ.isValid` to make Lean happy.
 -/
-instance [Zero V] [Preorder V] : Coe (Τc K₁ K₂ V) { τ : Τ K₁ K₂ V // τ.isValid } := ⟨λ x ↦ ⟨x.1, x.2.1⟩⟩
+instance [Nonnegative V] : Coe (Τc K₁ K₂ V) (Τ K₁ K₂ V) := ⟨(↑·)⟩
 
 def e (i : Kbar K₁ K₂) : Kbar K₁ K₂ → ℤ := λ j ↦ if i = j then 1 else 0
 
+/--
+The interface to `e` is just its definition. Normalise in this manner.
+-/
 @[simp]
 lemma e_def {i : Kbar K₁ K₂} : e i = λ j ↦ if i = j then 1 else 0 := rfl
 
@@ -392,36 +376,29 @@ but we are at the core of the protocol and so might as well.
 -/
 section WithStructuredTypes
 
--- /-
--- TODO(REVIEW):
--- Given they're doing the big meet, I think the paper can say the lattice is complete, and implify [Finite V] anyway?
--- -/
--- variable [LinearOrder K₁]
---          [LinearOrder K₂]
---          [CompleteLattice V]
---          [AddCommGroup V]
---         
+/-
+TODO(REVIEW):
+Given they're doing the big meet, I think the paper can say the lattice is complete, and implify [Finite V] anyway?
+-/   
 
 section v'
 
-variable [Zero V] [CompleteLattice V]
+variable [Zero V] [CompleteLattice V] -- NB `Nonnegative V` is implied as `CompleteLattice V` gives `Preorder V`.
 
-def v' (v : V₊) (b : S K₁ K₂ V) (s : Kbar K₁ K₂) : V :=
-  match s with
+def v' (v : V₊) (b : S K₁ K₂ V) (s : Kbar K₁ K₂) : V₊ :=
+  match h : s with
   | .Source => v
-  | .key _  => v ⊓ b s
+  | .key _  => ⟨v ⊓ b s, by aesop⟩
 
 variable {v : V₊} {b : S K₁ K₂ V} {s : Kbar K₁ K₂}
 
-lemma v'_nonneg_of_valid (h : b.isValid) : 0 ≤ v' v b s := by
-  unfold v'
-  rcases s with k | _ <;> aesop (add simp S.nonneg_key_of_isValid)
+-- lemma v'_nonneg_of_valid : 0 ≤ v' v b s := by aesop
 
 @[simp]
 lemma v'_source_eq_v : v' v b .Source = v := by unfold v'; aesop
 
 @[simp]
-lemma v'_key_eq_meet {k : Key K₁ K₂} : v' v b (Kbar.key k) = v.1 ⊓ b k := by unfold v'; aesop
+lemma v'_key_eq_meet {k : Key K₁ K₂} : v' v b (Kbar.key k) = v.1 ⊓ b k := by aesop
 
 end v'
 
@@ -447,28 +424,15 @@ it; cf. the `_removeLater` below as a sanity check, but I am not sure reasoning 
 -/
 def fc (τc : Τc K₁ K₂ V) (b : S K₁ K₂ V) : S K₁ K₂ V :=
   -- have _removeLater : Module ℤ V := inferInstance
-  λ k : Kbar K₁ K₂ ↦
+  ⟨λ k : Kbar K₁ K₂ ↦
     match τc with
-    | ⟨⟨s, r, v⟩, hτ⟩ =>
-      let v' := v' (v.get hτ.2) b s
-      b k + (e r - e s) k • v'
-
-/--
-The transition function for complete transactions leaves every nonsource actor with nonnegative balance.
--/
-lemma isValid_fc {τc : Τc K₁ K₂ V} {b : S K₁ K₂ V} (h : b.isValid) : (fc τc b).isValid := by
-  /-
-    `h` yields both `0 ≤ b ..` and `0 ≤ v' ..`.
-  -/
-  unfold fc
-  rintro (k | _) <;> [skip; aesop]
-  have eq₁ : 0 ≤ b (Kbar.key k) := S.nonneg_key_of_isValid h
-  have eq₂ : 0 ≤ v' (τc.1.2.2.get τc.2.2) b τc.1.1 := v'_nonneg_of_valid h
-  /-
-    I try to set things up in a manner such that `aesop` can close everything once the juicy bits
-    of proofs are made explicit.
-  -/
-  aesop (add simp (le_add_of_le_of_nonneg eq₁ eq₂))
+    | ⟨⟨⟨s, r, v⟩, _⟩, hτ⟩ =>
+      let v' := v' (v.get hτ) b s
+      b k + (e r - e s) k • v',
+  by rintro (k | _) <;>
+     aesop (add safe apply S'.nonneg_key_of_isValid)
+           (add unsafe apply le_add_of_le_of_nonneg)
+  ⟩
 
 /-
 NB Lean's `Preorder` class has an addition requirement on how it expects `<` to be defined,
@@ -506,8 +470,6 @@ Definition 15
 Let (X, ≤X) be a proset. We define the induced preorder ≤ on
 Maybe(X) where for all x, y ∈ M aybe(X) we have
 x ≤ y ⇔ x = ⊥ ∨ (x, y ∈ X ∧ x ≤X y)
-
-NB whatever you do, do NOT remove the priority from the instance.
 -/
 instance (priority := high) maybeInduced {α : Type} [Preorder α] : Preorder (Option α) :=
   let le : Option α → Option α → Prop := λ x y ↦
@@ -517,7 +479,7 @@ instance (priority := high) maybeInduced {α : Type} [Preorder α] : Preorder (O
                                            | .some _, .none   => False
   {
     le := le
-    lt := λ a b ↦ le a b ∧ ¬ le b a
+    lt := λ a b ↦ le a b ∧ ¬ le b a -- `False` at home.
     le_refl := by dsimp [le]; aesop
     le_trans := by dsimp [le, (·≤·)]; aesop (add safe forward le_trans)
   }
@@ -539,9 +501,10 @@ instance : Preorder (Kbar K₁ K₂ × Kbar K₁ K₂ × Option V₊) := inferIn
 /--
 PAPER: and an induced subset preorder on the subset T
 
-NB the default behaviour is iso with the Definition 18. (cf. `Preorder.lift`)
+NB the default behaviour is iso with the Definition 18. (cf. `Preorder.lift`),
+transitively via subset/subtype iso
 -/
-instance : Preorder { τ : Τ K₁ K₂ V // τ.isValid } := inferInstance
+instance : Preorder (Τ K₁ K₂ V) := inferInstance
 
 /--
 PAPER: we use the underlying preorder on V coming from the fact that V is a lattice
@@ -557,21 +520,21 @@ NB the default behaviour is iso with the Definition 18. (cf. `Preorder.lift`)
 NB the default behaviour to find the preorder for the underlying function is iso with 
 Definition 16. (cf. `Pi.le_def`)
 -/
-instance : Preorder { s : S K₁ K₂ V // s.isValid } := inferInstance
+instance : Preorder (S K₁ K₂ V) := inferInstance
 
 /--
 PAPER: Given these preorders on T and S, we get an induced product preorder on T × S
 
 NB the default behavviour is iso with the Definition 19. (cf. `Prod.mk_le_mk`)
 -/
-instance : Preorder ({ τ : Τ K₁ K₂ V // τ.isValid } × { s : S K₁ K₂ V // s.isValid }) := inferInstance
+instance : Preorder (Τ K₁ K₂ V × S K₁ K₂ V) := inferInstance
 
 section Plumbing
 
 variable [Finite K₁] [Finite K₂] [Finite V]
 
 /--
-Noncomputable Fintype might seem strange but `Fintyp` fits better in Lean's hierarchy and removes
+Noncomputable Fintype might seem strange but `Fintype` fits better in Lean's hierarchy and removes
 a bit of friction when converting to finset.
 
 NB the current setup is such that this is unnecessary, will likely remove.
@@ -581,32 +544,27 @@ noncomputable instance : Fintype (Τ K₁ K₂ V) := Fintype.ofFinite _
 @[deprecated]
 noncomputable instance : Fintype (Τc K₁ K₂ V) := Fintype.ofFinite _
 @[deprecated]
-noncomputable instance : Fintype { s : S K₁ K₂ V // s.isValid } := Fintype.ofFinite _
+noncomputable instance : Fintype (S K₁ K₂ V) := Fintype.ofFinite _
 
 end Plumbing
 
 end Order
 
-variable [LinearOrder K₁] [LinearOrder K₂] [Finite K₁] [Finite K₂]
-
-/--
-NB might be subject to change, I'd rather prove the subset properties post facto, just want to make sure
-that the orders we get here are appropriate.
--/
-def f (b : { s : S K₁ K₂ V // s.isValid })
-      (T : { τ : Τ K₁ K₂ V // τ.isValid }) : { s : S K₁ K₂ V // s.isValid } :=
-  let univ := { (T', b') | (T' : Τc K₁ K₂ V) (b' : { s : S K₁ K₂ V // s.isValid }) (_h : (T, b) ≤ (↑T', b')) }
+def f (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V :=
+  let univ := { (T', b') | (T' : Τc K₁ K₂ V) (b' : S K₁ K₂ V) (_h : (T, b) ≤ (↑T', b')) }
   ⟨
     ⨅ x ∈ univ, fc x.1 x.2,
-    isValid_inf_of_valid (isValid_fc ·.2.2)
+    by rintro (k | k) <;> simp
   ⟩
 
-noncomputable def fStar (Ts : List { τ : Τ K₁ K₂ V // τ.isValid })
-                        (s₀ : { s : S K₁ K₂ V // s.isValid }) : { s : S K₁ K₂ V // s.isValid } :=
+noncomputable def fStar (Ts : List (Τ K₁ K₂ V)) (s₀ : S K₁ K₂ V) : S K₁ K₂ V :=
   Ts.foldl f s₀
 
-def Bal (π : BalanceProof K₁ K₂ C Pi V) (bs : List (Block K₁ K₂ C Sigma V)) : { s : S K₁ K₂ V // s.isValid } :=
-  fStar ((TransactionsInBlocks π bs).attach.map (λ x ↦ ⟨x.1, isValid_TransactionsInBlocks _ x.2⟩)) (S.validInitial ..)
+variable [Finite K₁] [LinearOrder K₁]
+         [Finite K₂] [LinearOrder K₂]
+
+def Bal (π : BalanceProof K₁ K₂ C Pi V) (bs : List (Block K₁ K₂ C Sigma V)) : S K₁ K₂ V :=
+  fStar (TransactionsInBlocks π bs) (.initial K₁ K₂ V)
 
 end WithStructuredTypes
 
