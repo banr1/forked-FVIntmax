@@ -555,6 +555,24 @@ variable [Finite K₁] [LinearOrder K₁]
 def Bal (π : BalanceProof K₁ K₂ C Pi V) (bs : List (Block K₁ K₂ C Sigma V)) : S K₁ K₂ V :=
   fStar (TransactionsInBlocks π bs) (.initial K₁ K₂ V)
 
+section Lemma1
+
+open BigOperators
+
+/-
+We start by noticing that the transition function for complete transacactions fc preserves the sum of account balances
+-/
+omit [LinearOrder K₁] [LinearOrder K₂] in
+lemma fc_preserves_balances {Τ : Τc K₁ K₂ V} {b : S K₁ K₂ V} :
+  ∑ (k : Kbar K₁ K₂), fc Τ b k = ∑ (k : Kbar K₁ K₂), b k := by
+  /-
+    Proof. Left as an exercise for the reader. QED.
+  -/
+  unfold fc
+  simp [Finset.sum_add_distrib, add_right_eq_self, ←Finset.sum_smul]
+  
+end Lemma1
+
 end WithStructuredTypes
 
 end Computation
