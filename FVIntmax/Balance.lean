@@ -95,8 +95,7 @@ section Τ
 
 variable [Nonnegative V]
          {v? : Option V₊}
-         {k₁ : K₁} {k₂ : K₂}
-         {kb kb₁ kb₂ : Kbar K₁ K₂}
+         {kb₁ kb₂ : Kbar K₁ K₂}
          {τ : Τ K₁ K₂ V}
 
 /--
@@ -336,17 +335,6 @@ end S
 
 end S
 
--- /--
--- The infimum of valid values is valid.
--- -/
--- lemma isValid_inf_of_valid {V : Type} [CompleteLattice V] [AddCommGroup V]
---                            {α : Type} {s : Set α} {f : α → S K₁ K₂ V}
---                            (h : ∀ (a : α), (f a).isValid) : (⨅ x ∈ s, f x).isValid := by
---   rintro (k | _)
---   · simp; intros _ _
---     exact S.nonneg_key_of_isValid (h _)
---   · simp
-
 instance [Finite K₁] [Finite K₂] [Finite V] [Nonnegative V] : Finite (S K₁ K₂ V) := inferInstance 
 
 /--
@@ -413,10 +401,11 @@ The subtraction is simple - we can subtract integers in their additive group.
 The scalar multiplication (·•·) comes initially from the underlying `SubNegMonoid`, i.e.
 > A `SubNegMonoid` is an `AddMonoid` with unary `-` and binary `-` operations
 > satisfying `sub_eq_add_neg : ∀ a b, a - b = a + -b`.
-This is kinda of a Mathlib artifact they use, but it looks to me that this is really just the 'fundamental'
+This is kind of a Mathlib artifact they use, but it looks to me that this is really just the 'fundamental'
 multiplication by scalar in an additive monoid, a'la `k * V` is `V + V + ... + V` k times.
 So there's not super-deep analysis necessary here, I.. think???? - use `ℤ`'s 0 and 1 as 'the'
-two special elements and abuse the fact that multiplcation by scalar here is repeated addition. Done.
+two special elements and abuse the fact that multiplcation by scalar here is repeated addition.
+Change + to - as per `sub_eq_add_neg` if need be. Done.
 Not sure what the best way to express this algebraically is but Lean seems to accept this just fine.
 
 Of course, we can pretend that we have this `Module ℤ G`, because any additive commutative group `G` can be spooned into
