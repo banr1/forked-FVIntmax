@@ -92,6 +92,7 @@ namespace Τ
 section Τ
 
 variable [Nonnegative V]
+         {v : V₊}
          {v? : Option V₊}
          {kb₁ kb₂ : Kbar K₁ K₂}
          {τ : Τ K₁ K₂ V}
@@ -109,6 +110,13 @@ lemma isSome_of_complete {t'} (h : isComplete ⟨⟨kb₁, kb₂, v?⟩, t'⟩) 
 lemma s_ne_r_of_complete {t'} (h : isComplete ⟨⟨kb₁, kb₂, v?⟩, t'⟩) : kb₁ ≠ kb₂ := by
   unfold isComplete at h; rw [Τ'.isValid_iff] at t'
   aesop
+
+@[simp]
+lemma isComplete_some {t'} : isComplete ⟨⟨kb₁, kb₂, .some v⟩, t'⟩ := rfl
+
+def isSourceSender (τ : Τ K₁ K₂ V) := τ.1.1 matches .Source
+
+def isKeySender (τ : Τ K₁ K₂ V) := τ.1.1 matches .key _
 
 end Τ
 
@@ -301,6 +309,7 @@ def initial (K₁ K₂ V : Type) [Zero V] : S' K₁ K₂ V := λ _ ↦ 0
 lemma isValid_initial : (initial K₁ K₂ V).isValid := by
   unfold initial isValid; aesop
 
+@[aesop safe apply]
 lemma nonneg_key_of_isValid {b : S' K₁ K₂ V} {k} (h : b.isValid) : 0 ≤ b (.key k) := by
   unfold isValid at h
   specialize h k
@@ -310,8 +319,14 @@ end S'
 
 abbrev S (K₁ K₂ V : Type) [Nonnegative V] := { s : S' K₁ K₂ V // s.isValid }
 
-instance : CoeFun (S K₁ K₂ V) λ _ ↦ Kbar K₁ K₂ → V := ⟨(·.1 ·)⟩ -- Ook?! OOK! 
+-- abbrev V? (k : Kbar K₁ K₂) : Type :=
+--   match k with
+--   | .Source => V
+--   | .key  _ => V₊
 
+instance : CoeFun (S K₁ K₂ V) λ _ ↦ Kbar K₁ K₂ → V :=
+  ⟨λ s k ↦ s.1 k⟩
+    
 namespace S
 
 def initial (K₁ K₂ V : Type) [Nonnegative V] : S K₁ K₂ V :=
@@ -319,15 +334,35 @@ def initial (K₁ K₂ V : Type) [Nonnegative V] : S K₁ K₂ V :=
 
 @[simp]
 lemma nonneg {s : S K₁ K₂ V} {k : Key K₁ K₂} : 0 ≤ s k := by
-  aesop (add safe apply S'.nonneg_key_of_isValid)
+  aesop
 
 @[simp]
-lemma isValid_coe {s : S K₁ K₂ V} : S'.isValid ↑s := by
+lemma isValid_coe {s : S K₁ K₂ V} : S'.isValid (V := V) (K₁ := K₁) (K₂ := K₂) ↑s := by
   rintro (k | k) <;> aesop
 
 @[simp]
 lemma nonneg_coe {s : S K₁ K₂ V} {k : Key K₁ K₂} : 0 ≤ (↑s : S' K₁ K₂ V) k := by
   aesop
+
+-- lemma isValid_inf_of_valid {V : Type} [AddCommGroup V] [Nonnegative V]
+--                            {α : Type} {f : α → S' K₁ K₂ V}
+--                            (h : ∀ x, (f x).isValid) : (⨅ x : α, f x).isValid := by sorry
+  -- rintro (k | _)
+  -- · simp
+  --   unfold S' at *
+  --   unfold S'.isValid at h
+  --   have : (x : Kbar K₁ K₂) → InfSet V := sorry
+  --   rw [@iInf_apply _ _ _ this f (Kbar.key k)]
+  --   simp [iInf_apply]
+  --   rw [iInf_apply]
+  --   done
+    
+    
+  --   -- simp
+  --   -- apply S'.nonneg_key_of_isValid
+  --   -- unfold S'.isValid at *
+  --   -- aesop
+  -- · simp
 
 end S
 
@@ -337,6 +372,21 @@ end S
 PAPER: where the set of transactions is the subset Tc ⊆ T, called the complete transactions
 -/
 abbrev Τc (K₁ K₂ V : Type) [Nonnegative V] : Type := { τ : Τ K₁ K₂ V // τ.isComplete }
+
+namespace Τc
+
+section Τc
+
+variable {K₁ K₂ V : Type} [Nonnegative V]
+         
+
+def isSourceSender (τc : Τc K₁ K₂ V) := τc.1.isSourceSender
+
+def isKeySender (τc : Τc K₁ K₂ V) := τc.1.isKeySender
+
+end Τc
+
+end Τc
 
 /--
 And the obvious lift from `Τ.isComplete` to `Τ.isValid` to make Lean happy.
@@ -362,12 +412,12 @@ section WithStructuredTypes
 
 section v'
 
-variable [Zero V] [CompleteLattice V] -- NB `Nonnegative V` is implied as `CompleteLattice V` gives `Preorder V`.
+variable [Zero V] [Lattice V] -- NB `Nonnegative V` is implied as `CompleteLattice V` gives `Preorder V`.
 
 def v' (v : V₊) (b : S K₁ K₂ V) (s : Kbar K₁ K₂) : V₊ :=
   match h : s with
   | .Source => v
-  | .key _  => ⟨v ⊓ b s, by aesop⟩
+  | .key _  => ⟨v ⊓ b s, by simp [h]⟩
 
 variable {v : V₊} {b : S K₁ K₂ V} {s : Kbar K₁ K₂}
 
@@ -377,11 +427,11 @@ variable {v : V₊} {b : S K₁ K₂ V} {s : Kbar K₁ K₂}
 lemma v'_source_eq_v : v' v b .Source = v := by unfold v'; aesop
 
 @[simp]
-lemma v'_key_eq_meet {k : Key K₁ K₂} : v' v b (Kbar.key k) = v.1 ⊓ b k := by aesop
+lemma v'_key_eq_meet {k : Key K₁ K₂} : v' v b (Kbar.key k) = ⟨v ⊓ b k, by simp⟩ := by aesop
 
 end v'
 
-variable [CompleteLattice V]
+variable [Lattice V]
          [AddCommGroup V]
          [CovariantClass V V (· + ·) (· ≤ ·)]
          [CovariantClass V V (Function.swap (· + ·)) (· ≤ ·)]
@@ -410,15 +460,27 @@ def fc (τc : Τc K₁ K₂ V) (b : S K₁ K₂ V) : S K₁ K₂ V :=
       let v' := v' (v.get hτ) b s
       b k + (e r - e s) k • v',
   by rintro (k | _) <;>
-     aesop (add safe apply S'.nonneg_key_of_isValid)
-           (add unsafe apply le_add_of_le_of_nonneg)
+     aesop (add unsafe apply le_add_of_le_of_nonneg)
   ⟩
+
+@[simp]
+lemma fc_key {τc : Τc K₁ K₂ V} {b : S K₁ K₂ V} :
+  0 ≤ fc τc b (.key k) := by simp
 
 /-
 NB Lean's `Preorder` class has an addition requirement on how it expects `<` to be defined,
 We'll use `False` stated as `a ≤ b ∧ ¬ b ≤ a`. Don't worry about it :).
 -/
 section Order
+
+def discretePreorder {α : Type} : Preorder α :=
+  {
+    lt := λ _ _ ↦ False
+    le := (·=·)
+    le_refl := Eq.refl
+    le_trans := λ _ _ _ ↦ Eq.trans
+    lt_iff_le_not_le := by aesop
+  }
 
 /--
 PAPER: We first equip K2 with the discrete preorder.
@@ -431,19 +493,25 @@ instance : Preorder (Kbar K₁ K₂) where
 
 instance : Preorder (Kbar K₁ K₂ × Kbar K₁ K₂) := inferInstance
 
-/--
-PAPER: Then we equip V+ with the discrete preorder.
--/
-instance (priority := high) : LE V₊ := ⟨(·=·)⟩
-instance (priority := high) : LT V₊ := ⟨λ a b ↦ a ≤ b ∧ ¬ b ≤ a⟩ -- 😈 (NB this is `False`)
+-- /--
+-- PAPER: Then we equip V+ with the discrete preorder.
+-- -/
+-- instance (priority := high) : LE V₊ := ⟨(·=·)⟩
+-- instance (priority := high) : LT V₊ := ⟨λ a b ↦ a ≤ b ∧ ¬ b ≤ a⟩ -- 😈 (NB this is `False`)
 
 /--
 High priority is imperative if we want Lean to pick this one up consistently.
 Note that Lean already has `[Preorder α] (p : α → Prop) : Preorder (Subtype p)`, but we want ours.
 -/
-instance (priority := high) : Preorder V₊ where
-  le_refl := Eq.refl
-  le_trans := λ _ _ _ ↦ Eq.trans
+instance (priority := high) discrete_preorder_nonneg_V : Preorder V₊ := discretePreorder
+
+omit [CovariantClass V V (fun x x_1 => x + x_1) fun x x_1 => x ≤ x_1]
+     [CovariantClass V V (Function.swap fun x x_1 => x + x_1) fun x x_1 => x ≤ x_1] in
+/--
+Equality brings quality - promote a preorder on `V₊` to equality ASAP.
+-/
+@[simp]
+lemma discrete_preorder_eq_equality {a b : V₊} : a ≤ b ↔ a = b := by rfl
 
 /--
 Definition 15
@@ -463,6 +531,11 @@ instance (priority := high) maybeInduced {α : Type} [Preorder α] : Preorder (O
     le_refl := by dsimp [le]; aesop
     le_trans := by dsimp [le, (·≤·)]; aesop (add safe forward le_trans)
   }
+
+/-
+NB everything here is actually `... := inferInstance`, we're being explicit due to overabundance of caution.
+Lean is perfectly capable of finding these preorders automatically.
+-/
 
 /--
 PAPER: which induces a preorder on Maybe(V+)
@@ -491,7 +564,16 @@ PAPER: we use the underlying preorder on V coming from the fact that V is a latt
 
 NB the default behaviour is the lattice-induced preorder. (cf. `PartialOrder.toPreorder`)
 -/
-instance : Preorder V := inferInstance
+instance latticePreorder : Preorder V := inferInstance
+
+/--
+NB this is the underlying preorder on `S'` for which `S` is the corresponding subset (subtype).
+-/
+instance (priority := high) : Preorder (S' K₁ K₂ V) := @_root_.Pi.preorder _ _
+  λ k ↦
+    match k with
+    | .Source => latticePreorder
+    | .key _  => discretePreorder
 
 /--
 PAPER: and give S the subset preorder
@@ -500,7 +582,7 @@ NB the default behaviour is iso with the Definition 18. (cf. `Preorder.lift`)
 NB the default behaviour to find the preorder for the underlying function is iso with 
 Definition 16. (cf. `Pi.le_def`)
 -/
-instance : Preorder (S K₁ K₂ V) := inferInstance
+instance : Preorder (S K₁ K₂ V) := Subtype.preorder λ s : S' K₁ K₂ V ↦ s.isValid
 
 /--
 PAPER: Given these preorders on T and S, we get an induced product preorder on T × S
@@ -520,13 +602,55 @@ end Plumbing
 
 end Order
 
-def f (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V :=
-  let univ := { (T', b') | (T' : Τc K₁ K₂ V) (b' : S K₁ K₂ V) (_h : (T, b) ≤ (↑T', b')) }
+def f_pog (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V :=
   ⟨
-    ⨅ x ∈ univ, fc x.1 x.2,
-    by rintro (k | k) <;> simp
+   λ k ↦
+    match h : T with
+    | ⟨(s, r, .some v), hT⟩ => fc ⟨T, by simp [h]⟩ b k
+    | ⟨(s, _, .none), _⟩ => if k = s then 0 else b.1 k,
+   by rintro (k | k) <;> aesop
   ⟩
 
+omit [CovariantClass V V (fun x x_1 => x + x_1) fun x x_1 => x ≤ x_1] in
+lemma cast_order {v₁ v₂ : V}
+                 (h : 0 ≤ v₁) (h₁ : 0 ≤ v₂) (h₂ : (⟨v₁, h⟩ : V₊) ≤ (⟨v₂, h₁⟩ : V₊)) : v₁ ≤ v₂ := by
+  aesop
+
+/--
+The transaction function for complete transactions `fc` is monotone for a fixed `τc`.
+-/
+lemma fc_mono {τc : Τc K₁ K₂ V} {b₁ b₂ : S K₁ K₂ V}
+              (h : b₁ ≤ b₂) : fc τc b₁ ≤ fc τc b₂ := λ k ↦ by
+  rcases τc with ⟨⟨⟨s | _, r, v⟩, -⟩, hτ₁⟩
+  /-
+    `s ≠ .Source`
+  -/
+  · have t₁ : r ≠ s := (Τ.s_ne_r_of_complete hτ₁).symm; simp [fc]
+    generalize eq₃ : @Subtype.val _ _ (v.get hτ₁) = v₁
+    · by_cases eq : k = s
+      · simp [eq, t₁]
+        generalize eq₁ : @Subtype.val _ _ b₁ _ = bₛ
+        generalize eq₂ : @Subtype.val _ _ b₂ _ = bₛ'
+        have eq₄ : bₛ ≤ bₛ' := by aesop
+        have :=
+        calc
+          (bₛ + -(v₁ ⊓ bₛ) + v₁ ⊓ bₛ' ≤ bₛ') ↔ bₛ + -(v₁ ⊓ bₛ) ≤ bₛ' + -(v₁ ⊓ bₛ')                  := by rw [←le_add_neg_iff_add_le]
+                                           _ ↔ bₛ + -v₁ ⊔ -bₛ ≤ bₛ' + -v₁ ⊔ -bₛ'                    := by simp [neg_inf]
+                                           _ ↔ (bₛ + -v₁) ⊔ (bₛ + -bₛ) ≤ (bₛ' + -v₁) ⊔ (bₛ' + -bₛ') := by simp [add_sup]
+                                           _ ↔ (bₛ + -v₁) ⊔ 0 ≤ (bₛ' + -v₁) ⊔ 0                     := by simp [add_neg_cancel]
+        rw [this]; mono
+      · by_cases eq' : k = r
+        · simp [eq', t₁.symm]
+          generalize eq₁ : @Subtype.val _ _ b₁ = bᵣ
+          generalize eq₂ : @Subtype.val _ _ b₂ = bᵣ'
+          have : bᵣ r ≤ bᵣ' r := by aesop
+          mono; aesop
+        · aesop
+  /-
+    `s = .Source`
+  -/
+  · simp [fc]; apply h 
+    
 noncomputable def fStar (Ts : List (Τ K₁ K₂ V)) (s₀ : S K₁ K₂ V) : S K₁ K₂ V :=
   Ts.foldl f s₀
 
@@ -554,37 +678,37 @@ lemma fc_preserves_balances {Τ : Τc K₁ K₂ V} {b : S K₁ K₂ V} :
   unfold fc
   simp [Finset.sum_add_distrib, add_right_eq_self, ←Finset.sum_smul]
   
-omit [LinearOrder K₁] [LinearOrder K₂] in
-lemma f_preserves_balances {Τ : Τ K₁ K₂ V} {b : S K₁ K₂ V} :
-  ∑ (k : Kbar K₁ K₂), f b Τ k ≤ ∑ (k : Kbar K₁ K₂), b k := by
-  /-
-    Proof. Left as an exercise for the reader. QED.
-  -/
-  unfold f; lift_lets; intro univ; dsimp
-  generalize eq : (⨅ x ∈ univ, λ x ↦ (_ : S' K₁ K₂ V) x) = f
-  -- have : Fintype (Τc K₁ K₂ V) := Fintype.ofFinite _
-  rw [←fc_preserves_balances]
-  swap
+-- omit [LinearOrder K₁] [LinearOrder K₂] in
+-- lemma f_le_balances {Τ : Τ K₁ K₂ V} {b : S K₁ K₂ V} :
+--   ∑ (k : Kbar K₁ K₂), f b Τ k ≤ ∑ (k : Kbar K₁ K₂), b k := by
+--   /-
+--     Proof. Left as an exercise for the reader. QED.
+--   -/
+--   unfold f; lift_lets; intro univ; dsimp
+--   generalize eq : (⨅ x ∈ univ, λ x ↦ (_ : S' K₁ K₂ V) x) = f
+--   -- have : Fintype (Τc K₁ K₂ V) := Fintype.ofFinite _
+--   rw [←fc_preserves_balances]
+--   swap
   
   
-  -- apply Finset.sum_le_sum
-  -- simp [iInf_apply] at eq
+--   -- apply Finset.sum_le_sum
+--   -- simp [iInf_apply] at eq
   
-  -- apply Finset.sum_le_sum -- that's why we had to prove we are in OrderedAddCommMonoid
-  -- dsimp [univ] at eq
+--   -- apply Finset.sum_le_sum -- that's why we had to prove we are in OrderedAddCommMonoid
+--   -- dsimp [univ] at eq
   
-  -- simp [univ]; intros k
-  -- simp
+--   -- simp [univ]; intros k
+--   -- simp
 
-  -- apply Finset.sum_le_sum (ι := Kbar K₁ K₂) (N := V) (f := (⨅ x ∈ univ, fun x_1 => ↑(fc x.1 x.2) x_1)) (g := ↑b k) (s := Finset.univ (α := Kbar K₁ K₂))
+--   -- apply Finset.sum_le_sum (ι := Kbar K₁ K₂) (N := V) (f := (⨅ x ∈ univ, fun x_1 => ↑(fc x.1 x.2) x_1)) (g := ↑b k) (s := Finset.univ (α := Kbar K₁ K₂))
   
-  -- rw [←fc_preserves_balances]
-  -- simp
+--   -- rw [←fc_preserves_balances]
+--   -- simp
 
-  -- simp only [Prod.mk_le_mk, exists_prop, Subtype.exists, Prod.exists, iInf_exists]
+--   -- simp only [Prod.mk_le_mk, exists_prop, Subtype.exists, Prod.exists, iInf_exists]
   
 
-  -- rw [←fc_preserves_balances]
+--   -- rw [←fc_preserves_balances]
   
 
 end Lemma1

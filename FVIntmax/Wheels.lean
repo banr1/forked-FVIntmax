@@ -49,18 +49,22 @@ def isCodomainNonneg {α : Type} [DecidableEq α] {β : Type} [LE β] [OfNat β 
 
 section NonNeg
 
-abbrev NonNeg (α : Type) [Nonnegative α] := { a : α // 0 ≤ a }
+def NonNeg (α : Type) [Nonnegative α] := { a : α // 0 ≤ a }
 
 postfix:max "₊" => NonNeg
+
+instance {α} [Nonnegative α] : Coe (NonNeg α) α := ⟨(·.1)⟩
+
+instance {α} [Nonnegative α] : Nonnegative α₊ := by unfold NonNeg; infer_instance
 
 @[simp]
 lemma NonNeg.coe_nonneg {α : Type} [Nonnegative α] {v : α₊} : 0 ≤ (↑v : α) := by
   cases v; aesop
 
 @[simp]
-lemma NonNeg.nonneg {α : Type} [Nonnegative α] {v : α₊} : 0 ≤ v := by aesop
+lemma NonNeg.nonneg {α : Type} [Nonnegative α] {v : α₊} : 0 ≤ v := v.2
 
-instance {α : Type} [Nonnegative α] [Finite α] : Finite α₊ := inferInstance
+instance {α : Type} [Nonnegative α] [Finite α] : Finite α₊ := by unfold NonNeg; infer_instance
 
 end NonNeg
 
