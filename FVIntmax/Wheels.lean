@@ -60,6 +60,8 @@ lemma NonNeg.coe_nonneg {α : Type} [Nonnegative α] {v : α₊} : 0 ≤ (↑v :
 @[simp]
 lemma NonNeg.nonneg {α : Type} [Nonnegative α] {v : α₊} : 0 ≤ v := by aesop
 
+instance {α : Type} [Nonnegative α] [Finite α] : Finite α₊ := inferInstance
+
 end NonNeg
 
 end Intmax

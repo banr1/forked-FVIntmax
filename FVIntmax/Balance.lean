@@ -68,8 +68,6 @@ so not much changes.
 -/
 abbrev Τ' (K₁ K₂ V : Type) [Nonnegative V] := Kbar K₁ K₂ × Kbar K₁ K₂ × Option V₊
 
-instance [Finite V] : Fintype V := Fintype.ofFinite _
-
 namespace Τ'
 
 variable [Nonnegative V]
@@ -335,8 +333,6 @@ end S
 
 end S
 
-instance [Finite K₁] [Finite K₂] [Finite V] [Nonnegative V] : Finite (S K₁ K₂ V) := inferInstance 
-
 /--
 PAPER: where the set of transactions is the subset Tc ⊆ T, called the complete transactions
 -/
@@ -363,11 +359,6 @@ There is technically still no need to for all the upcoming definitions
 but we are at the core of the protocol and so might as well.
 -/
 section WithStructuredTypes
-
-/-
-TODO(REVIEW):
-Given they're doing the big meet, I think the paper can say the lattice is complete, and implify [Finite V] anyway?
--/   
 
 section v'
 
@@ -520,20 +511,10 @@ instance : Preorder (Τ K₁ K₂ V × S K₁ K₂ V) := inferInstance
 
 section Plumbing
 
-variable [Finite K₁] [Finite K₂] [Finite V]
-
 /--
-Noncomputable Fintype might seem strange but `Fintype` fits better in Lean's hierarchy and removes
-a bit of friction when converting to finset.
-
-NB the current setup is such that this is unnecessary, will likely remove.
--/
-@[deprecated]
-noncomputable instance : Fintype (Τ K₁ K₂ V) := Fintype.ofFinite _
-@[deprecated]
-noncomputable instance : Fintype (Τc K₁ K₂ V) := Fintype.ofFinite _
-@[deprecated]
-noncomputable instance : Fintype (S K₁ K₂ V) := Fintype.ofFinite _
+How is this not in Mathlib...
+-/ 
+instance : OrderedAddCommMonoid V := ⟨by aesop⟩
 
 end Plumbing
 
@@ -552,13 +533,15 @@ noncomputable def fStar (Ts : List (Τ K₁ K₂ V)) (s₀ : S K₁ K₂ V) : S 
 variable [Finite K₁] [LinearOrder K₁]
          [Finite K₂] [LinearOrder K₂]
 
+instance : Fintype K₁ := Fintype.ofFinite _
+instance : Fintype K₂ := Fintype.ofFinite _
+
 def Bal (π : BalanceProof K₁ K₂ C Pi V) (bs : List (Block K₁ K₂ C Sigma V)) : S K₁ K₂ V :=
   fStar (TransactionsInBlocks π bs) (.initial K₁ K₂ V)
 
 section Lemma1
 
 open BigOperators
-
 /-
 We start by noticing that the transition function for complete transacactions fc preserves the sum of account balances
 -/
@@ -571,6 +554,39 @@ lemma fc_preserves_balances {Τ : Τc K₁ K₂ V} {b : S K₁ K₂ V} :
   unfold fc
   simp [Finset.sum_add_distrib, add_right_eq_self, ←Finset.sum_smul]
   
+omit [LinearOrder K₁] [LinearOrder K₂] in
+lemma f_preserves_balances {Τ : Τ K₁ K₂ V} {b : S K₁ K₂ V} :
+  ∑ (k : Kbar K₁ K₂), f b Τ k ≤ ∑ (k : Kbar K₁ K₂), b k := by
+  /-
+    Proof. Left as an exercise for the reader. QED.
+  -/
+  unfold f; lift_lets; intro univ; dsimp
+  generalize eq : (⨅ x ∈ univ, λ x ↦ (_ : S' K₁ K₂ V) x) = f
+  -- have : Fintype (Τc K₁ K₂ V) := Fintype.ofFinite _
+  rw [←fc_preserves_balances]
+  swap
+  
+  
+  -- apply Finset.sum_le_sum
+  -- simp [iInf_apply] at eq
+  
+  -- apply Finset.sum_le_sum -- that's why we had to prove we are in OrderedAddCommMonoid
+  -- dsimp [univ] at eq
+  
+  -- simp [univ]; intros k
+  -- simp
+
+  -- apply Finset.sum_le_sum (ι := Kbar K₁ K₂) (N := V) (f := (⨅ x ∈ univ, fun x_1 => ↑(fc x.1 x.2) x_1)) (g := ↑b k) (s := Finset.univ (α := Kbar K₁ K₂))
+  
+  -- rw [←fc_preserves_balances]
+  -- simp
+
+  -- simp only [Prod.mk_le_mk, exists_prop, Subtype.exists, Prod.exists, iInf_exists]
+  
+
+  -- rw [←fc_preserves_balances]
+  
+
 end Lemma1
 
 end WithStructuredTypes
