@@ -292,6 +292,9 @@ section S
 
 variable [Nonnegative V]
 
+lemma zero_le_val_subtype_of_le {P : V → Prop} (h : 0 ≤ v) (h : P v) :
+  (0 : V) ≤ (Subtype.mk v h).1 := by aesop
+
 /--
 TODO(REVIEW):
 PAPER FIX? -> In our case, a state is an assignment of a balance to each account, where every
@@ -317,6 +320,8 @@ lemma nonneg_key_of_isValid {b : S' K₁ K₂ V} {k} (h : b.isValid) : 0 ≤ b (
 
 end S'
 
+instance : Inhabited (S' K₁ K₂ V) := ⟨S'.initial K₁ K₂ V⟩
+
 abbrev S (K₁ K₂ V : Type) [Nonnegative V] := { s : S' K₁ K₂ V // s.isValid }
 
 -- abbrev V? (k : Kbar K₁ K₂) : Type :=
@@ -326,7 +331,7 @@ abbrev S (K₁ K₂ V : Type) [Nonnegative V] := { s : S' K₁ K₂ V // s.isVal
 
 instance : CoeFun (S K₁ K₂ V) λ _ ↦ Kbar K₁ K₂ → V :=
   ⟨λ s k ↦ s.1 k⟩
-    
+
 namespace S
 
 def initial (K₁ K₂ V : Type) [Nonnegative V] : S K₁ K₂ V :=
@@ -367,6 +372,8 @@ lemma nonneg_coe {s : S K₁ K₂ V} {k : Key K₁ K₂} : 0 ≤ (↑s : S' K₁
 end S
 
 end S
+
+instance [Nonnegative V] : Inhabited (S K₁ K₂ V) := ⟨S.initial K₁ K₂ V⟩
 
 /--
 PAPER: where the set of transactions is the subset Tc ⊆ T, called the complete transactions
@@ -452,11 +459,11 @@ Not sure what the best way to express this algebraically is but Lean seems to ac
 Of course, we can pretend that we have this `Module ℤ G`, because any additive commutative group `G` can be spooned into
 it; cf. the `_removeLater` below as a sanity check, but I am not sure reasoning along these lines is necessary.
 -/
-def fc (τc : Τc K₁ K₂ V) (b : S K₁ K₂ V) : S K₁ K₂ V :=
+def fc (τcXb : Τc K₁ K₂ V × S K₁ K₂ V) : S K₁ K₂ V :=
   -- have _removeLater : Module ℤ V := inferInstance
   ⟨λ k : Kbar K₁ K₂ ↦
-    match τc with
-    | ⟨⟨⟨s, r, v⟩, _⟩, hτ⟩ =>
+    match τcXb with
+    | ⟨⟨⟨⟨s, r, v⟩, _⟩, hτ⟩, b⟩ =>
       let v' := v' (v.get hτ) b s
       b k + (e r - e s) k • v',
   by rintro (k | _) <;>
@@ -465,7 +472,7 @@ def fc (τc : Τc K₁ K₂ V) (b : S K₁ K₂ V) : S K₁ K₂ V :=
 
 @[simp]
 lemma fc_key {τc : Τc K₁ K₂ V} {b : S K₁ K₂ V} :
-  0 ≤ fc τc b (.key k) := by simp
+  0 ≤ fc (τc, b) (.key k) := by simp
 
 /-
 NB Lean's `Preorder` class has an addition requirement on how it expects `<` to be defined,
@@ -567,22 +574,13 @@ NB the default behaviour is the lattice-induced preorder. (cf. `PartialOrder.toP
 instance latticePreorder : Preorder V := inferInstance
 
 /--
-NB this is the underlying preorder on `S'` for which `S` is the corresponding subset (subtype).
--/
-instance (priority := high) : Preorder (S' K₁ K₂ V) := @_root_.Pi.preorder _ _
-  λ k ↦
-    match k with
-    | .Source => latticePreorder
-    | .key _  => discretePreorder
-
-/--
 PAPER: and give S the subset preorder
 
 NB the default behaviour is iso with the Definition 18. (cf. `Preorder.lift`)
 NB the default behaviour to find the preorder for the underlying function is iso with 
 Definition 16. (cf. `Pi.le_def`)
 -/
-instance : Preorder (S K₁ K₂ V) := Subtype.preorder λ s : S' K₁ K₂ V ↦ s.isValid
+instance : Preorder (S K₁ K₂ V) := inferInstance
 
 /--
 PAPER: Given these preorders on T and S, we get an induced product preorder on T × S
@@ -600,27 +598,68 @@ instance : OrderedAddCommMonoid V := ⟨by aesop⟩
 
 end Plumbing
 
+-- @[simp]
+-- lemma none_le {k₁ : K₁} {k₂ : K₂} {h} {b} (τcXb : Τc K₁ K₂ V × S K₁ K₂ V) :
+--   (((⟨(k₁, k₂, none), h⟩, b) : Τ K₁ K₂ V × S K₁ K₂ V) ≤ (↑τcXb.1, τcXb.2)) := by
+--   dsimp [(·≤·)]
+  
+
+--   aesop
+
+
 end Order
 
-def f_pog (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V :=
+def fPog (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V :=
   ⟨
-   λ k ↦
-    match h : T with
-    | ⟨(s, r, .some v), hT⟩ => fc ⟨T, by simp [h]⟩ b k
-    | ⟨(s, _, .none), _⟩ => if k = s then 0 else b.1 k,
-   by rintro (k | k) <;> aesop
+    λ k ↦
+      match h : T with
+      | ⟨(s, r, .some v), hT⟩ => fc (⟨T, by simp [h]⟩, b) k
+      | ⟨(s, _, .none), _⟩ => if k = s then 0 else b.1 k,
+    by rintro (k | k) <;> aesop
+  ⟩
+
+def f (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V :=
+  ⟨
+    λ k ↦
+      let ordered := { a : Τc K₁ K₂ V × S K₁ K₂ V | (T, b) ≤ (↑a.1, a.2) }
+      let fAll := (fc · k) '' ordered ∪ {0} ∪ {b.1 k}
+      let V' := { v : V // v ∈ fAll }
+      have : InfSet fAll := { sInf := λ s ↦ ⟨fPog b T k, by
+        dsimp [fAll, fPog] at s ⊢
+        split
+        next s r v hτ => rw [Set.mem_union, Set.mem_union]; left; left
+                         apply Set.mem_image_of_mem; dsimp [ordered]; rfl
+        next k₁ k₂ hτ => simp [Τ'.isValid] at hτ; rename Τ'.isValid (k₁, k₂, none) => hτ₁
+                         have eq₁ : k₁ ≠ k₂ := by tauto
+                         have eq₂ : ∃ k : Key K₁ K₂, k₁ = .key k := by rcases k₁ <;> aesop
+                         rcases eq₂ with ⟨k', hk'⟩
+                         by_cases eq : k₁ = k
+                         · subst eq
+                           rw [if_pos rfl, Set.mem_union]
+                           left; right; exact Set.mem_singleton _
+                         · rw [if_neg (by tauto)]
+                           right; exact Set.mem_singleton _
+                          ⟩ }
+      let res : V' :=
+        ⨅ x : ordered, ⟨fc x.1 k, by dsimp [fAll]
+                                     rw [Set.mem_union, Set.mem_union]; left; left
+                                     apply Set.mem_image_of_mem; aesop⟩
+      res.1,
+    by rintro (k | k)
+       · simp; apply zero_le_val_subtype_of_le (by simp)
+       · simp
   ⟩
 
 omit [CovariantClass V V (fun x x_1 => x + x_1) fun x x_1 => x ≤ x_1] in
 lemma cast_order {v₁ v₂ : V}
                  (h : 0 ≤ v₁) (h₁ : 0 ≤ v₂) (h₂ : (⟨v₁, h⟩ : V₊) ≤ (⟨v₂, h₁⟩ : V₊)) : v₁ ≤ v₂ := by
   aesop
-
 /--
 The transaction function for complete transactions `fc` is monotone for a fixed `τc`.
 -/
+@[mono]
 lemma fc_mono {τc : Τc K₁ K₂ V} {b₁ b₂ : S K₁ K₂ V}
-              (h : b₁ ≤ b₂) : fc τc b₁ ≤ fc τc b₂ := λ k ↦ by
+              (h : b₁ ≤ b₂) : fc (τc, b₁) ≤ fc (τc, b₂) := λ k ↦ by
   rcases τc with ⟨⟨⟨s | _, r, v⟩, -⟩, hτ₁⟩
   /-
     `s ≠ .Source`
@@ -650,15 +689,15 @@ lemma fc_mono {τc : Τc K₁ K₂ V} {b₁ b₂ : S K₁ K₂ V}
     `s = .Source`
   -/
   · simp [fc]; apply h 
-    
-noncomputable def fStar (Ts : List (Τ K₁ K₂ V)) (s₀ : S K₁ K₂ V) : S K₁ K₂ V :=
+
+def fStar (Ts : List (Τ K₁ K₂ V)) (s₀ : S K₁ K₂ V) : S K₁ K₂ V :=
   Ts.foldl f s₀
 
 variable [Finite K₁] [LinearOrder K₁]
          [Finite K₂] [LinearOrder K₂]
 
 instance : Fintype K₁ := Fintype.ofFinite _
-instance : Fintype K₂ := Fintype.ofFinite _
+instance : Fintype K₂ := Fintype.ofFinite _ 
 
 def Bal (π : BalanceProof K₁ K₂ C Pi V) (bs : List (Block K₁ K₂ C Sigma V)) : S K₁ K₂ V :=
   fStar (TransactionsInBlocks π bs) (.initial K₁ K₂ V)
@@ -671,7 +710,7 @@ We start by noticing that the transition function for complete transacactions fc
 -/
 omit [LinearOrder K₁] [LinearOrder K₂] in
 lemma fc_preserves_balances {Τ : Τc K₁ K₂ V} {b : S K₁ K₂ V} :
-  ∑ (k : Kbar K₁ K₂), fc Τ b k = ∑ (k : Kbar K₁ K₂), b k := by
+  ∑ (k : Kbar K₁ K₂), fc (Τ, b) k = ∑ (k : Kbar K₁ K₂), b k := by
   /-
     Proof. Left as an exercise for the reader. QED.
   -/
