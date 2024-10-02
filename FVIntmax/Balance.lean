@@ -623,7 +623,6 @@ def f (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V :=
     λ k ↦
       let ordered := { a : Τc K₁ K₂ V × S K₁ K₂ V | (T, b) ≤ (↑a.1, a.2) }
       let fAll := (fc · k) '' ordered ∪ {0} ∪ {b.1 k}
-      let V' := { v : V // v ∈ fAll }
       have : InfSet fAll := { sInf := λ s ↦ ⟨fPog b T k, by
         dsimp [fAll, fPog] at s ⊢
         split
@@ -640,6 +639,7 @@ def f (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V :=
                          · rw [if_neg (by tauto)]
                            right; exact Set.mem_singleton _
                           ⟩ }
+      let V' := { v : V // v ∈ fAll }
       let res : V' :=
         ⨅ x : ordered, ⟨fc x.1 k, by dsimp [fAll]
                                      rw [Set.mem_union, Set.mem_union]; left; left
@@ -650,10 +650,15 @@ def f (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V :=
        · simp
   ⟩
 
+theorem f_eq_fPog {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂} : f b T k = fPog b T k := by
+  unfold f fPog
+  rfl -- OIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII!!!!!! DTT!!
+
 omit [CovariantClass V V (fun x x_1 => x + x_1) fun x x_1 => x ≤ x_1] in
 lemma cast_order {v₁ v₂ : V}
                  (h : 0 ≤ v₁) (h₁ : 0 ≤ v₂) (h₂ : (⟨v₁, h⟩ : V₊) ≤ (⟨v₂, h₁⟩ : V₊)) : v₁ ≤ v₂ := by
   aesop
+  
 /--
 The transaction function for complete transactions `fc` is monotone for a fixed `τc`.
 -/
