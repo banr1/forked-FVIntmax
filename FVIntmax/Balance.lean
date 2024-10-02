@@ -652,7 +652,7 @@ def f (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V :=
 
 theorem f_eq_fPog {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂} : f b T k = fPog b T k := by
   unfold f fPog
-  rfl -- OIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII!!!!!! DTT!!
+  rfl
 
 omit [CovariantClass V V (fun x x_1 => x + x_1) fun x x_1 => x ≤ x_1] in
 lemma cast_order {v₁ v₂ : V}
