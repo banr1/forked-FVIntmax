@@ -81,6 +81,11 @@ def isValid (τ : Τ' K₁ K₂ V) :=
 lemma isValid_iff {s r : Kbar K₁ K₂} {v? : Option V₊} :
   isValid (s, r, v?) ↔ s ≠ r ∧ (s matches .Source → v?.isSome) := by rfl
 
+lemma exists_key_of_isValid {s r : Kbar K₁ K₂}
+  (h : isValid (s, r, (none : Option V₊))) : ∃ k : Key K₁ K₂, s = k := by
+  rw [isValid_iff] at h
+  rcases s <;> aesop
+
 end IsValid
 
 end Τ'
@@ -602,10 +607,6 @@ end Plumbing
 -- lemma none_le {k₁ : K₁} {k₂ : K₂} {h} {b} (τcXb : Τc K₁ K₂ V × S K₁ K₂ V) :
 --   (((⟨(k₁, k₂, none), h⟩, b) : Τ K₁ K₂ V × S K₁ K₂ V) ≤ (↑τcXb.1, τcXb.2)) := by
 --   dsimp [(·≤·)]
-  
-
---   aesop
-
 
 end Order
 
@@ -722,38 +723,16 @@ lemma fc_preserves_balances {Τ : Τc K₁ K₂ V} {b : S K₁ K₂ V} :
   unfold fc
   simp [Finset.sum_add_distrib, add_right_eq_self, ←Finset.sum_smul]
   
--- omit [LinearOrder K₁] [LinearOrder K₂] in
--- lemma f_le_balances {Τ : Τ K₁ K₂ V} {b : S K₁ K₂ V} :
---   ∑ (k : Kbar K₁ K₂), f b Τ k ≤ ∑ (k : Kbar K₁ K₂), b k := by
---   /-
---     Proof. Left as an exercise for the reader. QED.
---   -/
---   unfold f; lift_lets; intro univ; dsimp
---   generalize eq : (⨅ x ∈ univ, λ x ↦ (_ : S' K₁ K₂ V) x) = f
---   -- have : Fintype (Τc K₁ K₂ V) := Fintype.ofFinite _
---   rw [←fc_preserves_balances]
---   swap
-  
-  
---   -- apply Finset.sum_le_sum
---   -- simp [iInf_apply] at eq
-  
---   -- apply Finset.sum_le_sum -- that's why we had to prove we are in OrderedAddCommMonoid
---   -- dsimp [univ] at eq
-  
---   -- simp [univ]; intros k
---   -- simp
-
---   -- apply Finset.sum_le_sum (ι := Kbar K₁ K₂) (N := V) (f := (⨅ x ∈ univ, fun x_1 => ↑(fc x.1 x.2) x_1)) (g := ↑b k) (s := Finset.univ (α := Kbar K₁ K₂))
-  
---   -- rw [←fc_preserves_balances]
---   -- simp
-
---   -- simp only [Prod.mk_le_mk, exists_prop, Subtype.exists, Prod.exists, iInf_exists]
-  
-
---   -- rw [←fc_preserves_balances]
-  
+omit [LinearOrder K₁] [LinearOrder K₂] in
+lemma f_le_balances {Τ : Τ K₁ K₂ V} {b : S K₁ K₂ V} :
+  ∑ (k : Kbar K₁ K₂), fPog b Τ k ≤ ∑ (k : Kbar K₁ K₂), b k := by
+  dsimp [fPog]
+  split
+  next s r v hτ => rw [fc_preserves_balances]
+  next k₁ k₂ hτ =>
+    refine' (Finset.sum_le_sum (λ k _ ↦ _))
+    obtain ⟨s, hs⟩ := Τ'.exists_key_of_isValid hτ
+    aesop
 
 end Lemma1
 
