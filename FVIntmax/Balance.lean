@@ -627,7 +627,7 @@ def f (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V :=
   ⟨
     λ k ↦
       let ordered := { a : Τc K₁ K₂ V × S K₁ K₂ V | (T, b) ≤ (↑a.1, a.2) }
-      let fAll := (fc · k) '' ordered ∪ {0} ∪ {b.1 k}
+      let fAll := (fc · k) '' ordered ∪ {0} ∪ {b.1 k} -- this really is the image of `fPog`
       have : InfSet fAll := { sInf := λ s ↦ ⟨fPog b T k, by
         dsimp [fAll, fPog] at s ⊢
         split
@@ -657,6 +657,7 @@ def f (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V :=
 
 theorem f_eq_fPog {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂} : f b T k = fPog b T k := by
   unfold f fPog
+  dsimp
   rfl
 
 omit [CovariantClass V V (fun x x_1 => x + x_1) fun x x_1 => x ≤ x_1] in
@@ -725,7 +726,7 @@ section Lemma1
 
 open BigOperators
 /-
-We start by noticing that the transition function for complete transacactions fc preserves the sum of account balances
+PAPER: We start by noticing that the transition function for complete transacactions fc preserves the sum of account balances
 -/
 omit [LinearOrder K₁] [LinearOrder K₂] in
 @[simp]
@@ -738,7 +739,7 @@ lemma sum_fc_eq_sum {Τ : Τc K₁ K₂ V} {b : S K₁ K₂ V} :
   simp [Finset.sum_add_distrib, add_right_eq_self, ←Finset.sum_smul]
 
 /-
-This implies the following fact about the transition function for partial transactions f: 
+PAPER: This implies the following fact about the transition function for partial transactions f: 
 -/
 omit [LinearOrder K₁] [LinearOrder K₂] in
 lemma sum_fPog_le_sum {T : Τ K₁ K₂ V} {b : S K₁ K₂ V} :
@@ -751,6 +752,20 @@ lemma sum_fPog_le_sum {T : Τ K₁ K₂ V} {b : S K₁ K₂ V} :
     obtain ⟨s, hs⟩ := Τ'.exists_key_of_isValid hτ
     aesop
 
+/-
+The statement `sum_fStar_le_zero` fixes the initial accumulator to `S.initial`.
+The 'obvious' induction proceeds on all accumulators; however, generalizing
+the initial accumulator either makes the base case unprovable if this information
+is thrown out, or makes the inductive hypothesis useless if this information is kept.
+
+As such, we state this auxiliary theorem, articulating explicitly a condition that holds
+for _all_ relevant accumulators; more specifically, `(h : ∑ (k : Kbar K₁ K₂), s k ≤ 0)`.
+Now we are free to generalize the accumulator without invalidating either the base case
+or the inductive step.
+
+Note further that `∑ (k : Kbar K₁ K₂), (S.initial K₁ K₂ V) k ≤ 0`, as shown in
+`sum_fStar_le_zero`.
+-/
 omit [LinearOrder K₁] [LinearOrder K₂] in
 private lemma sum_fStar_le_zero_aux {Tstar : List (Τ K₁ K₂ V)} {s : S K₁ K₂ V}
   (h : ∑ (k : Kbar K₁ K₂), s k ≤ 0) :
@@ -761,13 +776,31 @@ private lemma sum_fStar_le_zero_aux {Tstar : List (Τ K₁ K₂ V)} {s : S K₁ 
   | cons _ _ ih => exact ih (le_trans sum_fPog_le_sum h)
 
 /-
-Then, it follows by induction that we have
+PAPER (Equation 1 in Lemma 1): Then, it follows by induction that we have
 
 NB I don't want to really introduce the notation `0` means the initial `S`. Can do tho vOv.
+
+NB please cf. sum_fStar_le_zero_aux to see what's happening.
 -/
+omit [LinearOrder K₁] [LinearOrder K₂] in
 lemma sum_fStar_le_zero {Tstar : List (Τ K₁ K₂ V)} :
   ∑ (k : Kbar K₁ K₂), fStar Tstar (S.initial K₁ K₂ V) k ≤ 0 :=
-  sum_fStar_le_zero_aux (by simp) 
+  sum_fStar_le_zero_aux (by simp)
+
+lemma lemma1 {π : BalanceProof K₁ K₂ C Pi V} {bs : List (Block K₁ K₂ C Sigma V)} :
+  Bal π bs .Source ≤ 0 := by
+  dsimp [Bal]
+  generalize eq : TransactionsInBlocks π _ = blocks
+  generalize eq₁ : S.initial K₁ K₂ V = s₀
+  generalize eq₂ : fStar blocks s₀ = f
+  have : ∑ x ∈ {Kbar.Source}, f x = 
+         ∑ x : Kbar K₁ K₂, f x - ∑ x ∈ Finset.univ \ {Kbar.Source}, f x := by simp
+  rw [←Finset.sum_singleton (a := Kbar.Source) (f := f), this, sub_nonpos]; clear this; dsimp
+  have := sum_fStar_le_zero_aux (Tstar := blocks) (s := s₀)
+  have eq₃ : ∑ x : Kbar K₁ K₂, f x ≤ 0 := by aesop
+  have eq₄ : 0 ≤ ∑ x ∈ Finset.univ \ {Kbar.Source}, f x := by sorry
+  exact le_trans eq₃ eq₄
+  
 
 end Lemma1
 
