@@ -343,6 +343,10 @@ def initial (K₁ K₂ V : Type) [Nonnegative V] : S K₁ K₂ V :=
   ⟨S'.initial K₁ K₂ V, S'.isValid_initial⟩
 
 @[simp]
+lemma initial_eq_zero {k : Kbar K₁ K₂} : initial K₁ K₂ V k = 0 := by
+  simp [initial, S'.initial]
+
+@[simp]
 lemma nonneg {s : S K₁ K₂ V} {k : Key K₁ K₂} : 0 ≤ s k := by
   aesop
 
@@ -697,7 +701,16 @@ lemma fc_mono {τc : Τc K₁ K₂ V} {b₁ b₂ : S K₁ K₂ V}
   · simp [fc]; apply h 
 
 def fStar (Ts : List (Τ K₁ K₂ V)) (s₀ : S K₁ K₂ V) : S K₁ K₂ V :=
-  Ts.foldl f s₀
+  Ts.foldl fPog s₀
+
+@[simp]
+lemma fStar_nil {s : S K₁ K₂ V} :
+  fStar [] s = s := by rfl
+
+@[simp]
+lemma fStar_cons {hd : Τ K₁ K₂ V} {tl : List (Τ K₁ K₂ V)} {s : S K₁ K₂ V} :
+  fStar (hd :: tl) s = fStar tl (fPog s hd) := by rfl
+
 
 variable [Finite K₁] [LinearOrder K₁]
          [Finite K₂] [LinearOrder K₂]
@@ -715,24 +728,46 @@ open BigOperators
 We start by noticing that the transition function for complete transacactions fc preserves the sum of account balances
 -/
 omit [LinearOrder K₁] [LinearOrder K₂] in
-lemma fc_preserves_balances {Τ : Τc K₁ K₂ V} {b : S K₁ K₂ V} :
+@[simp]
+lemma sum_fc_eq_sum {Τ : Τc K₁ K₂ V} {b : S K₁ K₂ V} :
   ∑ (k : Kbar K₁ K₂), fc (Τ, b) k = ∑ (k : Kbar K₁ K₂), b k := by
   /-
     Proof. Left as an exercise for the reader. QED.
   -/
   unfold fc
   simp [Finset.sum_add_distrib, add_right_eq_self, ←Finset.sum_smul]
-  
+
+/-
+This implies the following fact about the transition function for partial transactions f: 
+-/
 omit [LinearOrder K₁] [LinearOrder K₂] in
-lemma f_le_balances {Τ : Τ K₁ K₂ V} {b : S K₁ K₂ V} :
-  ∑ (k : Kbar K₁ K₂), fPog b Τ k ≤ ∑ (k : Kbar K₁ K₂), b k := by
+lemma sum_fPog_le_sum {T : Τ K₁ K₂ V} {b : S K₁ K₂ V} :
+  ∑ (k : Kbar K₁ K₂), fPog b T k ≤ ∑ (k : Kbar K₁ K₂), b k := by
   dsimp [fPog]
   split
-  next s r v hτ => rw [fc_preserves_balances]
+  next s r v hτ => simp
   next k₁ k₂ hτ =>
     refine' (Finset.sum_le_sum (λ k _ ↦ _))
     obtain ⟨s, hs⟩ := Τ'.exists_key_of_isValid hτ
     aesop
+
+omit [LinearOrder K₁] [LinearOrder K₂] in
+private lemma sum_fStar_le_zero_aux {Tstar : List (Τ K₁ K₂ V)} {s : S K₁ K₂ V}
+  (h : ∑ (k : Kbar K₁ K₂), s k ≤ 0) :
+  ∑ (k : Kbar K₁ K₂), fStar Tstar s k ≤ 0 := by
+  simp [fStar]
+  induction Tstar generalizing s with
+  | nil => aesop (add safe apply Finset.sum_nonpos)
+  | cons _ _ ih => exact ih (le_trans sum_fPog_le_sum h)
+
+/-
+Then, it follows by induction that we have
+
+NB I don't want to really introduce the notation `0` means the initial `S`. Can do tho vOv.
+-/
+lemma sum_fStar_le_zero {Tstar : List (Τ K₁ K₂ V)} :
+  ∑ (k : Kbar K₁ K₂), fStar Tstar (S.initial K₁ K₂ V) k ≤ 0 :=
+  sum_fStar_le_zero_aux (by simp) 
 
 end Lemma1
 
