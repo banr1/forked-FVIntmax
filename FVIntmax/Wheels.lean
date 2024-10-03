@@ -68,6 +68,19 @@ instance {α : Type} [Nonnegative α] [Finite α] : Finite α₊ := by unfold No
 
 end NonNeg
 
+section Tactics
+
+open Lean.Elab.Tactic in
+/--
+`valid` tries to automatically resolve validity of Τs.
+- uses the `Intmax.aesop_valid` set
+-/
+elab "valid" : tactic => do
+  evalTactic <| ← `(tactic| aesop (erase simp Sum.exists)
+                                  (rule_sets := [Intmax.aesop_valid]))
+
+end Tactics
+
 end Intmax
 
 theorem List.keys_zipWith_sigma {l₁ : List α} {l₂ : List β}

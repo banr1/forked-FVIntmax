@@ -7,7 +7,7 @@ Just ignore this section.
 -/
 section HicSuntDracones
 
-declare_aesop_rule_sets [Intmax.aesop_dict] (default := false)
+declare_aesop_rule_sets [Intmax.aesop_dict, Intmax.aesop_valid] (default := false)
 
 end HicSuntDracones
 
