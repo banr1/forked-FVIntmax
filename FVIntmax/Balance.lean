@@ -715,6 +715,9 @@ instance {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂} :
   InfSet (V' b T k) where
     sInf := λ _ ↦ ⟨f' b T k, f'_codomain⟩
 
+/--
+TODO(my esteemed self): This is lazy, cleanup.
+-/
 lemma f_IsGLB_of_V' {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂} :
   IsGLB (V' b T k) (f' b T k) := by
   simp [f', iInf, sInf, f', IsGLB, IsGreatest]
