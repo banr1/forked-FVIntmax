@@ -682,14 +682,16 @@ abbrev boundedBelow (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) :=
   { a : Τc K₁ K₂ V × S K₁ K₂ V | (T, b) ≤ (↑a.1, a.2) }
 
 def V' (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) (k : Kbar K₁ K₂) : Set V :=
-  { v : V | v ∈ (λ x ↦ f' x.2 x.1 k) '' boundedBelow b T }
+  { v : V | v ∈ (fc · k) '' boundedBelow b T }
 
 lemma f'_codomain {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂} :
   f' b T k ∈ V' b T k := by
   unfold V' f'
   dsimp; rw [Set.mem_image]; dsimp
   by_cases eq : T.isComplete
-  · use (⟨T, eq⟩, b)
+  · obtain ⟨key, hkey⟩ := Option.isSome_iff_exists.1 (Τ.isSome_of_complete eq)
+    use (⟨T, eq⟩, b)
+    aesop
   · rcases T with ⟨⟨s₀, r₀, v₀⟩, hT⟩
     unfold Τ.isComplete at eq; simp at eq; subst eq
     obtain ⟨key, hkey⟩ := Τ'.exists_key_of_isValid hT
@@ -718,7 +720,7 @@ instance {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂} :
 /--
 TODO(my esteemed self): This is lazy, cleanup.
 -/
-lemma f_IsGLB_of_V' {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂} :
+lemma f'_IsGLB_of_V' {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂} :
   IsGLB (V' b T k) (f' b T k) := by
   simp [f', iInf, sInf, f', IsGLB, IsGreatest]
   refine' And.intro _ _
@@ -732,13 +734,6 @@ lemma f_IsGLB_of_V' {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂
         exists_prop, Subtype.mk_le_mk] at hv
       rcases hv with ⟨a, ⟨c, ⟨e, ⟨g, ⟨i, ⟨k, ⟨l, ⟨m, n⟩⟩⟩⟩⟩⟩⟩⟩
       rw [←n]
-      unfold f'
-      simp
-      have : e.isSome := by unfold Τ.isComplete at i; aesop
-      rw [Option.isSome_iff_exists] at this 
-      rcases this with ⟨a', b'⟩
-      subst b'
-      simp
       apply fc_mono
       simp [(·≤·)]
       aesop
@@ -801,6 +796,9 @@ def f (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V :=
 
 theorem f_eq_f' {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂} : f b T k = f' b T k := rfl
 
+lemma f_IsGLB_of_V' {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂} :
+  IsGLB (V' b T k) (f b T k) := by simp [f_eq_f', f'_IsGLB_of_V']
+
 omit [CovariantClass V V (fun x x_1 => x + x_1) fun x x_1 => x ≤ x_1] in
 lemma cast_order {v₁ v₂ : V}
                  (h : 0 ≤ v₁) (h₁ : 0 ≤ v₂) (h₂ : (⟨v₁, h⟩ : V₊) ≤ (⟨v₂, h₁⟩ : V₊)) : v₁ ≤ v₂ := by
@@ -835,8 +833,8 @@ PAPER: We start by noticing that the transition function for complete transactio
 -/
 omit [LinearOrder K₁] [LinearOrder K₂] in
 @[simp]
-lemma sum_fc_eq_sum {Τ : Τc K₁ K₂ V} {b : S K₁ K₂ V} :
-  ∑ (k : Kbar K₁ K₂), fc (Τ, b) k = ∑ (k : Kbar K₁ K₂), b k := by
+lemma sum_fc_eq_sum {Tc : Τc K₁ K₂ V} {b : S K₁ K₂ V} :
+  ∑ (k : Kbar K₁ K₂), fc (Tc, b) k = ∑ (k : Kbar K₁ K₂), b k := by
   /-
     Proof. Left as an exercise for the reader. QED.
   -/
@@ -848,6 +846,37 @@ PAPER: This implies the following fact about the transition function for partial
 -/
 omit [LinearOrder K₁] [LinearOrder K₂] in
 lemma sum_f_le_sum {T : Τ K₁ K₂ V} {b : S K₁ K₂ V} :
+  ∑ (k : Kbar K₁ K₂), f b T k ≤ ∑ (k : Kbar K₁ K₂), b k := by
+  by_cases eq : T.isComplete
+  · conv_rhs => rw [←sum_fc_eq_sum (Tc := ⟨T, eq⟩)]
+    refine' Finset.sum_le_sum (λ k _ ↦ _)
+    have fcInV' : fc (⟨T, eq⟩, b) k ∈ V' b T k := by
+      dsimp [V']
+      rw [Set.mem_image]
+      use (⟨T, eq⟩, b)
+      simp
+    exact f_IsGLB_of_V'.1 fcInV'
+  · rcases T with ⟨⟨s, r, v⟩, h⟩
+    let Tc : Τc K₁ K₂ V := ⟨⟨(s, r, some 0), by valid⟩, by simp⟩
+    conv_rhs => rw [←sum_fc_eq_sum (Tc := Tc)]
+    refine' (Finset.sum_le_sum (λ k _ ↦ _))
+    have fcInV' : fc (Tc, b) k ∈ V' b ⟨(s, r, v), h⟩ k := by
+      dsimp [V']
+      rw [Set.mem_image]
+      use (⟨⟨(s, r, some 0), by valid⟩, by valid⟩, b)
+      simp
+      have : v = none := by aesop
+      simp [this, (·≤·)]
+    exact f_IsGLB_of_V'.1 fcInV'
+
+/-
+@ERIK: Isn't this easier? Doesn't even need `sum_fc_eq_sum`.
+       Note this relies on `f_eq_f` but in this setup, `f_eq_f'` does _not_ require
+       us to exhibit that it is 'the real' greatest lower bound, it's essentially 'just syntax'.
+       Worth noting this is still shown in `f_IsGLB_of_V'`, for the set `V'`.
+-/
+omit [LinearOrder K₁] [LinearOrder K₂] in
+lemma sum_f_le_sum' {T : Τ K₁ K₂ V} {b : S K₁ K₂ V} :
   ∑ (k : Kbar K₁ K₂), f b T k ≤ ∑ (k : Kbar K₁ K₂), b k := by
   simp [f_eq_f', f']
   split
