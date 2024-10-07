@@ -491,6 +491,9 @@ def fc (τcXb : Τc K₁ K₂ V × S K₁ K₂ V) : S K₁ K₂ V :=
 lemma fc_key {τc : Τc K₁ K₂ V} {b : S K₁ K₂ V} :
   0 ≤ fc (τc, b) (.key k) := by simp
 
+lemma le_fc_of_ne {τc : Τc K₁ K₂ V} {b : S K₁ K₂ V} {k : Kbar K₁ K₂}
+  (h : τc.1.1.1 ≠ k) : b k ≤ fc (τc, b) k := by unfold fc v'; aesop
+
 /-
 NB Lean's `Preorder` class has an addition requirement on how it expects `<` to be defined,
 We'll use `False` stated as `a ≤ b ∧ ¬ b ≤ a`. Don't worry about it :).
@@ -718,56 +721,28 @@ instance {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂} :
     sInf := λ _ ↦ ⟨f' b T k, f'_codomain⟩
 
 /--
-TODO(my esteemed self): This is lazy, cleanup.
+NB the `f'` function is the greatest lower bound on an appropriate subset of `V`, not on `V`.
 -/
 lemma f'_IsGLB_of_V' {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂} :
   IsGLB (V' b T k) (f' b T k) := by
-  simp [f', iInf, sInf, f', IsGLB, IsGreatest]
-  refine' And.intro _ _
-  · simp [lowerBounds]
-    intros v hv
+  dsimp [f', V', IsGLB, IsGreatest, lowerBounds, upperBounds, boundedBelow]; simp only [Set.mem_image]
+  refine' And.intro ?isLowerBound ?isGreatest
+  case isLowerBound =>
+    rintro v ⟨⟨τ', b'⟩, ⟨ha₁, ⟨⟩⟩⟩; simp at ha₁
     split
-    next s r v? hv? =>
-      have : s ≠ r := by rw [Τ'.isValid_iff] at hv?; aesop
-      simp [this]
-      simp only [V', Prod.mk_le_mk, Set.mem_image, Set.mem_setOf_eq, Prod.exists, Subtype.exists,
-        exists_prop, Subtype.mk_le_mk] at hv
-      rcases hv with ⟨a, ⟨c, ⟨e, ⟨g, ⟨i, ⟨k, ⟨l, ⟨m, n⟩⟩⟩⟩⟩⟩⟩⟩
-      rw [←n]
-      apply fc_mono
-      simp [(·≤·)]
-      aesop
+    next s r v? hv? => apply fc_mono ha₁
     next s r hv? =>
-      dsimp [V'] at hv; rw [Set.mem_image] at hv
-      rcases hv with ⟨⟨τ', b'⟩, ⟨h₁, h₂⟩⟩; simp at h₁ h₂
-      rw [←h₂]
-      rcases h₁ with ⟨h₁, h₁'⟩
-      rcases τ' with ⟨⟨⟨s', r', v?'⟩, hτ'⟩, hτ⟩
-      simp [(·≤·)] at h₁
-      obtain ⟨h₁s, h₁r, -⟩ := h₁
-      subst h₁s h₁r
-      have : s ≠ r := by rw [Τ'.isValid_iff] at hv?; aesop
-      have eq' : b k ≤ b' k := (by aesop); simp at eq'
-      have eq₁' : s ≠ .Source := by rw [Τ'.isValid_iff] at hv?; aesop
-      by_cases eq : k = s
-      · rcases s <;> aesop
-      · rw [if_neg eq]
-        by_cases eq₁ : k = r
-        · subst eq₁
-          obtain ⟨key, ⟨⟩⟩ := Option.isSome_iff_exists.1 (Τ.isSome_of_complete hτ)
-          simp [fc, this]
-          apply le_trans eq'
-          simp
-        · dsimp [fc]; aesop
-  · simp [upperBounds, lowerBounds]
-    intros v hv
-    dsimp [V'] at hv
+      by_cases eq : k = s <;> simp [eq]
+      · obtain ⟨key, ⟨⟩⟩ := Τ'.exists_key_of_isValid hv?; simp
+      · have : b k ≤ b' k := by aesop
+        rcases τ' with ⟨⟨⟨s', r', v'⟩, _⟩, _⟩; simp [(·≤·)] at ha₁
+        exact le_trans this (le_fc_of_ne (by aesop))
+  case isGreatest => 
+    intros v h; dsimp [V'] at h
+    apply h
     split
-    next s r v? hv? =>
-      apply hv; rw [Set.mem_image]; dsimp [f']
-      use (⟨⟨_, hv?⟩, by simp [Τ.isComplete]⟩, b)
+    next s r v? hv? => use (⟨⟨_, hv?⟩, by simp [Τ.isComplete]⟩, b)
     next s r hv? =>
-      apply hv; rw [Set.mem_image]; dsimp [f']
       obtain ⟨key, hkey⟩ := Τ'.exists_key_of_isValid hv?
       have : s ≠ r := Τ'.s_ne_r_of_isValid hv?
       by_cases eq : k = s
@@ -878,12 +853,48 @@ lemma sum_f_le_sum {T : Τ K₁ K₂ V} {b : S K₁ K₂ V} :
 omit [LinearOrder K₁] [LinearOrder K₂] in
 lemma sum_f_le_sum' {T : Τ K₁ K₂ V} {b : S K₁ K₂ V} :
   ∑ (k : Kbar K₁ K₂), f b T k ≤ ∑ (k : Kbar K₁ K₂), b k := by
+  /-
+    We know `f = f'` and furthermore, from the definition of `f'`, we need to show:
+    ∑ k : Kbar K₁ K₂,
+      match h : T with
+      | ⟨(fst, fst_1, some v), hT⟩ => ↑(fc (⟨T, ⋯⟩, b)) k
+      | ⟨(s, fst, none), property⟩ => if k = s then 0 else ↑b k
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ definition of `f'`
+    ≤
+    ∑ x : Kbar K₁ K₂, b x
+  -/
   simp [f_eq_f', f']
+  /-
+    We proceed by cases on completeness of the transaction.
+  -/
   split
-  next s r v hτ => simp
+  /-
+    The transaction is complete.
+  -/
+  next s r v hτ => simp -- Sorry I lied, we use `sum_fc_eq_sum` here! From which this follows immediately.
+  /-
+    The transaction is _not_complete.
+    Thus, we need to show:
+    `∑ x : Kbar K₁ K₂, if x = k₁ then 0 else b x`
+    `≤`
+    `∑ x : Kbar K₁ K₂, ↑b x`.
+  -/
   next k₁ k₂ hτ =>
+    /-
+      To show these two sums are ≤, it suffices to show: `if k = k₁ then 0 else ↑b k ≤ ↑b k`
+      This is because `∀ i ∈ s, f i ≤ g i → ∑ i ∈ s, f i ≤ ∑ i ∈ s, g i`.
+    -/
     refine' (Finset.sum_le_sum (λ k _ ↦ _))
+    /-
+      We know that `k = Kbar.key s`.
+    -/
     obtain ⟨s, hs⟩ := Τ'.exists_key_of_isValid hτ
+    /-
+      Suppose `k₁ = Kbar.key s`.
+      Show `0 ≤ b (Kbar.key s)`, true by `nonneg_key_of_isValid`.
+      Suppose `k₁ ≠ Kbar.key s`.
+      Show `val k ≤ val k`. True by `le_refl`.
+    -/
     aesop
 
 /-
