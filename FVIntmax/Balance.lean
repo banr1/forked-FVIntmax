@@ -87,30 +87,12 @@ lemma s_ne_r_of_isValid {s r : Kbar K₁ K₂} {v? : Option V₊}
   rw [isValid_iff] at h
   aesop
 
-/-
-NB one should feel encouraged to ignore `protected` lemmas as they are here for aesop 'only'.
--/
-
-@[aesop safe forward (rule_sets := [Intmax.aesop_valid])]
-protected lemma isValid_irrefl {s : Kbar K₁ K₂} {v? : Option V₊} : isValid (s, s, v?) → False := by
-  valid
-
 lemma exists_key_of_isValid {s r : Kbar K₁ K₂}
   (h : isValid (s, r, (none : Option V₊))) : ∃ k : Key K₁ K₂, s = k := by
-  rw [isValid_iff] at h
-  rcases s <;> aesop
+  rcases s <;> valid
 
-@[aesop safe apply (rule_sets := [Intmax.aesop_valid])]
-protected lemma s_ne_source_of_isValid {s r : Kbar K₁ K₂}
-  (h : Τ'.isValid (s, r, (.none : Option V₊))) : s ≠ .Source := by valid
-
-@[aesop safe apply (rule_sets := [Intmax.aesop_valid])]
-protected lemma source_ne_s_of_isValid {s r : Kbar K₁ K₂}
-  (h : Τ'.isValid (s, r, (.none : Option V₊))) : .Source ≠ s := by valid
-
-@[aesop unsafe apply (rule_sets := [Intmax.aesop_valid])]
 lemma isValid_some_of_ne {s r : Kbar K₁ K₂} {v? : V₊}
-  (h : s ≠ r) : Τ'.isValid (s, r, some v?) := by rw [isValid_iff]; aesop
+  (h : s ≠ r) : Τ'.isValid (s, r, some v?) := by valid
 
 end IsValid
 
@@ -132,22 +114,20 @@ variable [Nonnegative V]
 PAPER: complete transactions, consisting of the transactions
 ((s, r), v) ∈ T where v ̸= ⊥
 -/
-@[aesop norm (rule_sets := [Intmax.aesop_dict])]
+@[aesop norm (rule_sets := [Intmax.aesop_valid])]
 def isComplete (τ : Τ K₁ K₂ V) :=
   match τ with | ⟨(_, _, v), _⟩ => v.isSome
 
 lemma isSome_of_complete {t'} (h : isComplete ⟨⟨kb₁, kb₂, v?⟩, t'⟩) : v?.isSome := by
-  unfold isComplete at h; aesop
+  unfold isComplete at h; valid
 
--- @[aesop safe apply 9001 (rule_sets := [Intmax.aesop_dict])]
 lemma s_ne_r_of_complete {t'} (h : isComplete ⟨⟨kb₁, kb₂, v?⟩, t'⟩) : kb₁ ≠ kb₂ := by
-  unfold isComplete at h; rw [Τ'.isValid_iff] at t'
-  aesop
+  unfold isComplete at h; valid
 
 @[simp]
 lemma isComplete_none {t'} : ¬isComplete ⟨⟨kb₁, kb₂, (.none : Option V₊)⟩, t'⟩ := by
   unfold isComplete
-  aesop
+  valid
 
 @[simp]
 lemma isComplete_some {t'} : isComplete ⟨⟨kb₁, kb₂, .some v⟩, t'⟩ := rfl
@@ -371,7 +351,7 @@ lemma nonneg {s : S K₁ K₂ V} {k : Key K₁ K₂} : 0 ≤ s k := by
 
 @[simp]
 lemma isValid_coe {s : S K₁ K₂ V} : S'.isValid (V := V) (K₁ := K₁) (K₂ := K₂) ↑s := by
-  rintro (k | k) <;> aesop
+  valid
 
 @[simp]
 lemma nonneg_coe {s : S K₁ K₂ V} {k : Key K₁ K₂} : 0 ≤ (↑s : S' K₁ K₂ V) k := by
@@ -701,16 +681,16 @@ lemma f'_codomain {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂} 
     have : s₀ ≠ r₀ := by unfold Τ'.isValid at hT; aesop
     by_cases eq' : s₀ = k
     · let elem : Τc K₁ K₂ V := ⟨
-        ⟨⟨s₀, r₀, .some (⟨b s₀, by aesop⟩)⟩, by rw [Τ'.isValid_iff] at *; aesop⟩,
-        by simp
+        ⟨⟨s₀, r₀, .some (⟨b s₀, by aesop⟩)⟩, by valid⟩,
+        by valid
       ⟩
       use (elem, b)
       simp [(·≤·), fc]
       have : r₀ ≠ k := by aesop
       simp [eq', this, v']
     · let elem : Τc K₁ K₂ V := ⟨
-        ⟨⟨s₀, r₀, .some 0⟩, by rw [Τ'.isValid_iff] at *; aesop⟩,
-        by simp
+        ⟨⟨s₀, r₀, .some 0⟩, by valid⟩,
+        by valid
       ⟩
       use (elem, b)
       simp [(·≤·), fc]
@@ -741,13 +721,13 @@ lemma f'_IsGLB_of_V' {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K�
     intros v h; dsimp [V'] at h
     apply h
     split
-    next s r v? hv? => use (⟨⟨_, hv?⟩, by simp [Τ.isComplete]⟩, b)
+    next s r v? hv? => use (⟨⟨_, hv?⟩, by valid⟩, b)
     next s r hv? =>
       obtain ⟨key, hkey⟩ := Τ'.exists_key_of_isValid hv?
       have : s ≠ r := Τ'.s_ne_r_of_isValid hv?
       by_cases eq : k = s
       · let τc : Τc K₁ K₂ V := ⟨
-          ⟨(s, r, .some ⟨b k, by rw [eq, hkey]; simp⟩), by rw [Τ'.isValid_iff]; simp [this]⟩,
+          ⟨(s, r, .some ⟨b k, by valid⟩), by rw [Τ'.isValid_iff]; simp [this]⟩,
           by simp
         ⟩
         use (τc, b)
@@ -839,7 +819,6 @@ lemma sum_f_le_sum {T : Τ K₁ K₂ V} {b : S K₁ K₂ V} :
       dsimp [V']
       rw [Set.mem_image]
       use (⟨⟨(s, r, some 0), by valid⟩, by valid⟩, b)
-      simp
       have : v = none := by aesop
       simp [this, (·≤·)]
     exact f_IsGLB_of_V'.1 fcInV'

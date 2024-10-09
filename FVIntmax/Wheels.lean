@@ -76,8 +76,9 @@ open Lean.Elab.Tactic in
 - uses the `Intmax.aesop_valid` set
 -/
 elab "valid" : tactic => do
-  evalTactic <| ← `(tactic| aesop (erase simp Sum.exists)
-                                  (rule_sets := [Intmax.aesop_valid]))
+  evalTactic <| ← `(tactic| (try simp [*];
+                             try aesop (erase simp Sum.exists)
+                                       (rule_sets := [Intmax.aesop_valid])))
 
 end Tactics
 
