@@ -22,16 +22,8 @@ NB we do not impose `V₊`, here, but in `TransactionBatch.isValid` for convenie
 As such, we will prove properties for _valid transaction batches_ rather than for any batches.
 NB as per usual, V does not need to be a latticed-ordered abelian group just yet.
 -/
-abbrev TransactionBatch (K₁ : Type) [Finite K₁] (K₂ : Type) [Finite K₂] (V : Type) :=
+abbrev TransactionBatch (K₁ : Type) [Finite K₁] (K₂ : Type) [Finite K₂] (V : Type) [Nonnegative V] :=
   { m : Finmap (λ _ : Key K₁ K₂ ↦ V) // ∀ k, k ∈ m }
-
-/--
-A _valid transaction batch_ only contains nonnegative values of `V`.
-NB there is now a restriction on `V` such that the notion of nonnegative makes sense.
--/
-abbrev TransactionBatch.isValid {K₁ : Type} [Finite K₁] [DecidableEq K₁]
-                                {K₂ : Type} [Finite K₂] [DecidableEq K₂] [LE V] [OfNat V 0]
-  (tb : TransactionBatch K₁ K₂ V) := isCodomainNonneg tb.1
 
 section Finite
 
@@ -44,43 +36,30 @@ This will be used to show that `TransactionBatch` is finite as long as the domai
 is finite.
 -/
 noncomputable def univFinmap (K : Type) [Fintype K] [DecidableEq K]
-                             (V : Type) [DecidableEq V] [Fintype V] :
+                             (V : Type) [DecidableEq V] :
   { m : Finmap (λ _ : K ↦ V) // ∀ k, k ∈ m } ≃ (K → V) :=
   {
     toFun := λ m k ↦ m.1.lookup_h (a := k) (m.2 k)
     invFun := λ f ↦
-      let fvals := { Sigma.mk x (f x) | x : K }
-      have : Fintype ↑fvals := by
-        apply Fintype.subtype (s := { Sigma.mk x (f x) | x : K })
-        aesop
+      let keys : Finset K := Finset.univ
       ⟨⟨
-        Multiset.ofList fvals.toFinset.toList,
+        Multiset.ofList <| keys.toList.zipWith (f := Sigma.mk) (keys.toList.map f),
         by /-
              We start with no duplicates in the universal set for `K` and
              the production of pairs `(k : K × f k : V)` keeps them intact.
              As such, there are no duplicate keys in the final map.
            -/
-           simp only [
-             Finset.mem_univ, true_and, Set.toFinset_setOf, Finset.univ_filter_exists,
-             Finset.coe_toList, Finset.image_val, fvals
-           ]
-           rw [←Multiset.nodup_keys]
-           have : (Finset.univ.val (α := K)).Nodup := Finset.nodup _
-           rwa [Multiset.keys_dedup_map_pres_univ this (by simp)]
-           ⟩,
+           simp [List.NodupKeys]
+           rw [List.keys_zipWith_sigma (by simp)]
+           exact Finset.nodup_toList _
+       ⟩,
         by /-
              We start with the universal set for `K`, which is complete by definiton.
              Furthermore, we keep all `K`s and assign them values from the function's range.
              This construction obviously preserves all keys.
            -/
-           simp only [
-             Finset.mem_univ, true_and, Set.toFinset_setOf, Finset.univ_filter_exists,
-             Finset.coe_toList, Finset.image_val, true_implies, fvals
-           ]
-           intros k
-           rw [Finmap.mem_def]; dsimp
-           rw [Multiset.keys_dedup_map_pres_univ (Finset.nodup _) (by simp)]
-           simp only [Finset.mem_val, Finset.mem_univ]
+           intros k; rw [Finmap.mem_def]; dsimp
+           aesop (add simp List.keys_zipWith_sigma)
            ⟩
     left_inv := by
       /-
@@ -88,16 +67,10 @@ noncomputable def univFinmap (K : Type) [Fintype K] [DecidableEq K]
         - `⟨k, v⟩ ∈ m` iff `m.lookup k = v`
         - in maps where all keys are present, the lookup on the universal set of all keys never fails
       -/
-      simp [Function.LeftInverse]
-      rintro ⟨m, hm⟩ h
-      simp only [Finmap.lookup_h, Finmap.mk.injEq]
-      rw [
-        Multiset.dedup_eq_self.2 (Multiset.nodup_map_of_pres_keys_nodup (λ _ ↦ rfl) (Finset.nodup _)),
-        Multiset.ext
-      ]
-      intros kv
-      set m' := (Multiset.map (λ x ↦ _ : K → (_ : K) × V) _) with eqm'
-      have nodupm' : m'.Nodup := Multiset.nodup_map_of_pres_keys_nodup (by simp) (Finset.nodup _)
+      simp [Function.LeftInverse]; rintro ⟨m, hm⟩ h; simp
+      ext ⟨key, value⟩; simp [List.zipWith_map_right]
+      generalize eqF : (λ a ↦ ⟨a, _⟩ : K → (_ : K) × V) = f
+      dsimp [Finmap.lookup_h] at eqF
       have nodupm : m.Nodup := by
         rwa [← Multiset.nodup_keys, Multiset.keys, Multiset.nodup_map_iff_of_inj_on] at hm
         rintro ⟨x₁, x₂⟩ hx ⟨y₁, y₂⟩ hy h'
@@ -105,40 +78,38 @@ noncomputable def univFinmap (K : Type) [Fintype K] [DecidableEq K]
         have eq₁ : ⟨x₁, x₂⟩ ∈ map'.entries := by aesop
         have eq₂ : ⟨x₁, y₂⟩ ∈ map'.entries := by aesop
         rw [←Finmap.lookup_eq_some_iff] at eq₁ eq₂
-        aesop -- cc is too slow here but it works...
-      rw [Multiset.count_eq_of_nodup nodupm', Multiset.count_eq_of_nodup nodupm]
-      set map' : Finmap (λ _ : K ↦ V) := { entries := m, nodupKeys := hm } with _eqm
-      by_cases eq : kv ∈ m <;> (rcases kv with ⟨k, v⟩; simp [eq])
-      · by_contra contra
-        simp [eqm'] at contra
-        have : ⟨k, v⟩ ∈ map'.entries := by aesop
-        rw [←Finmap.lookup_eq_some_iff] at this
-        simp [Option.get] at contra; split at contra; cc
-      · simp [m']
-        intros contra
-        simp [Option.get] at contra; split at contra
-        next _ _ _ _ eq₃ _ =>
-          rw [Finmap.lookup_eq_some_iff] at eq₃; simp at eq₃
-          aesop -- cc is too slow here but it works...
+        aesop
+      have nodupl : (List.map f Finset.univ.toList).Nodup := by
+        apply List.nodup_map_of_pres_keys_nodup (by aesop) (Finset.nodup_toList _)
+      rw [Multiset.count_eq_of_nodup nodupm, List.count_eq_of_nodup nodupl]
+      set map' : Finmap (λ _ : K ↦ V) := { entries := m, nodupKeys := _ } with eqM
+      by_cases eq : ⟨key, value⟩ ∈ m <;> simp [eq]
+      · have : map'.lookup key = .some value := by rw [Finmap.lookup_eq_some_iff]; aesop
+        aesop
+      · intros k contra
+        simp [eqF.symm, Option.get] at contra
+        split at contra
+        next _ _ v hv eq₃ _ => rw [Finmap.lookup_eq_some_iff] at eq₃
+                               aesop
     right_inv := by
       /-
         Triviall follows from `⟨k, v⟩ ∈ m` iff `m.lookup k = v`.
         The left inverse is more involved because we need do not get the functional property of
         `f : K → V` for free and we have to recover it.
       -/
-      simp [Function.RightInverse, Function.LeftInverse]
+      simp [Function.RightInverse, Function.LeftInverse, List.zipWith_map_right]
       intros f; ext
       simp [Finmap.lookup_h, Option.get]
       split
-      next _ _ _ _ e _ => 
-        simp [Finmap.lookup_eq_some_iff] at e
+      next _ _ v hv e _ => 
+        simp [Finmap.lookup_eq_some_iff] at e 
         exact e.symm
   }
 
 /--
 For a finite K₁, K₂ and V, we can establish that a `TransactionBatch K₁ K₂ V` is finite.
 -/
-instance [Finite V] [DecidableEq K₁] [DecidableEq K₂] [DecidableEq V] :
+instance [DecidableEq K₁] [DecidableEq K₂] [DecidableEq V] [Nonnegative V] [Finite V] :
   Finite (TransactionBatch K₁ K₂ V) := by
   /-
     Follows trivially from the definition of `univFinmap`, for if we know that `(Key K₁ K₂ → V)`
@@ -146,8 +117,9 @@ instance [Finite V] [DecidableEq K₁] [DecidableEq K₂] [DecidableEq V] :
   -/
   have : Fintype K₁ := Fintype.ofFinite _
   have : Fintype K₂ := Fintype.ofFinite _
-  have : Fintype V := Fintype.ofFinite _
-  exact @Finite.of_equiv _ _ _ (univFinmap (K := Key K₁ K₂) (V := V)).symm
+  have := univFinmap (K := Key K₁ K₂) (V := V)
+
+  exact @Finite.of_equiv _ _ _ this.symm
 
 /-
 TODO(REVIEW):

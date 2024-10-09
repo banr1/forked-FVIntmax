@@ -489,6 +489,15 @@ def discretePreorder {α : Type} : Preorder α :=
     lt_iff_le_not_le := by aesop
   }
 
+def trivialPreorder {α : Type} : Preorder α :=
+  {
+    lt := λ _ _ ↦ False
+    le := λ _ _ ↦ True
+    le_refl := by simp
+    le_trans := by simp
+    lt_iff_le_not_le := by simp 
+  }
+
 /--
 PAPER: We first equip K2 with the discrete preorder.
 -/
@@ -927,6 +936,21 @@ lemma lemma1 {π : BalanceProof K₁ K₂ C Pi V}
   exact le_trans eq₃ eq₄
 
 end Lemma1
+
+variable [AD : ADScheme K₂ (!(TransactionBatch K₁ K₂ V × !K₂)) C Pi]
+
+instance : Preorder (Kbar K₁ K₂ → V₊) := discretePreorder
+
+
+section Lemma2
+
+
+
+lemma lemma2 {π : BalanceProof K₁ K₂ C Pi V}
+             {bs : List (Block K₁ K₂ C Sigma V)} : 
+
+
+end Lemma2
 
 end WithStructuredTypes
 
