@@ -709,15 +709,19 @@ instance {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂} :
   InfSet (V' b T k) where
     sInf := λ _ ↦ ⟨f' b T k, f'_codomain⟩
 
+instance infS {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} : InfSet (S K₁ K₂ V) where
+    sInf := λ _ ↦ f' b T
+
 /--
 NB the `f'` function is the greatest lower bound on an appropriate subset of `V`, not on `V`.
 -/
 lemma f'_IsGLB_of_V' {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂} :
   IsGLB (V' b T k) (f' b T k) := by
-  dsimp [f', V', IsGLB, IsGreatest, lowerBounds, upperBounds, boundedBelow]; simp only [Set.mem_image]
+  dsimp [V', IsGLB, IsGreatest, lowerBounds, upperBounds, boundedBelow]; simp only [Set.mem_image]
   refine' And.intro ?isLowerBound ?isGreatest
   case isLowerBound =>
     rintro v ⟨⟨τ', b'⟩, ⟨ha₁, ⟨⟩⟩⟩; simp at ha₁
+    dsimp [f']
     split
     next s r v? hv? => apply fc_mono ha₁
     next s r hv? =>
@@ -726,29 +730,10 @@ lemma f'_IsGLB_of_V' {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K�
       · have : b k ≤ b' k := by aesop
         rcases τ' with ⟨⟨⟨s', r', v'⟩, _⟩, _⟩; simp [(·≤·)] at ha₁
         exact le_trans this (le_fc_of_ne (by aesop))
-  case isGreatest => 
-    intros v h; dsimp [V'] at h
-    apply h
-    split
-    next s r v? hv? => use (⟨⟨_, hv?⟩, by valid⟩, b)
-    next s r hv? =>
-      obtain ⟨key, hkey⟩ := Τ'.exists_key_of_isValid hv?
-      have : s ≠ r := Τ'.s_ne_r_of_isValid hv?
-      by_cases eq : k = s
-      · let τc : Τc K₁ K₂ V := ⟨
-          ⟨(s, r, .some ⟨b k, by valid⟩), by rw [Τ'.isValid_iff]; simp [this]⟩,
-          by simp
-        ⟩
-        use (τc, b)
-        simp [(·≤·), fc, eq, this.symm]
-      · let τc : Τc K₁ K₂ V := ⟨
-          ⟨(s, r, .some 0), by rw [Τ'.isValid_iff]; simp [this]⟩,
-          by simp
-        ⟩
-        use (τc, b)
-        simp [(·≤·), fc, eq, this.symm]
+  case isGreatest => exact λ _ hv ↦ hv f'_codomain
 
-def f (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V :=
+@[deprecated]
+def f_pointwise (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V :=
   ⟨
     λ k ↦
       let res : V' b T k := ⨅ x : boundedBelow b T, ⟨fc x.1 k, by dsimp [V']; use x; aesop⟩
@@ -758,6 +743,28 @@ def f (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V :=
        · simp
   ⟩
 
+def f (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V :=
+  @iInf (α := S K₁ K₂ V)
+        (ι := Τc K₁ K₂ V × S K₁ K₂ V) -- NB it might seem strange that we're not taking the `boundedBelow`
+                                      -- set. It doesn't matter, we have post facto properties when
+                                      -- the set is particularly `boundedBelow`, viz. `f'_IsGLB_of_V'`.
+                                      -- Note further that an indexed infimum for a set `s` under `f`
+                                      -- is _defined_ to be the infimum of the set of the range
+                                      -- of `f` over `s`; this is where `V'` links this notion.
+
+                                      -- Differently put, we define the same infimum for all sets of `S K₁ K₂ V`,
+                                      -- regardless of the specifics of the sets. We then say that,
+                                      -- hey, if this happens to be the particular subset, that is generated
+                                      -- by taking the image of `fc` over the specific `boundedBelow` set,
+                                      -- then certain properties hold.
+
+                                      -- This would be quite inelegant in 'pure' math, but I have
+                                      -- a strange affinity towards this, as it allows us to
+                                      -- postpone having to prove anything until such time that
+                                      -- the property is actually needed.
+        (infS (b := b) (T := T))
+        (fc ·)
+  
 theorem f_eq_f' {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂} : f b T k = f' b T k := rfl
 
 lemma f_IsGLB_of_V' {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂} :
