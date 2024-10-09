@@ -14,7 +14,7 @@ section Pi
 
 variable {K₁ : Type} [Finite K₁] [DecidableEq K₁]
          {K₂ : Type} [Finite K₂] [DecidableEq K₂]
-         {V : Type} [Finite V] [DecidableEq V]
+         {V : Type} [Finite V] [DecidableEq V] [Nonnegative V]
          {C Pi : Type} (Λ : ℕ) (aggregator : K₁) (extradata : ExtraDataT)
          /-
            TODO(REVIEW) - Do we need this as a transaction batch or can we abstract over this to <some type T>?
@@ -39,7 +39,7 @@ section Valid
 /-
 V is a lattice ordered abelian group
 -/
-variable [CompleteLattice V]
+variable [Lattice V]
          [AddCommGroup V]
          [CovariantClass V V (· + ·) (· ≤ ·)]
          [CovariantClass V V (Function.swap (· + ·)) (· ≤ ·)]
@@ -60,7 +60,7 @@ DO NOT FORGET NONNEG
 
 TODO(MYSELF)
 -/
-def isValid [Finite V] [Nonnegative V] (π : BalanceProof K₁ K₂ C Pi V) : Bool :=
+def isValid [Nonnegative V] (π : BalanceProof K₁ K₂ C Pi V) : Bool :=
   match π with
   | ⟨K, D, h⟩ => true
 

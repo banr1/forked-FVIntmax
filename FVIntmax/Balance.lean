@@ -937,7 +937,7 @@ lemma lemma1 {π : BalanceProof K₁ K₂ C Pi V}
 
 end Lemma1
 
-variable [AD : ADScheme K₂ (!(TransactionBatch K₁ K₂ V × !K₂)) C Pi]
+-- variable [AD : ADScheme K₂ (!(TransactionBatch K₁ K₂ V × !K₂)) C Pi]
 
 instance : Preorder (Kbar K₁ K₂ → V₊) := discretePreorder
 
@@ -946,8 +946,8 @@ section Lemma2
 
 
 
-lemma lemma2 {π : BalanceProof K₁ K₂ C Pi V}
-             {bs : List (Block K₁ K₂ C Sigma V)} : 
+-- lemma lemma2 {π : BalanceProof K₁ K₂ C Pi V}
+--              {bs : List (Block K₁ K₂ C Sigma V)} : 
 
 
 end Lemma2
