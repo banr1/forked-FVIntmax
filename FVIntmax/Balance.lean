@@ -644,131 +644,148 @@ lemma fc_mono {τc τc' : Τc K₁ K₂ V} {b₁ b₂ : S K₁ K₂ V}
   -/
   · simp [fc]; apply h 
 
-def f' (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V :=
-  ⟨
-    λ k ↦
-      match h : T with
-      | ⟨(_, _, .some v), hT⟩ => fc (⟨T, by simp [h]⟩, b) k
-      | ⟨(s, _, .none), _⟩ => if k = s then 0 else b k,
-    by rintro (k | k) <;> aesop
-  ⟩
-
-@[simp]
-lemma f'_of_cast_complete {b : S K₁ K₂ V} {Tc : Τc K₁ K₂ V} :
-  f' b ↑Tc k = fc (Tc, b) k := by
-  have := Τ.isSome_of_complete Tc.2
-  unfold f'
-  aesop
-
-lemma f'_of_complete {b : S K₁ K₂ V} {T : Τ K₁ K₂ V}
-  (h : T.isComplete) : f' b T k = fc (⟨T, h⟩, b) k := by
-  rw [←f'_of_cast_complete]
-
-lemma f'_of_not_complete {b : S K₁ K₂ V} {T : Τ K₁ K₂ V}
-  (h : ¬T.isComplete) : f' b T k = if k = T.1.1 then 0 else b k := by
-  dsimp [f']
-  unfold Τ.isComplete at h
-  aesop
-
 abbrev boundedBelow (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) :=
   { a : Τc K₁ K₂ V × S K₁ K₂ V | (T, b) ≤ (↑a.1, a.2) }
 
 def V' (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) (k : Kbar K₁ K₂) : Set V :=
   { v : V | v ∈ (fc · k) '' boundedBelow b T }
 
-lemma f'_codomain {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂} :
-  f' b T k ∈ V' b T k := by
-  unfold V' f'
-  dsimp; rw [Set.mem_image]; dsimp
-  by_cases eq : T.isComplete
-  · obtain ⟨key, hkey⟩ := Option.isSome_iff_exists.1 (Τ.isSome_of_complete eq)
-    use (⟨T, eq⟩, b)
-    aesop
-  · rcases T with ⟨⟨s₀, r₀, v₀⟩, hT⟩
-    unfold Τ.isComplete at eq; simp at eq; subst eq
-    obtain ⟨key, hkey⟩ := Τ'.exists_key_of_isValid hT
-    have : s₀ ≠ r₀ := by unfold Τ'.isValid at hT; aesop
-    by_cases eq' : s₀ = k
-    · let elem : Τc K₁ K₂ V := ⟨
-        ⟨⟨s₀, r₀, .some (⟨b s₀, by aesop⟩)⟩, by valid⟩,
-        by valid
-      ⟩
-      use (elem, b)
-      simp [(·≤·), fc]
-      have : r₀ ≠ k := by aesop
-      simp [eq', this, v']
-    · let elem : Τc K₁ K₂ V := ⟨
-        ⟨⟨s₀, r₀, .some 0⟩, by valid⟩,
-        by valid
-      ⟩
-      use (elem, b)
-      simp [(·≤·), fc]
-      aesop
-
-instance {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂} :
-  InfSet (V' b T k) where
-    sInf := λ _ ↦ ⟨f' b T k, f'_codomain⟩
-
-instance infS {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} : InfSet (S K₁ K₂ V) where
-    sInf := λ _ ↦ f' b T
+lemma V'_eq_range {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂} :
+  V' b T k =
+  Set.range λ (x : { x : (Τc K₁ K₂ V × S K₁ K₂ V) // (T, b) ≤ (↑x.1, x.2) }) ↦ fc ↑x k := by
+  unfold V'
+  rw [Set.image_eq_range]
+  rfl
 
 /--
-NB the `f'` function is the greatest lower bound on an appropriate subset of `V`, not on `V`.
--/
-lemma f'_IsGLB_of_V' {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂} :
-  IsGLB (V' b T k) (f' b T k) := by
-  dsimp [V', IsGLB, IsGreatest, lowerBounds, upperBounds, boundedBelow]; simp only [Set.mem_image]
-  refine' And.intro ?isLowerBound ?isGreatest
-  case isLowerBound =>
-    rintro v ⟨⟨τ', b'⟩, ⟨ha₁, ⟨⟩⟩⟩; simp at ha₁
-    dsimp [f']
-    split
-    next s r v? hv? => apply fc_mono ha₁
-    next s r hv? =>
-      by_cases eq : k = s <;> simp [eq]
-      · obtain ⟨key, ⟨⟩⟩ := Τ'.exists_key_of_isValid hv?; simp
-      · have : b k ≤ b' k := by aesop
-        rcases τ' with ⟨⟨⟨s', r', v'⟩, _⟩, _⟩; simp [(·≤·)] at ha₁
-        exact le_trans this (le_fc_of_ne (by aesop))
-  case isGreatest => exact λ _ hv ↦ hv f'_codomain
+@erik:
+#1 - This is `opaque`. As such, `unfold f'` (and associated operations) _CANNOT_ be done.
+In other words, `f'` is a function you cannot _EVER_ take a look at the definition of.
 
-@[deprecated]
-def f_pointwise (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V :=
+As such, the statement below can be viewed as an existential statement, saying that indeed,
+there exists some state `s : S K₁ K₂ V` that's the GLB for the set `V'` for all `k ∈ Key K₁ K₂`.
+
+Importantly, note that it says `IsGLB (V' b T k) (s k)` ← this refers to this 'some state `s`',
+_NOT_ to the definition `f'_aux`.
+
+This models the fact that you might as well forget that `f'` has ever existed, except to specifically
+show that there is some `GLB` on this set.
+-/
+opaque f' (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : { s : S K₁ K₂ V // ∀ k, IsGLB (V' b T k) (s k) } :=
+  let f'_aux (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V := 
+    ⟨
+      λ k ↦
+        match h : T with
+        | ⟨(_, _, .some v), hT⟩ => fc (⟨T, by simp [h]⟩, b) k
+        | ⟨(s, _, .none), _⟩ => if k = s then 0 else b k,
+      by rintro (k | k) <;> aesop
+    ⟩
   ⟨
+    f'_aux b T,
     λ k ↦
-      let res : V' b T k := ⨅ x : boundedBelow b T, ⟨fc x.1 k, by dsimp [V']; use x; aesop⟩
-      res.1,
-    by rintro (k | k)
-       · simp; apply zero_le_val_subtype_of_le (by simp)
-       · simp
+      have f'_codomain : (f'_aux b T) k ∈ V' b T k := by
+        dsimp [V', f'_aux]
+        rw [Set.mem_image]; dsimp
+        by_cases eq : T.isComplete
+        · obtain ⟨key, hkey⟩ := Option.isSome_iff_exists.1 (Τ.isSome_of_complete eq)
+          use (⟨T, eq⟩, b)
+          aesop
+        · rcases T with ⟨⟨s₀, r₀, v₀⟩, hT⟩
+          unfold Τ.isComplete at eq; simp at eq; subst eq
+          obtain ⟨key, hkey⟩ := Τ'.exists_key_of_isValid hT
+          have : s₀ ≠ r₀ := by unfold Τ'.isValid at hT; aesop
+          by_cases eq' : s₀ = k
+          · let elem : Τc K₁ K₂ V := ⟨
+              ⟨⟨s₀, r₀, .some (⟨b s₀, by aesop⟩)⟩, by valid⟩,
+              by valid
+            ⟩
+            use (elem, b)
+            simp [(·≤·), fc]
+            have : r₀ ≠ k := by aesop
+            simp [eq', this, v']
+          · let elem : Τc K₁ K₂ V := ⟨
+              ⟨⟨s₀, r₀, .some 0⟩, by valid⟩,
+              by valid
+            ⟩
+            use (elem, b)
+            simp [(·≤·), fc]
+            aesop
+      have f'_IsGLB_of_V' : IsGLB (V' b T k) (f'_aux b T k) := by
+        dsimp [V', IsGLB, IsGreatest, lowerBounds, upperBounds, boundedBelow]; simp only [Set.mem_image]
+        refine' And.intro ?isLowerBound ?isGreatest
+        case isLowerBound =>
+          rintro v ⟨⟨τ', b'⟩, ⟨ha₁, ⟨⟩⟩⟩; simp at ha₁
+          split
+          next s r v? hv? => apply fc_mono ha₁
+          next s r hv? =>
+            by_cases eq : k = s <;> simp [eq]
+            · obtain ⟨key, ⟨⟩⟩ := Τ'.exists_key_of_isValid hv?; simp
+            · have : b k ≤ b' k := by aesop
+              rcases τ' with ⟨⟨⟨s', r', v'⟩, _⟩, _⟩; simp [(·≤·)] at ha₁
+              exact le_trans this (le_fc_of_ne (by aesop))
+        case isGreatest => exact λ _ hv ↦ hv f'_codomain
+    f'_IsGLB_of_V'
   ⟩
 
+/--
+@erik:
+#2 - Simply to use the notation `⨅` on `V`, we need to know `InfSet V`.
+     We _DEFINE_ the `InfSet V` on some the set of `V`s to be,
+     for an arbitrary `s : Set V`, `(f' b T).1 k` in case the `s = V' b T k`, and a dummy value otherwise.
+     Note that `f' b T` has two things: the `.1` is 'the V', and the `.2` would be the proof that
+     `.1` is the actual `GLB` on `V'`.
+
+     Note further that we'll 'get rid of the ugly if' immediately in `f`,
+     because we'll take the appropriate set.
+-/
+def infV (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) (k : Kbar K₁ K₂) :
+  InfSet V where
+    sInf := λ s ↦ if s = V' b T k
+                  then (f' b T).1 k
+                  else 0
+
+/--
+@erik:
+#3 - `f` is now defined to be `⨅ x : boundedBelow b T, fc x.1 k`.
+     It does _NOT_ use the definition of `f'` beyond using it to exhibit
+     that the infimum does, in fact, exist.
+
+     As a matter of fact, it is _impossible_ to 'use' `f'`, because `f'` is `opaque`.
+     Lean forbids inspecting its definition.
+-/
 def f (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V :=
-  @iInf (α := S K₁ K₂ V)
-        (ι := Τc K₁ K₂ V × S K₁ K₂ V) -- NB it might seem strange that we're not taking the `boundedBelow`
-                                      -- set. It doesn't matter, we have post facto properties when
-                                      -- the set is particularly `boundedBelow`, viz. `f'_IsGLB_of_V'`.
-                                      -- Note further that an indexed infimum for a set `s` under `f`
-                                      -- is _defined_ to be the infimum of the set of the range
-                                      -- of `f` over `s`; this is where `V'` links this notion.
-
-                                      -- Differently put, we define the same infimum for all sets of `S K₁ K₂ V`,
-                                      -- regardless of the specifics of the sets. We then say that,
-                                      -- hey, if this happens to be the particular subset, that is generated
-                                      -- by taking the image of `fc` over the specific `boundedBelow` set,
-                                      -- then certain properties hold.
-
-                                      -- This would be quite inelegant in 'pure' math, but I have
-                                      -- a strange affinity towards this, as it allows us to
-                                      -- postpone having to prove anything until such time that
-                                      -- the property is actually needed.
-        (infS (b := b) (T := T))
-        (fc ·)
+  ⟨
+    λ k ↦
+      have : InfSet V := infV b T k -- Grab the infimum. We know nothing about it, aside from
+                                    -- the fact that it exists by virtue of some `f'` computing it.
+                                    -- We _CANNOT_ look at `f'`.
+      ⨅ x : boundedBelow b T, fc x.1 k,
+    by rintro (k | k)
+       · unfold iInf sInf infV; simp
+         rw [if_pos V'_eq_range.symm]
+         simp
+       · simp
+  ⟩
   
-theorem f_eq_f' {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂} : f b T k = f' b T k := rfl
+/--
+@erik:
+#4 - This is the important statement.
+     We can show that `f b T k` is the greatest lower bound on `V' b T k`.
+     
+     I'll just note that we are not 'accidentally' using the definition of `f'`, because
+     we literally cannot look at `opaque` definitions.
 
+     The only property of `f'` that is preserved is the one that is 'returned' in its type,
+     namely: `{ s : S K₁ K₂ V // ∀ k, IsGLB (V' b T k) (s k) }`, where `f'` serves as the witness
+     that this type is not empty, which set-theoretically speaking means that there exists an element
+     of 'this set', where 'this set' is actually the set of all proofs of the `GLB` property.
+-/
 lemma f_IsGLB_of_V' {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂} :
-  IsGLB (V' b T k) (f b T k) := by simp [f_eq_f', f'_IsGLB_of_V']
+  IsGLB (V' b T k) (f b T k) := by
+  unfold f iInf sInf infV
+  simp [V'_eq_range.symm]
+  rcases f' b T
+  aesop
 
 omit [CovariantClass V V (fun x x_1 => x + x_1) fun x x_1 => x ≤ x_1] in
 lemma cast_order {v₁ v₂ : V}
@@ -839,58 +856,57 @@ lemma sum_f_le_sum {T : Τ K₁ K₂ V} {b : S K₁ K₂ V} :
       simp [this, (·≤·)]
     exact f_IsGLB_of_V'.1 fcInV'
 
-/-
-@ERIK: Isn't this easier? Doesn't even need `sum_fc_eq_sum`.
-       Note this relies on `f_eq_f` but in this setup, `f_eq_f'` does _not_ require
-       us to exhibit that it is 'the real' greatest lower bound, it's essentially 'just syntax'.
-       Worth noting this is still shown in `f_IsGLB_of_V'`, for the set `V'`.
--/
-omit [LinearOrder K₁] [LinearOrder K₂] in
-lemma sum_f_le_sum' {T : Τ K₁ K₂ V} {b : S K₁ K₂ V} :
-  ∑ (k : Kbar K₁ K₂), f b T k ≤ ∑ (k : Kbar K₁ K₂), b k := by
-  /-
-    We know `f = f'` and furthermore, from the definition of `f'`, we need to show:
-    ∑ k : Kbar K₁ K₂,
-      match h : T with
-      | ⟨(fst, fst_1, some v), hT⟩ => ↑(fc (⟨T, ⋯⟩, b)) k
-      | ⟨(s, fst, none), property⟩ => if k = s then 0 else ↑b k
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ definition of `f'`
-    ≤
-    ∑ x : Kbar K₁ K₂, b x
-  -/
-  simp [f_eq_f', f']
-  /-
-    We proceed by cases on completeness of the transaction.
-  -/
-  split
-  /-
-    The transaction is complete.
-  -/
-  next s r v hτ => simp -- Sorry I lied, we use `sum_fc_eq_sum` here! From which this follows immediately.
-  /-
-    The transaction is _not_complete.
-    Thus, we need to show:
-    `∑ x : Kbar K₁ K₂, if x = k₁ then 0 else b x`
-    `≤`
-    `∑ x : Kbar K₁ K₂, ↑b x`.
-  -/
-  next k₁ k₂ hτ =>
-    /-
-      To show these two sums are ≤, it suffices to show: `if k = k₁ then 0 else ↑b k ≤ ↑b k`
-      This is because `∀ i ∈ s, f i ≤ g i → ∑ i ∈ s, f i ≤ ∑ i ∈ s, g i`.
-    -/
-    refine' (Finset.sum_le_sum (λ k _ ↦ _))
-    /-
-      We know that `k = Kbar.key s`.
-    -/
-    obtain ⟨s, hs⟩ := Τ'.exists_key_of_isValid hτ
-    /-
-      Suppose `k₁ = Kbar.key s`.
-      Show `0 ≤ b (Kbar.key s)`, true by `nonneg_key_of_isValid`.
-      Suppose `k₁ ≠ Kbar.key s`.
-      Show `val k ≤ val k`. True by `le_refl`.
-    -/
-    aesop
+-- /-
+-- @erik: #5: This proof is no longer possible, because we don't have `f = f'` nor
+--            can we `unfold f`, i.e. we can't look at the definition of `f`.
+--            Thus, we've made our life more difficult; yey! :grin:
+-- -/
+-- omit [LinearOrder K₁] [LinearOrder K₂] in
+-- lemma sum_f_le_sum' {T : Τ K₁ K₂ V} {b : S K₁ K₂ V} :
+--   ∑ (k : Kbar K₁ K₂), f b T k ≤ ∑ (k : Kbar K₁ K₂), b k := by
+--   /-
+--     We know `f = f'` and furthermore, from the definition of `f'`, we need to show:
+--     ∑ k : Kbar K₁ K₂,
+--       match h : T with
+--       | ⟨(fst, fst_1, some v), hT⟩ => ↑(fc (⟨T, ⋯⟩, b)) k
+--       | ⟨(s, fst, none), property⟩ => if k = s then 0 else ↑b k
+--     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ definition of `f'`
+--     ≤
+--     ∑ x : Kbar K₁ K₂, b x
+--   -/
+--   simp [f_eq_f', f']
+--   /-
+--     We proceed by cases on completeness of the transaction.
+--   -/
+--   split
+--   /-
+--     The transaction is complete.
+--   -/
+--   next s r v hτ => simp -- Sorry I lied, we use `sum_fc_eq_sum` here! From which this follows immediately.
+--   /-
+--     The transaction is _not_complete.
+--     Thus, we need to show:
+--     `∑ x : Kbar K₁ K₂, if x = k₁ then 0 else b x`
+--     `≤`
+--     `∑ x : Kbar K₁ K₂, ↑b x`.
+--   -/
+--   next k₁ k₂ hτ =>
+--     /-
+--       To show these two sums are ≤, it suffices to show: `if k = k₁ then 0 else ↑b k ≤ ↑b k`
+--       This is because `∀ i ∈ s, f i ≤ g i → ∑ i ∈ s, f i ≤ ∑ i ∈ s, g i`.
+--     -/
+--     refine' (Finset.sum_le_sum (λ k _ ↦ _))
+--     /-
+--       We know that `k = Kbar.key s`.
+--     -/
+--     obtain ⟨s, hs⟩ := Τ'.exists_key_of_isValid hτ
+--     /-
+--       Suppose `k₁ = Kbar.key s`.
+--       Show `0 ≤ b (Kbar.key s)`, true by `nonneg_key_of_isValid`.
+--       Suppose `k₁ ≠ Kbar.key s`.
+--       Show `val k ≤ val k`. True by `le_refl`.
+--     -/
+--     aesop
 
 /-
 The statement `sum_fStar_le_zero` fixes the initial accumulator to `S.initial`.
