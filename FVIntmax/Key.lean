@@ -16,6 +16,16 @@ abbrev Key (K₁ K₂ : Type) := K₁ ⊕ K₂
 instance : Coe K₁ (Key K₁ K₂) := ⟨.inl⟩
 instance : Coe K₂ (Key K₁ K₂) := ⟨.inr⟩
 
+/--
+PAPER: Formally, let K := K1 ⨿ K2 ⨿ {Source}
+-/
+inductive Kbar (K₁ K₂ : Type) where
+  | key (k : Key K₁ K₂)
+  | Source
+deriving DecidableEq
+
+instance : Coe (Key K₁ K₂) (Kbar K₁ K₂) := ⟨.key⟩
+
 section Ordering
 
 /-
@@ -25,8 +35,8 @@ these can naturally be equipped with a linear order.
 
 NB further that `LinearOrder` in Lean means _decidable_ linear order.s
 -/
-variable {K₁} [LinearOrder K₁]
-         {K₂} [LinearOrder K₂]
+variable {K₁ : Type} [LinearOrder K₁]
+         {K₂ : Type} [LinearOrder K₂]
 
 def Key.le (k₁ k₂ : Key K₁ K₂) : Prop :=
   match k₁, k₂ with
@@ -63,7 +73,7 @@ private instance [IsTrans K₁ (·≤·)] [IsTrans K₂ (·≤·)] : IsTrans (Ke
       aesop (add safe forward IsTrans.trans)
   }
 
-private instance WW [IsAntisymm K₁ (·≤·)] [IsAntisymm K₂ (·≤·)] : IsAntisymm (Key K₁ K₂) (·≤·) :=
+private instance [IsAntisymm K₁ (·≤·)] [IsAntisymm K₂ (·≤·)] : IsAntisymm (Key K₁ K₂) (·≤·) :=
   {
     antisymm := λ a b ↦ by
       dsimp [(·≤·), Key.le]; intros h₁ h₂
@@ -89,7 +99,50 @@ instance : LinearOrder (Key K₁ K₂) where
   decidableLE := inferInstance
   lt_iff_le_not_le := λ a b ↦ lt_iff_le_not_le
 
--- theorem ¬ Sum.inr val_2 < Sum.inl val_1 := by simp [(·<·), Key.lt]
+namespace Key
+
+def lexLe (a b : K₂ × Key K₁ K₂) : Prop :=
+  a.1 < b.1 ∨ (a.1 = b.1 ∧ a.2 ≤ b.2)
+
+instance : DecidableRel (lexLe (K₁ := K₁) (K₂ := K₂)) :=
+  λ a b ↦ by unfold lexLe; infer_instance
+
+/-
+NB this is an abbrev for `aesop` to extract the obvious invariants.
+-/
+abbrev keysUneq (k₂ : K₂) (k : Key K₁ K₂) : Prop :=
+  match k with
+  | .inl _   => True
+  | .inr k₂' => k₂ ≠ k₂'
+
+section CanSortWith
+
+instance : IsTrans (K₂ × Key K₁ K₂) lexLe := by
+  constructor; dsimp [lexLe]
+  aesop (add safe forward le_trans) (add safe forward lt_trans)
+
+instance : IsAntisymm (K₂ × Key K₁ K₂) lexLe := by
+  constructor; dsimp [lexLe]
+  aesop (add safe forward IsAntisymm.antisymm)
+
+instance : IsTotal (K₂ × Key K₁ K₂) lexLe := by
+  constructor; dsimp [lexLe]  
+  intros a b
+  by_cases eq : a.1 = b.1
+  · simp [eq]
+    exact le_total _ _
+  · have : a.1 < b.1 ∨ b.1 < a.1 := by aesop
+    rcases this with h | h <;> tauto
+
+end CanSortWith
+
+end Key
+
+infix:50 " ≠ₖ " => Key.keysUneq 
+
+instance {k₂ : K₂} {k : Key K₁ K₂} [DecidableEq K₂] : Decidable (k₂ ≠ₖ k) := by
+  dsimp [(·≠ₖ·)]
+  cases k <;> infer_instance
 
 end Ordering
 
@@ -138,6 +191,29 @@ noncomputable instance : Fintype (Key K₁ K₂) :=
   have := Fintype.ofFinite K₁
   have := Fintype.ofFinite K₂
   inferInstance
+
+/--
+NB not important. There's an obvious equivalence between the inductive `Kbar` and the
+`Key K₁ K₂ ⊕ Unit` sum, for which Lean knows how to infer things.
+I prefer the wrapped inductive.
+-/
+def univKbar : Kbar K₁ K₂ ≃ Key K₁ K₂ ⊕ Unit :=
+  {
+    toFun := λ kbar ↦ match kbar with | .key k => k | .Source => ()
+    invFun := λ sum ↦ match sum with | .inl k => .key k | .inr _ => .Source
+    left_inv := by simp [Function.LeftInverse]; aesop
+    right_inv := by simp [Function.RightInverse, Function.LeftInverse]
+  }
+
+instance [Finite K₁] [Finite K₂] : Finite (Kbar K₁ K₂ : Type) :=
+  Finite.of_equiv _ univKbar.symm
+
+/-
+Yes, noncomputable Fintype - why? Fintype fits slightly better in the hierarchy available in Mathlib.
+-/
+noncomputable instance : Fintype K₁ := Fintype.ofFinite _
+
+noncomputable instance : Fintype K₂ := Fintype.ofFinite _
 
 end Finite
 

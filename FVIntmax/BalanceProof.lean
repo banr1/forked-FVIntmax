@@ -33,6 +33,8 @@ abbrev BalanceProof (K₁ K₂ : Type) [Finite K₁] [Finite K₂]
                     (C Pi V : Type) [Nonnegative V] : Type :=
   Dict (C × K₂) ((Pi × ExtraDataT) × TransactionBatch K₁ K₂ V) 
 
+instance : Inhabited (BalanceProof K₁ K₂ C Pi V) := ⟨λ _ ↦ .none⟩
+
 namespace BalanceProof
 
 section Valid

@@ -27,7 +27,7 @@ instance : GetElem (Dict α ω) α ω Dict.is_mem where
 
 namespace Dict
 
-def keys (m : Dict α ω) : Set α := { x | Dict.is_mem m x } 
+def keys (m : Dict α ω) : Set α := { x | Dict.is_mem m x }
 
 /--
 PAPER: Definition 3 Let X be a set. We define First
@@ -40,6 +40,8 @@ def First (x₁ x₂ : Option α) : Option α := x₁ <|> x₂
 
 def Merge (D₁ D₂ : Dict α ω) : Dict α ω := D
   where D := λ x ↦ First (D₁ x) (D₂ x)
+
+lemma mem_iff_isSome {m : Dict α ω} {x : α} : x ∈ m ↔ (m x).isSome := by rfl
 
 /-
 Just ignore this section.
