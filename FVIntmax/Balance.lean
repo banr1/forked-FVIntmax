@@ -248,7 +248,7 @@ def TransactionsInBlock_transfer [Finite K₁] [Finite K₂] [Nonnegative V]
       then .some 0
       else 
         if h : (commitment, s) ∈ π.keys
-        then let (_, _, t) := π[(commitment, s)]
+        then let (_, t) := π[(commitment, s)]
              t r
         else .none
     sorted.attach.map λ ⟨(s, r), h⟩ ↦ ⟨(s, r, v s r), by valid⟩
@@ -984,9 +984,8 @@ PAPER: Finally, we give (AD.Π × {0, 1}∗) × VK+ the induced product preorder
 -/
 instance : Preorder ((Pi × ExtraDataT) × TransactionBatch K₁ K₂ V) := inferInstance
 
--- Definition 17 Let X be a set and let (Y, ≤Y ) be a proset. We define the induced preorder on Dict(X, Y ) = M aybe(Y )
--- X by combining Definition 15 and
--- Definition 16 above
+instance : Preorder (BalanceProof K₁ K₂ C Pi V) := by unfold BalanceProof; infer_instance
+
 
 section Lemma2
 

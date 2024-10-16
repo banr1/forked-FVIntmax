@@ -31,7 +31,7 @@ NB we postpone nonnegative V into validity.
 -/
 abbrev BalanceProof (K₁ K₂ : Type) [Finite K₁] [Finite K₂]
                     (C Pi V : Type) [Nonnegative V] : Type :=
-  Dict (C × K₂) (Pi × ExtraDataT × TransactionBatch K₁ K₂ V) 
+  Dict (C × K₂) ((Pi × ExtraDataT) × TransactionBatch K₁ K₂ V) 
 
 namespace BalanceProof
 
