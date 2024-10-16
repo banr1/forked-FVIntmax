@@ -984,6 +984,10 @@ PAPER: Finally, we give (AD.Π × {0, 1}∗) × VK+ the induced product preorder
 -/
 instance : Preorder ((Pi × ExtraDataT) × TransactionBatch K₁ K₂ V) := inferInstance
 
+-- Definition 17 Let X be a set and let (Y, ≤Y ) be a proset. We define the induced preorder on Dict(X, Y ) = M aybe(Y )
+-- X by combining Definition 15 and
+-- Definition 16 above
+
 section Lemma2
 
 

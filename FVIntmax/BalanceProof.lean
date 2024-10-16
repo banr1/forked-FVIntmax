@@ -61,9 +61,7 @@ DO NOT FORGET NONNEG
 
 TODO(MYSELF)
 -/
-def isValid [Nonnegative V] (π : BalanceProof K₁ K₂ C Pi V) : Bool :=
-  match π with
-  | ⟨K, D, h⟩ => true
+def isValid [Nonnegative V] (π : BalanceProof K₁ K₂ C Pi V) : Bool := true
 
 end Valid
 

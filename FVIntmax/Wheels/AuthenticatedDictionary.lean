@@ -1,4 +1,5 @@
 import FVIntmax.Wheels.Dictionary
+import Mathlib
 
 namespace Intmax
 
@@ -26,7 +27,7 @@ namespace CommitT
 def lookup (ct : CommitT C K Pi) {k : K} (h : k ∈ ct.dict) : Pi :=
   ct.dict[k]
 
-abbrev keys (ct : CommitT C K Pi) : Set K := ct.dict.keys
+abbrev keys (ct : CommitT C K Pi) := ct.dict.keys
 
 end CommitT
 
@@ -54,12 +55,10 @@ the `ADScheme` unifies this parameter to a single given `λ` (well, denoted `Λ`
   Verify : Π × K × M × C → {T rue, F alse}
   parameterized over a security parameter λ ∈ N.
 So they are not parameterizing the functions by `λ : ℕ` to express the intent that it is shared between them?
-
-NB This might end up being a `class` based on usage later, it changes very little in terms of
-refactoring needed.
 -/
-class ADScheme (K : Type) [DecidableEq K]
-               (M : Type) (C Pi : Type) where
+class ADScheme (K : Type)
+               (M : Type)
+               (C Pi : Type) where
   Λ : ℕ
 
   Commit : ℕ → Dict K M → CommitT C K Pi
