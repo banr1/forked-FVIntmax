@@ -244,11 +244,13 @@ def TransactionsInBlock_transfer [Finite K₁] [Finite K₂] [Nonnegative V]
       NB subject to being hoisted out of this function.
     -/
     let v (s : K₂) (r : Key K₁ K₂) : Option V₊ :=
-      if s ∉ S then .some 0 else 
-      if h : (commitment, s) ∈ π.keys
-      then let (_, _, t) := π[(commitment, s)]
-           t.lookup r
-      else .none
+      if s ∉ S
+      then .some 0
+      else 
+        if h : (commitment, s) ∈ π.keys
+        then let (_, _, t) := π[(commitment, s)]
+             t r
+        else .none
     sorted.attach.map λ ⟨(s, r), h⟩ ↦ ⟨(s, r, v s r), by valid⟩
   | .deposit .. | .withdrawal .. => by aesop
 
@@ -960,10 +962,27 @@ lemma lemma1 {π : BalanceProof K₁ K₂ C Pi V}
 
 end Lemma1
 
--- variable [AD : ADScheme K₂ (!(TransactionBatch K₁ K₂ V × !K₂)) C Pi]
+variable [AD : ADScheme K₂ (TransactionBatch K₁ K₂ V × K₂) C Pi]
 
-instance : Preorder (Kbar K₁ K₂ → V₊) := discretePreorder
+/--
+PAPER: First, we give VK+ the discrete preorder
+-/
+instance : Preorder (Key K₁ K₂ → V₊) := discretePreorder
+/--
+NB: Actually we'll use the notion of 'transaction batch' here.
+    We know that `TransactionBatch K₁ K₂ V` is by definition `Key K₁ K₂ → V₊`.
+-/
+instance : Preorder (TransactionBatch K₁ K₂ V) := discretePreorder
 
+/--
+PAPER: Then, we give AD.Π × {0, 1} ∗ the trivial preorder
+-/
+instance : Preorder (Pi × ExtraDataT) := trivialPreorder
+
+/--
+PAPER: Finally, we give (AD.Π × {0, 1}∗) × VK+ the induced product preorder
+-/
+instance : Preorder ((Pi × ExtraDataT) × TransactionBatch K₁ K₂ V) := inferInstance
 
 section Lemma2
 

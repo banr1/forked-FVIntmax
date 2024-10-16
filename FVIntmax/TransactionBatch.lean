@@ -18,12 +18,13 @@ section TransactionBatch
 
 /--
 PAPER: a transaction batch is an element of V₊ᵏ
-NB we do not impose `V₊`, here, but in `TransactionBatch.isValid` for convenience.
-As such, we will prove properties for _valid transaction batches_ rather than for any batches.
+
 NB as per usual, V does not need to be a latticed-ordered abelian group just yet.
 -/
-abbrev TransactionBatch (K₁ : Type) [Finite K₁] (K₂ : Type) [Finite K₂] (V : Type) [Nonnegative V] :=
-  { m : Finmap (λ _ : Key K₁ K₂ ↦ V) // ∀ k, k ∈ m }
+abbrev TransactionBatch (K₁ : Type) [Finite K₁]
+                        (K₂ : Type) [Finite K₂]
+                        (V : Type) [Nonnegative V] :=
+  Key K₁ K₂ → V₊
 
 section Finite
 
@@ -105,35 +106,6 @@ noncomputable def univFinmap (K : Type) [Fintype K] [DecidableEq K]
         simp [Finmap.lookup_eq_some_iff] at e 
         exact e.symm
   }
-
-/--
-For a finite K₁, K₂ and V, we can establish that a `TransactionBatch K₁ K₂ V` is finite.
--/
-instance [DecidableEq K₁] [DecidableEq K₂] [DecidableEq V] [Nonnegative V] [Finite V] :
-  Finite (TransactionBatch K₁ K₂ V) := by
-  /-
-    Follows trivially from the definition of `univFinmap`, for if we know that `(Key K₁ K₂ → V)`
-    is finite and we have a `... ≃ TransactionBatch K₁ K₂ V`, then the rhs is finite as well.
-  -/
-  have : Fintype K₁ := Fintype.ofFinite _
-  have : Fintype K₂ := Fintype.ofFinite _
-  have := univFinmap (K := Key K₁ K₂) (V := V)
-
-  exact @Finite.of_equiv _ _ _ this.symm
-
-/-
-TODO(REVIEW):
-  Suppose we have the same theorem:
-  instance {K₁ : Type} [Finite K₁] [DecidableEq K₁]
-           {K₂ : Type} [Finite K₂] [DecidableEq K₂]
-           {V  : Type} [Finite V] [DecidableEq V] : Finite (TransactionBatch K₁ K₂ V)  
-
-  But instead we define `TransactionBatch K₁ K₂ V` to be a `Finmap ((_ : Key K₁ K₂) ↦ V)`.
-  Can we easily show that this is finite too? I think this would be more convenient,
-  but I couldn't easily prove this so I chose a slightly different approach.
-
-  Does the `univFinmap` maybe help?
--/
 
 end Finite
 

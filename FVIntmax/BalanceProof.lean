@@ -22,15 +22,16 @@ variable {K₁ : Type} [Finite K₁] [DecidableEq K₁]
            TODO(CHECK) - Do we need this as a transaction batch or can we abstract over this?
                          (I'll figure this out at some point in the future :grin:).
          -/
-         [AD : ADScheme K₂ (!(TransactionBatch K₁ K₂ V × !K₂)) C Pi]
+         [AD : ADScheme K₂ ((TransactionBatch K₁ K₂ V × K₂)) C Pi]
 
 /--
 Π := Dict(AD.C × K2,(AD.Π × {0, 1}∗) × VK+ ).
 
 NB we postpone nonnegative V into validity.
 -/
-abbrev BalanceProof (K₁ K₂ C Pi V : Type) [Nonnegative V] : Type :=
-  Dict (C × K₂) (Pi × ExtraDataT × Finmap (λ _ : Key K₁ K₂ ↦ V₊)) 
+abbrev BalanceProof (K₁ K₂ : Type) [Finite K₁] [Finite K₂]
+                    (C Pi V : Type) [Nonnegative V] : Type :=
+  Dict (C × K₂) (Pi × ExtraDataT × TransactionBatch K₁ K₂ V) 
 
 namespace BalanceProof
 
