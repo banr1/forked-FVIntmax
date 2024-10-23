@@ -46,6 +46,7 @@ NB `Π` and `λ` have known meanings in Lean, so we diverge a little:
 - `Π = Pi`
 - `λ = Λ`
 
+vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 TODO(REVIEW): The current implementation here is such that the idea of the security parameter `λ`
 is that for two 'individual' functions `Commit : (λ : ℕ) → ...` and `Verify : (λ : ℕ) → ...`,
 the `ADScheme` unifies this parameter to a single given `λ` (well, denoted `Λ` here) - e.g. cf.
@@ -55,14 +56,15 @@ the `ADScheme` unifies this parameter to a single given `λ` (well, denoted `Λ`
   Verify : Π × K × M × C → {T rue, F alse}
   parameterized over a security parameter λ ∈ N.
 So they are not parameterizing the functions by `λ : ℕ` to express the intent that it is shared between them?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------------------------------------------------------------------------------------------
+I don't think we need to model Λ actually.
 -/
 class ADScheme (K : Type)
                (M : Type)
                (C Pi : Type) where
-  Λ : ℕ
-
-  Commit : ℕ → Dict K M → CommitT C K Pi
-  Verify : ℕ → Pi → K → M → C → Bool -- Curried. NB (α × β → γ) ≅ α → β → γ (by `Function.curry`).
+  Commit : Dict K M → CommitT C K Pi
+  Verify : Pi → K → M → C → Bool -- Curried. NB (α × β → γ) ≅ α → β → γ (by `Function.curry`).
 
   /-
     NB we split the Correctness to conveniently grab `K' = K` (i.e. `correct_keys_eq`) to prove
@@ -78,14 +80,14 @@ class ADScheme (K : Type)
   /--
   Definition 4 (1/2) - Correctness | Keys eq
   -/
-  correct_keys_eq : ∀ {dict : Dict K M}, (Commit Λ dict).keys = dict.keys -- PAPER: K' = K
+  correct_keys_eq : ∀ {dict : Dict K M}, (Commit dict).keys = dict.keys -- PAPER: K' = K
 
   /--
   Definition 4 (2/2) - Correctness | Verify is consistent
   -/
   correct_consistent :
     ∀ {dict : Dict K M} {key : K} (h : key ∈ dict.keys), -- `(h : key ∈ dict.keys)` obtained from the paper's ∀k ∈ K
-      Verify Λ (Commit Λ dict)[key] key dict[key] (Commit Λ dict).commitment = true -- PAPER: Verify(πk, k, Mk, C) = True, ∀k ∈ K
+      Verify (Commit dict)[key] key dict[key] (Commit dict).commitment = true -- PAPER: Verify(πk, k, Mk, C) = True, ∀k ∈ K
 
   /--
   Definition 5 - Binding
@@ -101,8 +103,8 @@ class ADScheme (K : Type)
   -/
   binding : ComputationallyInfeasible <|
               ∃ (c : C) (k : K) (m₁ m₂ : M) (π₁ π₂ : Pi),
-                Verify Λ π₁ k m₁ c = true ∧
-                Verify Λ π₂ k m₂ c = true ∧
+                Verify π₁ k m₁ c = true ∧
+                Verify π₂ k m₂ c = true ∧
                 m₁ ≠ m₂
 
 attribute [aesop norm (rule_sets := [Intmax.aesop_dict])] ADScheme.correct_keys_eq

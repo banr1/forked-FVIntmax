@@ -31,7 +31,7 @@ inductive Block (K₁ K₂ : Type) (C Sigma : Type) (V : Type) [Nonnegative V] :
 
     NB we will see later about total/partial in this particular instance.
   -/
-  | withdrawal (withdrawals : Finmap (λ _ : K₁ ↦ V₊))
+  | withdrawal (withdrawals : K₁ → V₊)
 
 namespace Block
 
@@ -40,20 +40,31 @@ section Block
 variable {K₁ K₂ C Sigma V : Type} [Nonnegative V]
 
 def mkDepositBlock (K₁ C Sigma : Type) (addr : K₂) (value : V₊) : Block K₁ K₂ C Sigma V :=
-  Block.deposit addr value
+  deposit addr value
 
 def mkTransferBlock (aggregator : K₁) (extradata : ExtraDataT)
                     (commitment : C) (senders : List K₂) (sigma : Sigma) : Block K₁ K₂ C Sigma V :=
-  Block.transfer aggregator extradata commitment senders sigma
+  transfer aggregator extradata commitment senders sigma
 
-def mkWithdrawalBlock (K₂ C Sigma : Type) (withdrawals : Finmap (λ _ : K₁ ↦ V₊)) : Block K₁ K₂ C Sigma V :=
-  Block.withdrawal withdrawals
+def mkWithdrawalBlock (K₂ C Sigma : Type) (withdrawals : K₁ → V₊) : Block K₁ K₂ C Sigma V :=
+  withdrawal withdrawals
 
 abbrev isDepositBlock (b : Block K₁ K₂ C Sigma V) := b matches (Block.deposit _ _) 
 
 abbrev isTransferBlock (b : Block K₁ K₂ C Sigma V) := b matches (Block.transfer _ _ _ _ _)
 
 abbrev isWithdrawalBlock (b : Block K₁ K₂ C Sigma V) := b matches (Block.withdrawal _)
+
+def getWithdrawal (b : Block K₁ K₂ C Sigma V) (_h : b.isWithdrawalBlock) : K₁ → V₊ :=
+  match b with | .withdrawal B => B
+
+def getDeposit? (b : Block K₁ K₂ C Sigma V) : Option (K₂ × V₊) :=
+  match b with
+  | deposit r v => .some (r, v)
+  | transfer .. | withdrawal .. => .none
+
+lemma isSome_getDeposit?_of_isDepositBlock {b : Block K₁ K₂ C Sigma V}
+  (h : b.isDepositBlock) : b.getDeposit?.isSome := by unfold getDeposit?; aesop
 
 @[simp]
 lemma transfer_ne_deposit :
@@ -82,5 +93,39 @@ lemma transfer_ne_widthdrawal :
 end Block
 
 end Block
+
+/--
+2.4
+
+- Scontract := 𝔹*
+-/
+abbrev RollupState (K₁ K₂ V : Type) [Nonnegative V] (C Sigma : Type) :=
+  List (Block K₁ K₂ C Sigma V)
+
+namespace RollupState
+
+section Defs
+
+variable (K₁ K₂ C Sigma : Type)
+         (V : Type) [Nonnegative V]
+
+def initial : RollupState K₁ K₂ V C Sigma := []
+
+end Defs
+
+section Lemmas
+
+variable {K₁ K₂ C Sigma : Type}
+         {V : Type} [Nonnegative V]
+
+@[simp]
+lemma length_initial : (@initial K₁ K₂ C Sigma V _).length = 0 := rfl
+
+@[simp]
+lemma bs_initial : (@initial K₁ K₂ C Sigma V _) = [] := rfl
+
+end Lemmas
+
+end RollupState
 
 end Intmax

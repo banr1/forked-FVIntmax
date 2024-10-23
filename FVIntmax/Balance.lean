@@ -125,7 +125,7 @@ def TransactionsInBlock_withdrawal
       Careful, order.
     -/
     let k₁InOrder := { s | s : K₁ }.toFinset.sort (·≤·)
-    k₁InOrder.attach.map λ s : K₁ ↦ ⟨(s, .Source, withdrawals.lookup s), by valid⟩
+    k₁InOrder.attach.map λ s : K₁ ↦ ⟨(s, .Source, withdrawals s), by valid⟩
   | .deposit r v | .transfer .. => by aesop
 
 @[simp]
@@ -604,8 +604,6 @@ variable [Finite K₁] [Finite K₂]
 def Bal [LinearOrder K₁] [LinearOrder K₂]
   (π : BalanceProof K₁ K₂ C Pi V) (bs : List (Block K₁ K₂ C Sigma V)) : S K₁ K₂ V :=
   fStar (TransactionsInBlocks π bs) (.initial K₁ K₂ V)
-
-
 
 end LGroup
 

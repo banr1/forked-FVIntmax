@@ -12,13 +12,13 @@ variable
              [CovariantClass V V (· + ·) (· ≤ ·)]
              [CovariantClass V V (Function.swap (· + ·)) (· ≤ ·)]
 
-open BigOperators
+variable {Tc : Τc K₁ K₂ V} {T : Τ K₁ K₂ V} {b : S K₁ K₂ V} {Tstar : List (Τ K₁ K₂ V)}
+
 /-
 PAPER: We start by noticing that the transition function for complete transactions fc preserves the sum of account balances
 -/
 @[simp]
-lemma sum_fc_eq_sum {Tc : Τc K₁ K₂ V} {b : S K₁ K₂ V} :
-  ∑ (k : Kbar K₁ K₂), fc (Tc, b) k = ∑ (k : Kbar K₁ K₂), b k := by
+lemma sum_fc_eq_sum : ∑ (k : Kbar K₁ K₂), fc (Tc, b) k = ∑ (k : Kbar K₁ K₂), b k := by
   /-
     Proof. Left as an exercise for the reader. QED.
   -/
@@ -28,8 +28,7 @@ lemma sum_fc_eq_sum {Tc : Τc K₁ K₂ V} {b : S K₁ K₂ V} :
 /-
 PAPER: This implies the following fact about the transition function for partial transactions f: 
 -/
-lemma sum_f_le_sum {T : Τ K₁ K₂ V} {b : S K₁ K₂ V} :
-  ∑ (k : Kbar K₁ K₂), f b T k ≤ ∑ (k : Kbar K₁ K₂), b k := by
+lemma sum_f_le_sum : ∑ (k : Kbar K₁ K₂), f b T k ≤ ∑ (k : Kbar K₁ K₂), b k := by
   by_cases eq : T.isComplete
   · conv_rhs => rw [←sum_fc_eq_sum (Tc := ⟨T, eq⟩)]
     refine' Finset.sum_le_sum (λ k _ ↦ _)
@@ -65,29 +64,26 @@ or the inductive step.
 Note further that `∑ (k : Kbar K₁ K₂), (S.initial K₁ K₂ V) k ≤ 0`, as shown in
 `sum_fStar_le_zero`.
 -/
-private lemma sum_fStar_le_zero_aux {Tstar : List (Τ K₁ K₂ V)} {s : S K₁ K₂ V}
-  (h : ∑ (k : Kbar K₁ K₂), s k ≤ 0) :
-  ∑ (k : Kbar K₁ K₂), fStar Tstar s k ≤ 0 := by
+private lemma sum_fStar_le_zero_aux (h : ∑ (k : Kbar K₁ K₂), b k ≤ 0) :
+  ∑ (k : Kbar K₁ K₂), fStar Tstar b k ≤ 0 := by
   simp [fStar]
-  induction Tstar generalizing s with
+  induction Tstar generalizing b with
   | nil => aesop (add safe apply Finset.sum_nonpos)
   | cons _ _ ih => exact ih (le_trans sum_f_le_sum h)
 
 /-
 PAPER (Equation 1 in Lemma 1): Then, it follows by induction that we have
 
-NB I don't want to really introduce the notation `0` means the initial `S`. Can do tho vOv.
-
 NB please cf. `sum_fStar_le_zero_aux` to see what's happening.
 -/
-lemma sum_fStar_le_zero {Tstar : List (Τ K₁ K₂ V)} :
-  ∑ (k : Kbar K₁ K₂), fStar Tstar (S.initial K₁ K₂ V) k ≤ 0 :=
+lemma sum_fStar_le_zero : ∑ (k : Kbar K₁ K₂), fStar Tstar (S.initial K₁ K₂ V) k ≤ 0 :=
   sum_fStar_le_zero_aux (by simp)
 
-lemma lemma1 [LinearOrder K₁] [LinearOrder K₂]
-             {π : BalanceProof K₁ K₂ C Pi V}
-             {bs : List (Block K₁ K₂ C Sigma V)} :
-  Bal π bs .Source ≤ 0 := by
+variable [LinearOrder K₁] [LinearOrder K₂]
+         {π : BalanceProof K₁ K₂ C Pi V}
+         {bs : List (Block K₁ K₂ C Sigma V)}
+
+lemma lemma1 : Bal π bs .Source ≤ 0 := by
   dsimp [Bal]
   generalize eq : TransactionsInBlocks π _ = blocks
   generalize eq₁ : S.initial K₁ K₂ V = s₀
@@ -95,7 +91,7 @@ lemma lemma1 [LinearOrder K₁] [LinearOrder K₂]
   have : ∑ x ∈ {Kbar.Source}, f x = 
          ∑ x : Kbar K₁ K₂, f x - ∑ x ∈ Finset.univ \ {Kbar.Source}, f x := by simp
   rw [←Finset.sum_singleton (a := Kbar.Source) (f := f), this, sub_nonpos]
-  have := sum_fStar_le_zero_aux (Tstar := blocks) (s := s₀)
+  have := sum_fStar_le_zero_aux (Tstar := blocks) (b := s₀)
   have eq₃ : ∑ x : Kbar K₁ K₂, f x ≤ 0 := by aesop
   have eq₄ : 0 ≤ ∑ x ∈ Finset.univ \ {Kbar.Source}, f x := Finset.sum_nonneg λ i ↦ by rcases i <;> aesop
   exact le_trans eq₃ eq₄

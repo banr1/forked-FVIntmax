@@ -18,8 +18,6 @@ section TransactionBatch
 
 /--
 PAPER: a transaction batch is an element of V₊ᵏ
-
-NB as per usual, V does not need to be a latticed-ordered abelian group just yet.
 -/
 abbrev TransactionBatch (K₁ : Type) [Finite K₁]
                         (K₂ : Type) [Finite K₂]

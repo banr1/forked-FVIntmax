@@ -26,6 +26,13 @@ deriving DecidableEq
 
 instance : Coe (Key K₁ K₂) (Kbar K₁ K₂) := ⟨.key⟩
 
+def Kbar.isK₁ (k : Kbar K₁ K₂) := k matches key (.inl _)
+
+def Kbar.getK₁ (k : Kbar K₁ K₂) (_h : k.isK₁) : K₁ :=
+  match h : k with
+  | .key (.inl k₁) => k₁
+  | .key (.inr _) | .Source => by aesop (add simp isK₁)
+
 section Ordering
 
 /-

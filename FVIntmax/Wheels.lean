@@ -11,6 +11,32 @@ import FVIntmax.Wheels.Wheels
 
 namespace Intmax
 
+noncomputable opaque H {α : Type} (ω : Type) [Nonempty ω] (x : α) : ω := Classical.arbitrary _
+
+namespace CryptoAssumptions
+
+/-
+(BIG WIP)
+-/
+
+section Hashing
+
+class Injective {α ω : Type} (f : α → ω) where
+  h : ComputationallyInfeasible (¬ Function.Injective f)
+
+/--
+We do _not_ assume `Injective f` right away to force the usage of the
+`computationallyInfeasible_axiom` to derive this, cf. the instance below.
+-/
+instance {α ω : Type} [Nonempty ω] {f : α → ω} [inj : Injective f] : Function.Injective f := by
+  rcases inj with ⟨inj⟩
+  apply computationallyInfeasible_axiom at inj
+  rwa [not_not] at inj
+
+end Hashing
+
+end CryptoAssumptions
+
 class abbrev Nonnegative (α : Type) := Preorder α, Zero α
 
 section UniquelyIndexed
@@ -53,18 +79,23 @@ def NonNeg (α : Type) [Nonnegative α] := { a : α // 0 ≤ a }
 
 postfix:max "₊" => NonNeg
 
-instance {α} [Nonnegative α] : Coe (NonNeg α) α := ⟨(·.1)⟩
+section Nonneg
 
-instance {α} [Nonnegative α] : Nonnegative α₊ := by unfold NonNeg; infer_instance
+variable {α : Type} [Nonnegative α] {v : α₊}
+
+instance : Coe (NonNeg α) α := ⟨(·.1)⟩
+
+instance : Nonnegative α₊ := by unfold NonNeg; infer_instance
 
 @[simp]
-lemma NonNeg.coe_nonneg {α : Type} [Nonnegative α] {v : α₊} : 0 ≤ (↑v : α) := by
-  cases v; aesop
+lemma NonNeg.coe_nonneg : 0 ≤ (↑v : α) := by cases v; aesop
 
 @[simp]
-lemma NonNeg.nonneg {α : Type} [Nonnegative α] {v : α₊} : 0 ≤ v := v.2
+lemma NonNeg.nonneg : 0 ≤ v := v.2
 
-instance {α : Type} [Nonnegative α] [Finite α] : Finite α₊ := by unfold NonNeg; infer_instance
+instance [Finite α] : Finite α₊ := by unfold NonNeg; infer_instance
+
+end Nonneg
 
 end NonNeg
 
@@ -258,6 +289,8 @@ lemma zip_eq_iff {α β : Type}
                        rcases l₄ with _ | ⟨hd₄, tl₄⟩ <;>
                        [cases h; cases h; cases h₂; aesop]
 
+section ImSorry
+
 lemma map_join_eq {α β γ : Type}
                   {l : List γ}
                   {f : α → β}
@@ -305,8 +338,10 @@ lemma map_join_unnecessarily_specific
       apply h₁
     · have _ : i - xs₁.length < l₁.length := by rw [Nat.sub_lt_iff_lt_add (by omega)]; aesop
       have _ : i - xs₂.length < l₂.length := by aesop
-      rw [List.getElem_append_right' (by omega) , List.getElem_append_right' (by omega)]
+      rw [List.getElem_append_right' (by omega), List.getElem_append_right' (by omega)]
       aesop
+
+end ImSorry
 
 end List
 

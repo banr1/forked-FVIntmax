@@ -33,12 +33,22 @@ end Finmap
 
 namespace Intmax
 
-/-
-NB it seems to not matter what extradata is at all; I won't make it a Unit to not
-get some unintended properties for free, but ℕ seems just as good as a the 'closer' model
-Bytearray.
+/--
+A model of a random bistring.
 -/
 abbrev ExtraDataT : Type := ℕ
+
+instance : Nonempty ExtraDataT := inferInstanceAs (Nonempty ℕ)
+
+/--
+NB we are not here to model assymetric cryptography, we choose whatever.
+-/
+abbrev KₛT : Type := ℕ
+
+/--
+NB we are not here to model assymetric cryptography, we choose whatever.
+-/
+abbrev KₚT : Type := ℕ
 
 section RubeGoldberg
 

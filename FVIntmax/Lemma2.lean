@@ -247,34 +247,35 @@ section Monotone
 
 omit [Finite K₁] [Finite K₂]
 
-lemma monotone_f {b₁ b₂ : S K₁ K₂ V} {T₁ T₂ : Τ K₁ K₂ V} {k : Kbar K₁ K₂}
-                 (h₁ : b₁ ≤ b₂) (h₂ : T₁ ≤ T₂) : f b₁ T₁ k ≤ f b₂ T₂ k := by
+variable {b₁ b₂ : S K₁ K₂ V}
+         {T₁ T₂ : Τ K₁ K₂ V}
+         {k : Kbar K₁ K₂}
+         {v₁ v₂ : Vector (Τ K₁ K₂ V) n}
+
+lemma monotone_f (h₁ : b₁ ≤ b₂) (h₂ : T₁ ≤ T₂) : f b₁ T₁ k ≤ f b₂ T₂ k := by
   obtain ⟨inf₁, -⟩ := f_IsGLB_of_V' (b := b₁) (T := T₁) (k := k)
   have inf₂ := f_IsGLB_of_V' (b := b₂) (T := T₂) (k := k)
-  simp at inf₁ inf₂ ⊢
   have := V'_sset_V'_of_le (k := k) h₁ h₂
   rw [le_isGLB_iff inf₂, mem_lowerBounds]
   aesop
 
 /--
-A version of `monotone_fStarFixed` to induce over an accumulator for which `s₁ ≤ s₂` in the general case.
+A version of `monotone_fStarFixed` to induce over an accumulator for which `s₁ ≤ b₂` in the general case.
 
 Cf. `monotone_fStarFixed` for semantics, as its the auxiliary we are particularly interested in.
 -/
-theorem monotone_fStarFixed_aux {v₁ v₂ : Vector (Τ K₁ K₂ V) n} {s₁ s₂ : S K₁ K₂ V}
-  (h : v₁ ≤ v₂) (h₂ : s₁ ≤ s₂) :
-  List.foldl f s₁ v₁.1 ≤ List.foldl f s₂ v₂.1 := by
+private theorem monotone_fStarFixed_aux (h : v₁ ≤ v₂) (h₂ : b₁ ≤ b₂) :
+                                        v₁.1.foldl f b₁ ≤ v₂.1.foldl f b₂ := by
   rcases v₁ with ⟨l₁, len₁⟩
   rcases v₂ with ⟨l₂, len₂⟩
-  simp
-  induction' l₁ with hd₁ tl₁ ih generalizing s₁ s₂ l₂ n <;> rcases l₂ with _ | ⟨hd₂, tl₂⟩
-  · simpa
+  induction' l₁ with hd₁ tl₁ ih generalizing b₁ b₂ l₂ n <;> rcases l₂ with _ | ⟨hd₂, tl₂⟩
+  · exact h₂
   · simp at len₁ len₂; omega
   · simp at len₁ len₂; omega
   · rcases n with _ | n <;> [simp at len₁; skip]
     have := @Vec.le_cons _ _ _ _ (v₁ := ⟨hd₁ :: tl₁, len₁⟩) (v₂ := ⟨hd₂ :: tl₂, len₂⟩)
                          _ (by aesop) (by aesop) rfl rfl h
-    have eq : (f s₁ hd₁) ≤ (f s₂ hd₂) := by
+    have eq : f b₁ hd₁ ≤ f b₂ hd₂ := by
       dsimp [(·≤·)]; intros k
       have := monotone_f (k := k) h₂ this.1; aesop
     exact ih eq _ tl₂ _ this.2
@@ -285,14 +286,14 @@ lemma monotone_fStarFixed :
 
 end Monotone
 
+variable [LinearOrder K₁] [LinearOrder K₂]
+         {π₁ π₂ : BalanceProof K₁ K₂ C Pi V}
+         {bs : List (Block K₁ K₂ C Sigma V)}
+
 /--
 PAPER: Lemma 2. The balance function Bal is monotone in its first argument 
 -/
-lemma lemma2 [LinearOrder K₁] [LinearOrder K₂]
-             {π₁ π₂ : BalanceProof K₁ K₂ C Pi V}
-             {bs : List (Block K₁ K₂ C Sigma V)}
-             (h : π₁ ≤ π₂) :
-             Bal π₁ bs ≤ Bal π₂ bs := by
+lemma lemma2 (h : π₁ ≤ π₂) : Bal π₁ bs ≤ Bal π₂ bs := by
   simp only [←Bal'_eq_Bal]
   suffices BalFixed bs π₁ ≤ BalFixed bs π₂ by aesop
   rw [BalFixed_eq_BalFixed', BalFixed_eq_BalFixed']

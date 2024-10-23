@@ -16,19 +16,20 @@ open scoped SimpleRandom
 
 /--
 TODO(REVIEW):
+vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 - As with `AuthenticatedDictionary`, the same `Λ` question; please cf. Definition 3 TODO(REVIEW)
   in https://github.com/NethermindEth/FVIntmax/pull/2.
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+- I think I can drop the Lambda.
 - The 'randomness' is currently modelled trivially (cf. `Wheels/Wheels.lean`).
   Does it seem sensible? Do we need anything better than that? Actually, we could probably
   even get away with less?
 -/
 class SignatureAggregation (M Kₚ Kₛ Sigma : Type) where
-  Λ         : ℕ
-
-  KeyGen    : ℕ → SimpleRandom.Seed → Kₚ × Kₛ
-  Sign      : ℕ → Kₛ → M → Sigma
-  Aggregate : ℕ → List (Kₚ × Sigma) → Sigma
-  Verify    : ℕ → List Kₚ → M → Sigma → Bool
+  KeyGen    : SimpleRandom.Seed → Kₚ × Kₛ
+  Sign      : Kₛ → M → Sigma
+  Aggregate : List (Kₚ × Sigma) → Sigma
+  Verify    : List Kₚ → M → Sigma → Bool
 
   /--
   Definition 6
@@ -38,9 +39,9 @@ class SignatureAggregation (M Kₚ Kₛ Sigma : Type) where
               for the time being is that the relationship between `kₚ` and `kₛ` is more explicit
               if `unzip` and `zip` are used.
   -/
-  Correctness : ∀ (l : List (Kₚ × Kₛ)) (_ : ∀ pair ∈ l, pair ←ᵣ KeyGen Λ) (m : M),
+  Correctness : ∀ (l : List (Kₚ × Kₛ)) (_ : ∀ pair ∈ l, pair ←ᵣ KeyGen) (m : M),
                   let (kₚs, kₛs) := l.unzip
-                  Verify Λ kₚs m (Aggregate Λ (kₚs.zip (kₛs.map (Sign Λ · m)))) = true
+                  Verify kₚs m (Aggregate (kₚs.zip (kₛs.map (Sign · m)))) = true
 
   /--
   Definition 7
@@ -54,12 +55,12 @@ class SignatureAggregation (M Kₚ Kₛ Sigma : Type) where
     ComputationallyInfeasible <|
       ∃ (k : List (Kₚ × Kₛ)) (m : M) (σ : Sigma),
         let kₚs := k.map Prod.fst
-        Verify Λ kₚs m σ = true ∧
+        Verify kₚs m σ = true ∧
         -- PAPER: and where one of the public keys (pki)i∈[n] belongs to an honest user who didn’t
         -- sign the message m with their secret key.
         ∃ userIdx : Fin k.length,
           let (honestₚ, honestₛ) := k[userIdx]
-          honestₚ ∈ kₚs ∧ ∃ key : Kₛ, key ≠ honestₛ ∧ Sign Λ key m = σ
+          honestₚ ∈ kₚs ∧ ∃ key : Kₛ, key ≠ honestₛ ∧ Sign key m = σ
 
 end SignatureAggregation
 
