@@ -2,6 +2,7 @@ import Mathlib.Algebra.Order.Ring.Unbundled.Nonneg
 
 import Mathlib.Data.Finite.Defs
 import Mathlib.Data.Finmap
+import Mathlib.Data.List.Intervals
 import Mathlib.Data.Set.Image
 import Mathlib.Logic.Embedding.Basic
 
@@ -342,6 +343,11 @@ lemma map_join_unnecessarily_specific
       aesop
 
 end ImSorry
+
+lemma finRange_eq_Ico : List.finRange n = (List.Ico 0 n).attach.map λ ⟨i, hi⟩ ↦ ⟨i, by aesop⟩ := by
+  unfold List.finRange
+  simp [List.Ico.eq_1, List.range_eq_range']
+  rw [List.pmap_eq_map_attach]
 
 end List
 

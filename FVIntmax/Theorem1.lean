@@ -78,6 +78,10 @@ lemma appendBlock_eq_id_of_not_isValid (h : ¬request.isValid) :
   rw [Request.toBlock_eq_id_of_not_isValid h]
   rfl
 
+@[simp]
+lemma length_appendBlock :
+  (appendBlock! σ request).length = σ.length + 1 := by simp [appendBlock!]
+
 end appendBlock
 
 end RollupState
@@ -137,12 +141,7 @@ lemma attackGameBlocks'_eq_attackGameBlocks'!_normalise :
     · rw [List.filter_cons_of_pos eq]; dsimp
       rw [ih, ←RollupState.appendBlock_eq_appendBlock!_of_isValid eq]
     · rw [List.filter_cons_of_neg eq]; dsimp
-      rw [ih]
-      rw [RollupState.appendBlock_eq_id_of_not_isValid eq]
-
-lemma attackGameBlocks_eq_attackGameBlocks!_normalise {requests : List (Request K₁ K₂ C Sigma Pi V)} :
-  attackGame requests = attackGameBlocks! (normalise requests) :=
-  attackGameBlocks'_eq_attackGameBlocks'!_normalise
+      rw [ih, RollupState.appendBlock_eq_id_of_not_isValid eq]
 
 def computeBalance' (blocks : RollupState K₁ K₂ V C Sigma) (acc : V) : V :=
   blocks.foldl Block.updateBalance acc
@@ -157,16 +156,48 @@ def adversaryWon (blocks : RollupState K₁ K₂ V C Sigma) := ¬0 ≤ computeBa
 variable {requests : List (Request K₁ K₂ C Sigma Pi V)}
          [ADScheme K₂ (C × K₁ × ExtraDataT) C Pi]
          [CryptoAssumptions.Injective (H (α := TransactionBatch K₁ K₂ V × ExtraDataT) (ω := (C × K₁ × ExtraDataT)))]
+  
+lemma attackGame_eq_attackGameBlocks!_normalise :
+  attackGame requests = attackGameBlocks! (normalise requests) :=
+  attackGameBlocks'_eq_attackGameBlocks'!_normalise
 
-theorem theorem1 : ¬adversaryWon (attackGame requests) := by
+lemma attackGame_requests_of_all_valid (h : ∀ request ∈ requests, request.isValid) :
+  (attackGame requests).length = requests.length := by
+  unfold attackGame attackGameBlocks'
+
+@[simp]
+lemma length_attackGameBlocks'! {σ} :
+  (attackGameBlocks'! requests σ).length = σ.length + requests.length := by
+  unfold attackGameBlocks'!
+  induction' requests with hd tl ih generalizing σ
+  · rfl
+  · simp [ih]; omega
+
+@[simp]
+lemma length_attackGameBlocks! :
+  (attackGameBlocks! requests).length = requests.length := by simp [attackGameBlocks!]
+
+def getBalanceProof (bs : RollupState K₁ K₂ V C Sigma)
+                    (requests : List (Request K₁ K₂ C Sigma Pi V))
+                    (h₀ : ∀ request ∈ requests, request.isValid)
+                    (h : bs = attackGameBlocks! requests)
+                    (i : Fin ):
+                    BalanceProof K₁ K₂ C Pi V :=
+
+theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
   /-
-    Something like this.
-    This shows that the attack game plays out the same regardless of whether all requests are valid.
+    The attack game plays out the same regardless of validity of requests.
   -/
-  rw [attackGameBlocks_eq_attackGameBlocks!_normalise]
+  rw [attackGame_eq_attackGameBlocks!_normalise] at contra
+  set requests! := normalise requests with eqRequests
+  set Bstar := attackGameBlocks! requests! with eqBstar
   /-
-    And then the proof continues :).
+    All requests in `normalise requests` are valid.
   -/
+  have : ∀ request ∈ (normalise requests), request.isValid := by unfold normalise; aesop
+  let n := Bstar.length
+  let I : List (Fin n) := (List.finRange n).filter (Bstar[·].isWithdrawalBlock)
+  
   sorry
 
 end lemma1
