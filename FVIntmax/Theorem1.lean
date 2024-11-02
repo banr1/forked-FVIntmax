@@ -82,6 +82,8 @@ lemma appendBlock_eq_id_of_not_isValid (h : ¬request.isValid) :
 lemma length_appendBlock :
   (appendBlock! σ request).length = σ.length + 1 := by simp [appendBlock!]
 
+lemma appendBlock!_def : σ.appendBlock! request = σ ++ [request.toBlock! σ] := rfl
+
 end appendBlock
 
 end RollupState
@@ -101,19 +103,45 @@ variable {K₁ : Type} [Finite K₁] [LinearOrder K₁] [Nonempty K₁]
          [ADScheme K₂ (C × K₁ × ExtraDataT) C Pi]
          [SignatureAggregation (C × K₁ × ExtraDataT) K₂ KₛT Sigma]
 
-def attackGameBlocks' (requests : List (Request K₁ K₂ C Sigma Pi V))
-                      (σ : RollupState K₁ K₂ V C Sigma) : RollupState K₁ K₂ V C Sigma :=
+section AttackGameDefs
+
+variable (requests : List (Request K₁ K₂ C Sigma Pi V))
+         (σ : RollupState K₁ K₂ V C Sigma)
+
+def attackGameBlocks' : RollupState K₁ K₂ V C Sigma :=
   requests.foldl RollupState.appendBlock σ
 
-def attackGame (requests : List (Request K₁ K₂ C Sigma Pi V)) : RollupState K₁ K₂ V C Sigma :=
+def attackGame : RollupState K₁ K₂ V C Sigma :=
   attackGameBlocks' requests []
 
-def attackGameBlocks'! (requests : List (Request K₁ K₂ C Sigma Pi V))
-                       (σ : RollupState K₁ K₂ V C Sigma) : RollupState K₁ K₂ V C Sigma :=
+def attackGameBlocks'! : RollupState K₁ K₂ V C Sigma :=
   requests.foldl RollupState.appendBlock! σ
+
+def attackGameBlocks'!r (requests : List (Request K₁ K₂ C Sigma Pi V))
+                        (σ : RollupState K₁ K₂ V C Sigma) : RollupState K₁ K₂ V C Sigma :=
+  match requests with
+  | [] => σ
+  | hd :: tl => attackGameBlocks'!r tl (σ.appendBlock! hd)
+
+def attackGameRGo (requests : List (Request K₁ K₂ C Sigma Pi V))
+                  (σ : RollupState K₁ K₂ V C Sigma) : RollupState K₁ K₂ V C Sigma :=
+  match requests with
+  | [] => []
+  | hd :: tl => hd.toBlock! σ :: attackGameRGo tl (σ.appendBlock! hd)
+
+def attackGameR : RollupState K₁ K₂ V C Sigma :=
+  σ ++ attackGameRGo requests σ
 
 def attackGameBlocks! (requests : List (Request K₁ K₂ C Sigma Pi V)) : RollupState K₁ K₂ V C Sigma :=
   attackGameBlocks'! requests []
+
+end AttackGameDefs
+
+section AttackGameLemmas
+
+
+
+end AttackGameLemmas
 
 section AttackGame
 
@@ -122,7 +150,7 @@ variable [Nonempty C] [Finite K₁] [Finite K₂] [Nonempty K₁]
          [AddCommGroup V]
          [CovariantClass V V (· + ·) (· ≤ ·)]
          [CovariantClass V V (Function.swap (· + ·)) (· ≤ ·)]
-         [ADScheme K₂ (C × K₁ × ExtraDataT) C Pi]
+         [AD : ADScheme K₂ (C × K₁ × ExtraDataT) C Pi]
          [SA : SignatureAggregation (C × K₁ × ExtraDataT) K₂ KₛT Sigma]
          {request : Request K₁ K₂ C Sigma Pi V}
          {requests : List (Request K₁ K₂ C Sigma Pi V)}
@@ -130,6 +158,62 @@ variable [Nonempty C] [Finite K₁] [Finite K₂] [Nonempty K₁]
 
 def normalise (requests : List (Request K₁ K₂ C Sigma Pi V)) : List (Request K₁ K₂ C Sigma Pi V) :=
   requests.filter Request.isValid
+
+def computeBalance' (blocks : RollupState K₁ K₂ V C Sigma) (acc : V) : V :=
+  blocks.foldl Block.updateBalance acc
+
+def computeBalance (blocks : RollupState K₁ K₂ V C Sigma) : V :=
+  computeBalance' blocks 0
+
+def adversaryWon (blocks : RollupState K₁ K₂ V C Sigma) := ¬0 ≤ computeBalance blocks
+
+section AttackGameLemmas
+
+variable {request : Request K₁ K₂ C Sigma Pi V}
+         {requests : List (Request K₁ K₂ C Sigma Pi V)}
+         {σ : RollupState K₁ K₂ V C Sigma}
+
+@[simp]
+lemma attackGameRGo_nil :
+  attackGameRGo ([] : List (Request K₁ K₂ C Sigma Pi V)) σ = [] := rfl
+
+@[simp]
+lemma attackGameRGo_cons :
+  attackGameRGo (request :: requests) σ =
+  request.toBlock! σ :: attackGameRGo requests (σ.appendBlock! request) := rfl
+
+@[simp]
+lemma attackGameR_nil :
+  attackGameR ([] : List (Request K₁ K₂ C Sigma Pi V)) σ = σ := by simp [attackGameR]
+  
+@[simp]
+lemma attackGameR_cons :
+  attackGameR (request :: requests) σ =
+  σ ++ attackGameRGo (request :: requests) σ := rfl
+
+lemma attackGameR_eq_attackGameBlocks' :
+  attackGameR requests σ = attackGameBlocks'!r requests σ := by
+  induction' requests with hd tl ih generalizing σ
+  · unfold attackGameR attackGameBlocks'!r attackGameRGo
+    rw [List.append_nil]
+  · unfold attackGameR attackGameBlocks'!r
+    simp [ih.symm]
+    unfold attackGameR
+    simp [RollupState.appendBlock!_def]
+
+lemma attackGameBlocks'r_eq_attackGameBlocks' :
+  attackGameBlocks'! requests σ = attackGameBlocks'!r requests σ := by
+  induction' requests with hd tl ih generalizing σ
+  · rfl
+  · unfold attackGameBlocks'! attackGameBlocks'!r
+    simp [ih.symm]
+    rfl
+
+lemma attackGameBlocks_eq_attackGameR :
+  attackGameBlocks! requests = attackGameR requests [] := by
+  rw [attackGameR_eq_attackGameBlocks']
+  rw [←attackGameBlocks'r_eq_attackGameBlocks']
+  rfl
 
 lemma attackGameBlocks'_eq_attackGameBlocks'!_normalise : 
   attackGameBlocks' requests σ = attackGameBlocks'! (normalise requests) σ := by
@@ -143,30 +227,12 @@ lemma attackGameBlocks'_eq_attackGameBlocks'!_normalise :
     · rw [List.filter_cons_of_neg eq]; dsimp
       rw [ih, RollupState.appendBlock_eq_id_of_not_isValid eq]
 
-def computeBalance' (blocks : RollupState K₁ K₂ V C Sigma) (acc : V) : V :=
-  blocks.foldl Block.updateBalance acc
-
-def computeBalance (blocks : RollupState K₁ K₂ V C Sigma) : V :=
-  computeBalance' blocks 0
-
-end AttackGame
-
-def adversaryWon (blocks : RollupState K₁ K₂ V C Sigma) := ¬0 ≤ computeBalance blocks
-
-variable {requests : List (Request K₁ K₂ C Sigma Pi V)}
-         [ADScheme K₂ (C × K₁ × ExtraDataT) C Pi]
-         [CryptoAssumptions.Injective (H (α := TransactionBatch K₁ K₂ V × ExtraDataT) (ω := (C × K₁ × ExtraDataT)))]
-  
 lemma attackGame_eq_attackGameBlocks!_normalise :
   attackGame requests = attackGameBlocks! (normalise requests) :=
   attackGameBlocks'_eq_attackGameBlocks'!_normalise
 
-lemma attackGame_requests_of_all_valid (h : ∀ request ∈ requests, request.isValid) :
-  (attackGame requests).length = requests.length := by
-  unfold attackGame attackGameBlocks'
-
 @[simp]
-lemma length_attackGameBlocks'! {σ} :
+lemma length_attackGameBlocks'! :
   (attackGameBlocks'! requests σ).length = σ.length + requests.length := by
   unfold attackGameBlocks'!
   induction' requests with hd tl ih generalizing σ
@@ -177,18 +243,157 @@ lemma length_attackGameBlocks'! {σ} :
 lemma length_attackGameBlocks! :
   (attackGameBlocks! requests).length = requests.length := by simp [attackGameBlocks!]
 
-def getBalanceProof (bs : RollupState K₁ K₂ V C Sigma)
-                    (requests : List (Request K₁ K₂ C Sigma Pi V))
+@[simp]
+lemma attackGameBlocks'!_cons :
+  attackGameBlocks'! (hd :: requests) σ = attackGameBlocks'! requests (σ ++ [hd.toBlock! σ]) := by
+  unfold attackGameBlocks'!
+  rfl
+
+@[simp]
+lemma length_attackGameRGo : (attackGameRGo requests σ).length = requests.length := by
+  induction' requests with hd tl ih generalizing σ
+  · simp
+  · simp [attackGameRGo, ih]
+
+@[simp]
+lemma length_attackGameR : (attackGameR requests σ).length = σ.length + requests.length := by
+  simp [attackGameR]
+
+lemma attackGameRGo_isWithdrawal_iff (σ σ' : RollupState K₁ K₂ V C Sigma)
+                                     (h : i < (attackGameRGo requests σ).length) :
+  (attackGameRGo requests σ)[i].isWithdrawalBlock ↔
+  (attackGameRGo requests σ')[i].isWithdrawalBlock := by
+  simp
+  induction' requests with hd tl ih generalizing i σ σ'
+  · rfl
+  · simp
+    rcases i with _ | i
+    · simp; unfold Request.toBlock!; aesop
+    · aesop
+
+/-
+I'll clean up later.
+-/
+section UgliestProofIveEverWritten
+
+set_option maxHeartbeats 400000
+
+private lemma isWithdrawalRequest_of_isWithdrawalBlock_aux
+  {σ : RollupState K₁ K₂ V C Sigma}
+  {requests : List (Request K₁ K₂ C Sigma Pi V)}
+  (h₀ : ∀ request ∈ requests, request.isValid)
+  (i : ℕ)
+  (hi₁ : σ.length ≤ i)
+  (hi₂ : i < (attackGameR requests σ).length)
+  (h₁ : ((attackGameR requests σ)[i]'(by simp; simp at hi₂; exact hi₂)).isWithdrawalBlock) :
+  (requests[i - σ.length]'(by rcases i with _ | i <;> rcases requests with _ | ⟨hd, tl⟩
+                              · simp at hi₂; omega
+                              · simp
+                              · simp at hi₂; omega
+                              · simp at hi₂ ⊢; omega)) matches .withdrawal .. := by
+  simp [attackGameR] at h₁
+  induction' requests with hd tl ih generalizing i
+  · simp at hi₂ h₁; omega
+  · rcases i with _ | i
+    · simp at hi₁
+      subst hi₁
+      simp [Request.toBlock!] at h₁ ⊢
+      rcases hd <;> simp_all
+    · rcases σ with _ | ⟨hd', tl'⟩
+      · simp at hi₁ hi₂ h₁ ih ⊢
+        apply ih (by aesop)
+        rw [attackGameRGo_isWithdrawal_iff (σ' := RollupState.appendBlock! [] hd)]
+        exact h₁
+        exact hi₂
+      · simp at hi₁ ⊢
+        rw [le_iff_eq_or_lt] at hi₁
+        rcases hi₁ with hi₁ | hi₁
+        · simp_rw [hi₁]; simp
+          simp [Request.toBlock!] at h₁ ⊢
+          simp_rw [←hi₁] at h₁
+          rw [List.getElem_append_right] at h₁
+          simp [Request.toBlock!] at h₁ ⊢
+          rcases hd <;> simp_all
+          simp
+          simp
+        · rw [lt_iff_exists_add] at hi₁
+          rcases hi₁ with ⟨c, ⟨hc₁, hc₂⟩⟩
+          simp_rw [hc₂]
+          rcases c with _ | c <;> [simp at hc₁; skip]
+          simp
+          specialize ih (by aesop) (c + (hd' :: tl').length)
+          simp at ih
+          apply ih
+          swap
+          simp at hi₂
+          omega
+          simp_rw [←Nat.add_assoc]
+          simp
+          simp at h₁
+          simp_rw [hc₂] at h₁
+          simp_rw [←Nat.add_assoc] at h₁
+          simp_rw [List.append_cons (as := tl') (b := Request.toBlock! (hd' :: tl') hd) (bs := attackGameRGo tl (RollupState.appendBlock! (hd' :: tl') hd))] at h₁
+          rw [List.getElem_append_right (as := tl' ++ [Request.toBlock! (hd' :: tl') hd]) (bs :=
+              attackGameRGo tl (RollupState.appendBlock! (hd' :: tl') hd))] at h₁
+          rw [List.getElem_append_right]
+          simp at h₁ ⊢
+          rw [attackGameRGo_isWithdrawal_iff (σ' := (hd' :: tl'))] at h₁
+          exact h₁
+          simp
+          simp at hc₂ hi₂ ⊢
+          rw [hc₂] at hi₂
+          simp at hi₂
+          exact hi₂
+          simp
+          simp at hc₂ hi₂ ⊢
+          rw [hc₂] at hi₂
+          simp at hi₂
+          exact hi₂
+
+end UgliestProofIveEverWritten
+
+lemma isWithdrawalRequest_of_isWithdrawalBlock
+  {requests : List (Request K₁ K₂ C Sigma Pi V)}
+  (h₀ : ∀ request ∈ requests, request.isValid)
+  (i : Fin (attackGameR requests []).length)
+  (h₁ : ((attackGameR requests [])[i]'(by simp; rcases i with ⟨i, hi⟩; simp at hi; exact hi)).isWithdrawalBlock) :
+  (requests[i]'(by rcases i with ⟨h, hi⟩; rcases requests with _ | ⟨hd, tl⟩
+                   · simp at hi
+                   · simp at hi ⊢; omega)) matches .withdrawal .. := by
+  let σ : RollupState K₁ K₂ V C Sigma := []
+  have hσ : σ.length = 0 := by simp [σ]
+  rcases i with ⟨i, hi⟩; dsimp at h₁ ⊢
+  have eq := isWithdrawalRequest_of_isWithdrawalBlock_aux (σ := [])
+                                                          (requests := requests)
+                                                          h₀
+                                                          (i + σ.length)
+                                                          (zero_le _)
+                                                          (hσ ▸ hi)                        
+  aesop
+
+end AttackGameLemmas
+
+def getBalanceProof (requests : List (Request K₁ K₂ C Sigma Pi V))
                     (h₀ : ∀ request ∈ requests, request.isValid)
-                    (h : bs = attackGameBlocks! requests)
-                    (i : Fin ):
+                    (i : Fin (attackGameR requests []).length)
+                    (h₁ : (attackGameR requests [])[i].isWithdrawalBlock) :
                     BalanceProof K₁ K₂ C Pi V :=
+  let request := requests[i]'(by rcases i with ⟨i, hi⟩; simp at hi; exact hi)
+  have : request.getWithdrawal.isSome := by
+    rw [Request.getWithdrawal_isSome]
+    dsimp only [request]
+    have := isWithdrawalRequest_of_isWithdrawalBlock (requests := requests) h₀ i h₁
+    aesop
+  request.getWithdrawal.get this
+
+variable [ADScheme K₂ (C × K₁ × ExtraDataT) C Pi]
+         [CryptoAssumptions.Injective (H (α := TransactionBatch K₁ K₂ V × ExtraDataT) (ω := (C × K₁ × ExtraDataT)))]
 
 theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
   /-
     The attack game plays out the same regardless of validity of requests.
   -/
-  rw [attackGame_eq_attackGameBlocks!_normalise] at contra
+  rw [attackGame_eq_attackGameBlocks!_normalise, attackGameBlocks_eq_attackGameR] at contra
   set requests! := normalise requests with eqRequests
   set Bstar := attackGameBlocks! requests! with eqBstar
   /-
@@ -199,6 +404,8 @@ theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
   let I : List (Fin n) := (List.finRange n).filter (Bstar[·].isWithdrawalBlock)
   
   sorry
+
+end AttackGame
 
 end lemma1
 

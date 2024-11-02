@@ -11,8 +11,10 @@ import «FVIntmax».Block
 import «FVIntmax».Key
 import «FVIntmax».Lemma1
 import «FVIntmax».Lemma2
+import «FVIntmax».Request
 import «FVIntmax».RollupContract
 import «FVIntmax».State
+import «FVIntmax».Theorem1
 import «FVIntmax».Transaction
 import «FVIntmax».TransactionBatch
 import «FVIntmax».Wheels

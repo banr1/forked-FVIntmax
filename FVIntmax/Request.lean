@@ -38,7 +38,7 @@ section
 
 variable {K₁ : Type} [Finite K₁] {K₂ : Type} [Finite K₂]
          {C Sigma Pi V : Type}
-         [Nonempty C] [Finite K₁] [Finite K₂] [Nonempty K₁] [Nonnegative V]
+         [Nonempty C] [Finite K₁] [Finite K₂] [Nonempty K₁] [AddCommGroup V] [Lattice V]
          [ADScheme K₂ (C × K₁ × ExtraDataT) C Pi]
          [SA : SignatureAggregation (C × K₁ × ExtraDataT) K₂ KₛT Sigma]
 
@@ -135,7 +135,7 @@ end
 section Lemmas
 
 variable [Lattice V] [AddCommGroup V]
-         {request : Request K₁ K₂ C Sigma Pi V} {σ : RollupState K₁ K₂ V C Sigma}
+         {request : Request K₁ K₂ C Sigma Pi V} {σ σ' : RollupState K₁ K₂ V C Sigma}
 
 @[simp]
 lemma getWithdrawal_isSome :
@@ -145,14 +145,33 @@ lemma getWithdrawal_isSome :
 
 variable [CovariantClass V V (· + ·) (· ≤ ·)]
          [CovariantClass V V (Function.swap (· + ·)) (· ≤ ·)]
-         [LinearOrder K₁] [Nonempty K₁] [LinearOrder K₂] [Nonempty C]
+         [LinearOrder K₁] [LinearOrder K₂]
+
+lemma toBlock_σ_matches_withdrawal (σ σ' : RollupState K₁ K₂ V C Sigma) :
+  request.toBlock! σ matches .withdrawal .. ↔
+  request.toBlock! σ' matches .withdrawal .. := by unfold toBlock!; aesop
+
+lemma toBlock_σ_isWithdrawalBlock (σ σ' : RollupState K₁ K₂ V C Sigma) :
+  (request.toBlock! σ).isWithdrawalBlock ↔
+  (request.toBlock! σ').isWithdrawalBlock := by unfold toBlock!; aesop
+
+lemma toBlock!_of_deposit (h : request matches .deposit ..) :
+  request.toBlock! σ matches .deposit .. := by unfold toBlock!; aesop
+
+lemma toBlock!_of_transfer (h : request matches .transfer ..) :
+  request.toBlock! σ matches .transfer .. := by unfold toBlock!; aesop
+
+lemma toBlock!_of_withdrawal (h : request matches .withdrawal ..) :
+  request.toBlock! σ matches .withdrawal .. := by unfold toBlock!; aesop
+
+variable [Nonempty K₁] [Nonempty C]
          [ADScheme K₂ (C × K₁ × ExtraDataT) C Pi]
          [SignatureAggregation (C × K₁ × ExtraDataT) K₂ KₛT Sigma]
 
 lemma toBlock_eq_toBlock!_of_isValid (h : request.isValid) :
   (toBlock σ request) = toBlock! σ request := by unfold toBlock; aesop
 
-lemma toBlock_eq_id_of_not_isValid (h : ¬request.isValid)  :
+lemma toBlock_eq_id_of_not_isValid (h : ¬request.isValid) :
   (toBlock σ request) = .none := by unfold toBlock; aesop
 
 end Lemmas
