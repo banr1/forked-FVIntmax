@@ -52,13 +52,31 @@ def Block.updateBalance (bal : V) (block : Block K₁ K₂ C Sigma V) : V :=
   /- 2.7 -/
   | .withdrawal B => bal - ∑ k : K₁, (B k).1
 
-lemma Block.updateBalance_eq_zero {block : Block K₁ K₂ C Sigma V} :
+section Lemmas
+
+variable {block : Block K₁ K₂ C Sigma V}
+
+lemma Block.updateBalance_eq_zero :
   block.updateBalance v = v + block.updateBalance 0 := by
   unfold Block.updateBalance
   match block with
   | .deposit .. => simp
   | .transfer .. => simp
   | .withdrawal B => simp; exact sub_eq_add_neg v (∑ x : K₁, ↑(B x))
+
+lemma Block.updateBalance_of_transfer (h : block.isTransferBlock) :
+  block.updateBalance v = v := by
+  unfold Block.updateBalance
+  match block with
+  | .transfer .. => simp
+  | .withdrawal .. | .deposit .. => aesop
+
+@[simp]
+lemma Block.updateBalance_transfer {v : V} {a : K₁} {b : ExtraDataT} {c : C} {d : List K₂} (e : Sigma) :
+  (Block.transfer a b c d e).updateBalance v = v :=
+  Block.updateBalance_of_transfer rfl
+
+end Lemmas
 
 namespace RollupState
 
@@ -181,10 +199,15 @@ variable {request : Request K₁ K₂ C Sigma Pi V}
          {requests : List (Request K₁ K₂ C Sigma Pi V)}
          {σ : RollupState K₁ K₂ V C Sigma}
 
+/--
+The 'obvious' `∑ (i : {i : Fin σ.length // σ[i].isDepositBlock}) ...` is slightly clumsy.
+-/
 def computeBalanceErik (σ : RollupState K₁ K₂ V C Sigma) := 
   let v_deposited : V :=
-    ∑ i : {i : Fin σ.length // σ[i].isDepositBlock},
-      (σ[i.1].getDeposit i.2).2
+    ∑ i ∈ Finset.univ (α := Fin σ.length),
+      if h : σ[i].isDepositBlock
+      then (σ[i.1].getDeposit h).2
+      else 0
   let v_withdrawn : V :=
     ∑ (i : {i : Fin σ.length // σ[i].isWithdrawalBlock}),
       ∑ (k : K₁), (σ[i.1].getWithdrawal i.2) k
@@ -204,6 +227,24 @@ lemma computeBalance'_eq_zero : computeBalance' σ v = v + computeBalance' σ 0 
     rw [ih]; nth_rw 2 [ih]
     rw [Block.updateBalance_eq_zero]
     exact add_assoc v _ _
+
+private lemma computeBalance'_eq_Erik_aux : computeBalance' σ v = v + computeBalanceErik σ := by
+  induction' σ with hd tl ih generalizing v
+  · simp [computeBalanceErik]
+  · rw [computeBalance'_eq_zero]; simp
+    unfold computeBalance' computeBalanceErik at ih ⊢
+    rw [ih]
+    lift_lets
+    intros d₁ w₁ d₂ w₂
+    match hd with
+    | .transfer .. => have : d₁ = d₂ := by
+                        simp [d₁, d₂]
+                        rw [Finset.sum_eq_sum]
+                        done
+    | _ => sorry
+    
+
+
 
 @[simp]
 lemma attackGameRGo_nil :
