@@ -66,6 +66,9 @@ def getDeposit? (b : Block K₁ K₂ C Sigma V) : Option (K₂ × V₊) :=
 lemma isSome_getDeposit?_of_isDepositBlock {b : Block K₁ K₂ C Sigma V}
   (h : b.isDepositBlock) : b.getDeposit?.isSome := by unfold getDeposit?; aesop
 
+def getDeposit (b : Block K₁ K₂ C Sigma V) (_h : b.isDepositBlock) : K₂ × V₊ :=
+  match b with | deposit r v => (r, v)
+
 @[simp]
 lemma transfer_ne_deposit :
   (transfer aggregator extradata commitment senders sigma).isDepositBlock (V := V) = False := by aesop

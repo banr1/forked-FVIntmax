@@ -52,6 +52,14 @@ def Block.updateBalance (bal : V) (block : Block K₁ K₂ C Sigma V) : V :=
   /- 2.7 -/
   | .withdrawal B => bal - ∑ k : K₁, (B k).1
 
+lemma Block.updateBalance_eq_zero {block : Block K₁ K₂ C Sigma V} :
+  block.updateBalance v = v + block.updateBalance 0 := by
+  unfold Block.updateBalance
+  match block with
+  | .deposit .. => simp
+  | .transfer .. => simp
+  | .withdrawal B => simp; exact sub_eq_add_neg v (∑ x : K₁, ↑(B x))
+
 namespace RollupState
 
 def appendBlock (σ : RollupState K₁ K₂ V C Sigma)
@@ -172,6 +180,30 @@ section AttackGameLemmas
 variable {request : Request K₁ K₂ C Sigma Pi V}
          {requests : List (Request K₁ K₂ C Sigma Pi V)}
          {σ : RollupState K₁ K₂ V C Sigma}
+
+def computeBalanceErik (σ : RollupState K₁ K₂ V C Sigma) := 
+  let v_deposited : V :=
+    ∑ i : {i : Fin σ.length // σ[i].isDepositBlock},
+      (σ[i.1].getDeposit i.2).2
+  let v_withdrawn : V :=
+    ∑ (i : {i : Fin σ.length // σ[i].isWithdrawalBlock}),
+      ∑ (k : K₁), (σ[i.1].getWithdrawal i.2) k
+  v_deposited - v_withdrawn
+
+@[simp]
+lemma computeBalance'_nil : computeBalance' ([] : RollupState K₁ K₂ V C Sigma) v = v := rfl
+
+@[simp]
+lemma computeBalance'_cons : computeBalance' (hd :: σ) v =
+                             computeBalance' σ (Block.updateBalance v hd) := rfl
+
+lemma computeBalance'_eq_zero : computeBalance' σ v = v + computeBalance' σ 0 := by
+  induction' σ with hd tl ih generalizing v
+  · simp
+  · rw [computeBalance'_cons, computeBalance'_cons]
+    rw [ih]; nth_rw 2 [ih]
+    rw [Block.updateBalance_eq_zero]
+    exact add_assoc v _ _
 
 @[simp]
 lemma attackGameRGo_nil :
@@ -451,11 +483,11 @@ theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
   let I : List (Fin n) := (List.finRange n).filter (Bstar[·].isWithdrawalBlock)
   have hI : ∀ i ∈ I, Bstar[i].isWithdrawalBlock := by aesop
   let getπ : {i : Fin n // i ∈ I} → BalanceProof K₁ K₂ C Pi V :=
-    λ ⟨i, hi⟩ ↦ 
+    λ ⟨i, hi⟩ ↦
       have lenEq : (attackGameR requests! []).length = n := by simp [n, eqBstar]
       have hi₁ : i.1 < (attackGameR requests! []).length := by rw [lenEq]; exact i.2
       getBalanceProof requests! hValid ⟨i.1, hi₁⟩ (hI i hi)
-  let πs : List (BalanceProof K₁ K₂ C Pi V) := I.attach.map getπ 
+  let πs : List (BalanceProof K₁ K₂ C Pi V) := I.attach.map getπ
   
   sorry
 
