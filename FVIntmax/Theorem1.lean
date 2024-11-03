@@ -204,12 +204,12 @@ The 'obvious' `∑ (i : {i : Fin σ.length // σ[i].isDepositBlock}) ...` is sli
 -/
 def computeBalanceErik (σ : RollupState K₁ K₂ V C Sigma) := 
   let v_deposited : V :=
-    ∑ i ∈ Finset.univ (α := Fin σ.length),
+    ∑ i : Fin σ.length,
       if h : σ[i].isDepositBlock
       then (σ[i.1].getDeposit h).2
       else 0
   let v_withdrawn : V :=
-    ∑ i ∈ Finset.univ (α := Fin σ.length),
+    ∑ i : Fin σ.length,
       if h : σ[i].isWithdrawalBlock
       then ∑ (k : K₁), (σ[i.1].getWithdrawal h) k
       else 0
@@ -238,10 +238,52 @@ private lemma computeBalance'_eq_Erik_aux : computeBalance' σ v = v + computeBa
     rw [ih]
     lift_lets
     intros d₁ w₁ d₂ w₂
-    match hd with
+    match heq : hd with
     | .transfer .. => have : d₁ = d₂ := by
                         simp [d₁, d₂]
-                        rw [Finset.sum_eq_sum]
+                        simp [Finset.sum_fin_eq_sum_range]
+                        nth_rw 2 [Finset.sum_eq_sum_diff_singleton_add (i := 0)]
+                        rw [dif_pos (show 0 < tl.length + 1 by omega)]
+                        rw [dif_neg (by aesop)]
+                        let F : ℕ → V := λ i ↦
+                          if h : i < tl.length then
+                          if h_1 : tl[i].isDepositBlock = true then
+                          (tl[i].getDeposit h_1).2 else 0
+                          else 0
+                        let F' : (a : ℕ) → a ∈ Finset.range (tl.length + 1) \ {0} → ℕ :=
+                          λ a ha ↦ a.pred
+                        nth_rw 2 [Finset.sum_bij (t := Finset.range tl.length) (g := F)]
+                        simp [F]
+                        exact F'
+                        simp [F']
+                        intros a ha₁ ha₂
+                        omega
+                        simp [F']; intros a ha₁ ha₂ b hb₁ hb₂ h₃
+                        omega
+                        simp [F']
+                        intros b hb
+                        use b.succ
+                        simpa
+                        simp [F', F]
+                        intros a ha₁ ha₂
+                        rw [dif_pos ha₁]
+                        have : a - 1 < tl.length ↔ a < tl.length + 1 := by omega
+                        simp_rw [this, dif_pos ha₁]
+                        rcases a with _ | a; simp at ha₂
+                        simp
+                        rw [Finset.mem_range]; omega
+                      
+
+
+
+
+
+
+                        
+
+
+                        -- simp?
+-- Finset.sum_sdiff_eq_sub
                         done
     | _ => sorry
     
