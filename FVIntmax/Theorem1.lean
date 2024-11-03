@@ -276,8 +276,11 @@ I'll clean up later.
 -/
 section UgliestProofIveEverWritten
 
-set_option maxHeartbeats 400000
-
+set_option maxHeartbeats 400000 in
+/-
+Sketch. This can be cleaned up both Lean wise and maybe ven math wise, but it goes through
+and Lean is happy so I'll move on for now.
+-/
 private lemma isWithdrawalRequest_of_isWithdrawalBlock_aux
   {σ : RollupState K₁ K₂ V C Sigma}
   {requests : List (Request K₁ K₂ C Sigma Pi V)}
@@ -292,22 +295,60 @@ private lemma isWithdrawalRequest_of_isWithdrawalBlock_aux
                               · simp at hi₂; omega
                               · simp at hi₂ ⊢; omega)) matches .withdrawal .. := by
   simp [attackGameR] at h₁
+  /-
+    Ideally, we want to show that `(attackGameR requests []).isWithdrawal → requests[i].isWithdrawal`,
+    but we'll prove it as a corollary of this one for an arbitrary state σ rather than [].
+  -/
+
+  /-
+    By induction on requests for an arbitrary `i`.
+  -/
   induction' requests with hd tl ih generalizing i
+  /-
+    The base case is trivial.
+  -/
   · simp at hi₂ h₁; omega
+  /-
+    Suppose the requests are `hd :: tl`. (I.e. a single element followed by some tail.)
+  -/
   · rcases i with _ | i
+    /-
+      Suppose first that i = 0.
+
+      Then we know we are accessing the very first request and as such, one only needs to consult
+      the function `Request.toBlock!` to establish this holds.
+    -/
     · simp at hi₁
       subst hi₁
       simp [Request.toBlock!] at h₁ ⊢
       rcases hd <;> simp_all
+    /-
+      Suppose next that i = i + 1.
+    -/
     · rcases σ with _ | ⟨hd', tl'⟩
+      /-
+        Suppose further that `σ` is empty.
+
+        We can immediately conclude this holds by the inductive hypothesis and the fact that
+        the shape of blocks is invariant with respect to state and is dependent only on the shape
+        of the initial requests (as witnessed by `attackGameRGo_isWithdrawal_iff`).
+      -/
       · simp at hi₁ hi₂ h₁ ih ⊢
         apply ih (by aesop)
         rw [attackGameRGo_isWithdrawal_iff (σ' := RollupState.appendBlock! [] hd)]
         exact h₁
         exact hi₂
+      /-
+        Suppose now that `σ` is _not_ empty, but `hd' :: tl'`.
+        
+        Note we have that `tl'.length ≤ i`.
+      -/
       · simp at hi₁ ⊢
         rw [le_iff_eq_or_lt] at hi₁
         rcases hi₁ with hi₁ | hi₁
+        /-
+          For the case where `tl'.length = i`, we know we are accessing `hd` and the rest is trivial.
+        -/
         · simp_rw [hi₁]; simp
           simp [Request.toBlock!] at h₁ ⊢
           simp_rw [←hi₁] at h₁
@@ -316,6 +357,11 @@ private lemma isWithdrawalRequest_of_isWithdrawalBlock_aux
           rcases hd <;> simp_all
           simp
           simp
+        /-
+          For when `tl'.length < i`, we know that accessing `(hd :: tl)[i - tl'.length]`
+          always reaches the tail as `i - tl'.length > 0`. Thus, we can invoke the inductive hypothesis
+          together with lemma `attackGameRGo_isWithdrawal_iff` to establish this holds.
+        -/
         · rw [lt_iff_exists_add] at hi₁
           rcases hi₁ with ⟨c, ⟨hc₁, hc₂⟩⟩
           simp_rw [hc₂]
