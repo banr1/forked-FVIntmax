@@ -76,6 +76,11 @@ lemma Block.updateBalance_transfer {v : V} {a : K₁} {b : ExtraDataT} {c : C} {
   (Block.transfer a b c d e).updateBalance v = v :=
   Block.updateBalance_of_transfer rfl
 
+@[simp]
+lemma Block.updateBalance_deposit{r : K₂} {v : V} {vplus : V₊} :
+  (Block.deposit r vplus).updateBalance (K₁ := K₁) (C := C) (Sigma := Sigma) v = v + vplus := by
+  unfold Block.updateBalance; aesop
+
 end Lemmas
 
 namespace RollupState
@@ -230,6 +235,7 @@ lemma computeBalance'_eq_zero : computeBalance' σ v = v + computeBalance' σ 0 
     rw [Block.updateBalance_eq_zero]
     exact add_assoc v _ _
 
+set_option maxHeartbeats 600000 in
 /--
 Obviously needs to be cleaned up.
 -/
@@ -243,39 +249,75 @@ private lemma computeBalance'_eq_Erik_aux : computeBalance' σ v = v + computeBa
     intros d₁ w₁ d₂ w₂
     match heq : hd with
     | .transfer .. => have eq₁ : d₁ = d₂ := by
-                        simp [d₁, d₂]
-                        simp [Finset.sum_fin_eq_sum_range]
-                        nth_rw 2 [Finset.sum_eq_sum_diff_singleton_add (i := 0)]
-                        rw [dif_pos (show 0 < tl.length + 1 by omega)]
-                        rw [dif_neg (by aesop)]
-                        let F : ℕ → V := λ i ↦
-                          if h : i < tl.length then
-                          if h_1 : tl[i].isDepositBlock = true then
-                          (tl[i].getDeposit h_1).2 else 0
-                          else 0
-                        let F' : (a : ℕ) → a ∈ Finset.range (tl.length + 1) \ {0} → ℕ :=
-                          λ a ha ↦ a.pred
-                        nth_rw 2 [Finset.sum_bij (t := Finset.range tl.length) (g := F)]
-                        simp [F]
-                        exact F'
-                        simp [F']
-                        intros a ha₁ ha₂
-                        omega
-                        simp [F']; intros a ha₁ ha₂ b hb₁ hb₂ h₃
-                        omega
-                        simp [F']
-                        intros b hb
-                        use b.succ
-                        simpa
-                        simp [F', F]
-                        intros a ha₁ ha₂
-                        rw [dif_pos ha₁]
-                        have : a - 1 < tl.length ↔ a < tl.length + 1 := by omega
-                        simp_rw [this, dif_pos ha₁]
-                        rcases a with _ | a; simp at ha₂
-                        simp
-                        rw [Finset.mem_range]; omega
+                        sorry
+                        -- simp [d₁, d₂]
+                        -- simp [Finset.sum_fin_eq_sum_range]
+                        -- nth_rw 2 [Finset.sum_eq_sum_diff_singleton_add (i := 0)]
+                        -- rw [dif_pos (show 0 < tl.length + 1 by omega)]
+                        -- rw [dif_neg (by aesop)]
+                        -- let F : ℕ → V := λ i ↦
+                        --   if h : i < tl.length then
+                        --   if h_1 : tl[i].isDepositBlock = true then
+                        --   (tl[i].getDeposit h_1).2 else 0
+                        --   else 0
+                        -- let F' : (a : ℕ) → a ∈ Finset.range (tl.length + 1) \ {0} → ℕ :=
+                        --   λ a ha ↦ a.pred
+                        -- nth_rw 2 [Finset.sum_bij (t := Finset.range tl.length) (g := F)]
+                        -- simp [F]
+                        -- exact F'
+                        -- simp [F']
+                        -- intros a ha₁ ha₂
+                        -- omega
+                        -- simp [F']; intros a ha₁ ha₂ b hb₁ hb₂ h₃
+                        -- omega
+                        -- simp [F']
+                        -- intros b hb
+                        -- use b.succ
+                        -- simpa
+                        -- simp [F', F]
+                        -- intros a ha₁ ha₂
+                        -- rw [dif_pos ha₁]
+                        -- have : a - 1 < tl.length ↔ a < tl.length + 1 := by omega
+                        -- simp_rw [this, dif_pos ha₁]
+                        -- rcases a with _ | a; simp at ha₂
+                        -- simp
+                        -- rw [Finset.mem_range]; omega
                       have eq₂ : w₁ = w₂ := by
+                        sorry
+                        -- simp [w₁, w₂]
+                        -- simp [Finset.sum_fin_eq_sum_range]
+                        -- nth_rw 2 [Finset.sum_eq_sum_diff_singleton_add (i := 0)]
+                        -- rw [dif_pos (show 0 < tl.length + 1 by omega)]
+                        -- rw [dif_neg (by aesop)]
+                        -- let F : ℕ → V := λ i ↦
+                        --   if h : i < tl.length then
+                        --   if h_1 : tl[i].isWithdrawalBlock = true
+                        --   then ∑ x_1 : K₁, tl[i].getWithdrawal h_1 x_1 else 0
+                        --   else 0
+                        -- let F' : (a : ℕ) → a ∈ Finset.range (tl.length + 1) \ {0} → ℕ :=
+                        --   λ a ha ↦ a.pred
+                        -- nth_rw 2 [Finset.sum_bij (t := Finset.range tl.length) (g := F)]
+                        -- simp [F]
+                        -- exact F'
+                        -- simp [F']
+                        -- intros a ha₁ ha₂
+                        -- omega
+                        -- simp [F']; intros a ha₁ ha₂ b hb₁ hb₂ h₃
+                        -- omega
+                        -- simp [F']
+                        -- intros b hb
+                        -- use b.succ
+                        -- simpa
+                        -- simp [F', F]
+                        -- intros a ha₁ ha₂
+                        -- rw [dif_pos ha₁]
+                        -- have : a - 1 < tl.length ↔ a < tl.length + 1 := by omega
+                        -- simp_rw [this, dif_pos ha₁]
+                        -- rcases a with _ | a; simp at ha₂
+                        -- simp
+                        -- rw [Finset.mem_range]; omega
+                      simp [eq₁, eq₂]
+    | .deposit _ v => have : w₁ = w₂ := by
                         simp [w₁, w₂]
                         simp [Finset.sum_fin_eq_sum_range]
                         nth_rw 2 [Finset.sum_eq_sum_diff_singleton_add (i := 0)]
@@ -308,23 +350,39 @@ private lemma computeBalance'_eq_Erik_aux : computeBalance' σ v = v + computeBa
                         rcases a with _ | a; simp at ha₂
                         simp
                         rw [Finset.mem_range]; omega
-                      simp [eq₁, eq₂]
-    | .deposit _ v => skip
-                      have : w₁ = w₂ := by sorry
                       simp [this]
-
-                      done  
-
-
-
-
-
-                        
-
-
-                        -- simp?
--- Finset.sum_sdiff_eq_sub
-                        done
+                      rw [add_sub]
+                      simp [d₁, d₂]
+                      simp [Finset.sum_fin_eq_sum_range]
+                      nth_rw 2 [Finset.sum_eq_sum_diff_singleton_add (i := 0)]
+                      rw [dif_pos (show 0 < tl.length + 1 by omega)]
+                      rw [dif_pos (by aesop)]
+                      simp_rw [List.getElem_cons_zero, heq]
+                      dsimp [Block.getDeposit] -- TODO: make lemma
+                      nth_rw 2 [add_comm]
+                      apply congr_arg
+                      symm
+                      -- reorder
+                      let F' : (a : ℕ) → a ∈ Finset.range (tl.length + 1) \ {0} → ℕ :=
+                          λ a ha ↦ a.pred
+                      apply Finset.sum_bij (i := F')
+                      simp [F']
+                      intros a ha₁ ha₂
+                      omega
+                      simp [F']; intros a ha₁ ha₂ b hb₁ hb₂ h₃
+                      omega
+                      simp [F']
+                      intros b hb
+                      use b.succ
+                      simpa
+                      simp [F']
+                      rintro a ⟨ha₁, ha₂⟩
+                      rw [dif_pos ha₁]
+                      have : a - 1 < tl.length ↔ a < tl.length + 1 := by omega
+                      simp_rw [this, dif_pos ha₁]
+                      rcases a with _ | a; simp at ha₂
+                      simp
+                      rw [Finset.mem_range]; omega
     | _ => sorry
     
 
