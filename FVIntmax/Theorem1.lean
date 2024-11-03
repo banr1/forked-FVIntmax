@@ -368,7 +368,7 @@ lemma isWithdrawalRequest_of_isWithdrawalBlock
                                                           h₀
                                                           (i + σ.length)
                                                           (zero_le _)
-                                                          (hσ ▸ hi)                        
+                                                          (hσ ▸ hi)
   aesop
 
 end AttackGameLemmas
@@ -395,13 +395,21 @@ theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
   -/
   rw [attackGame_eq_attackGameBlocks!_normalise, attackGameBlocks_eq_attackGameR] at contra
   set requests! := normalise requests with eqRequests
-  set Bstar := attackGameBlocks! requests! with eqBstar
+  set Bstar := attackGameR requests! [] with eqBstar
   /-
     All requests in `normalise requests` are valid.
   -/
-  have : ∀ request ∈ (normalise requests), request.isValid := by unfold normalise; aesop
+  have hValid : ∀ request ∈ (normalise requests), request.isValid := by unfold normalise; aesop
   let n := Bstar.length
+  have hn : n = requests!.length := by simp [n, eqBstar]
   let I : List (Fin n) := (List.finRange n).filter (Bstar[·].isWithdrawalBlock)
+  have hI : ∀ i ∈ I, Bstar[i].isWithdrawalBlock := by aesop
+  let getπ : {i : Fin n // i ∈ I} → BalanceProof K₁ K₂ C Pi V :=
+    λ ⟨i, hi⟩ ↦ 
+      have lenEq : (attackGameR requests! []).length = n := by simp [n, eqBstar]
+      have hi₁ : i.1 < (attackGameR requests! []).length := by rw [lenEq]; exact i.2
+      getBalanceProof requests! hValid ⟨i.1, hi₁⟩ (hI i hi)
+  let πs : List (BalanceProof K₁ K₂ C Pi V) := I.attach.map getπ 
   
   sorry
 
