@@ -209,8 +209,10 @@ def computeBalanceErik (σ : RollupState K₁ K₂ V C Sigma) :=
       then (σ[i.1].getDeposit h).2
       else 0
   let v_withdrawn : V :=
-    ∑ (i : {i : Fin σ.length // σ[i].isWithdrawalBlock}),
-      ∑ (k : K₁), (σ[i.1].getWithdrawal i.2) k
+    ∑ i ∈ Finset.univ (α := Fin σ.length),
+      if h : σ[i].isWithdrawalBlock
+      then ∑ (k : K₁), (σ[i.1].getWithdrawal h) k
+      else 0
   v_deposited - v_withdrawn
 
 @[simp]
