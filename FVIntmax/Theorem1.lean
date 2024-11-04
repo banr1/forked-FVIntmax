@@ -77,8 +77,13 @@ lemma Block.updateBalance_transfer {v : V} {a : K₁} {b : ExtraDataT} {c : C} {
   Block.updateBalance_of_transfer rfl
 
 @[simp]
-lemma Block.updateBalance_deposit{r : K₂} {v : V} {vplus : V₊} :
+lemma Block.updateBalance_deposit {r : K₂} {v : V} {vplus : V₊} :
   (Block.deposit r vplus).updateBalance (K₁ := K₁) (C := C) (Sigma := Sigma) v = v + vplus := by
+  unfold Block.updateBalance; aesop
+
+@[simp]
+lemma Block.updateBalance_withdrawal {B : K₁ → V₊} :
+  (Block.withdrawal B).updateBalance (K₁ := K₁) (K₂ := K₂) (C := C) (Sigma := Sigma) v = v - ∑ (k : K₁), (B k).1 := by
   unfold Block.updateBalance; aesop
 
 end Lemmas
@@ -196,7 +201,18 @@ def computeBalance' (blocks : RollupState K₁ K₂ V C Sigma) (acc : V) : V :=
 def computeBalance (blocks : RollupState K₁ K₂ V C Sigma) : V :=
   computeBalance' blocks 0
 
-def adversaryWon (blocks : RollupState K₁ K₂ V C Sigma) := ¬0 ≤ computeBalance blocks
+def contractBalanceIsSource (blocks : RollupState K₁ K₂ V C Sigma) :=
+  ∀ i {Pi} (π : BalanceProof K₁ K₂ C Pi V),
+    Bal π (blocks.take i) .Source = - computeBalance (blocks.take i)
+
+def adversaryWon (blocks : RollupState K₁ K₂ V C Sigma) :=
+  contractBalanceIsSource blocks ∧ ¬0 ≤ computeBalance blocks
+
+lemma contractBalanceIsSource_entire_game {σ : RollupState K₁ K₂ V C Sigma} 
+  (h : contractBalanceIsSource σ) : Bal π σ .Source = - computeBalance σ := by
+    unfold contractBalanceIsSource at h
+    specialize h σ.length π
+    aesop
 
 section AttackGameLemmas
 
@@ -249,73 +265,71 @@ private lemma computeBalance'_eq_Erik_aux : computeBalance' σ v = v + computeBa
     intros d₁ w₁ d₂ w₂
     match heq : hd with
     | .transfer .. => have eq₁ : d₁ = d₂ := by
-                        sorry
-                        -- simp [d₁, d₂]
-                        -- simp [Finset.sum_fin_eq_sum_range]
-                        -- nth_rw 2 [Finset.sum_eq_sum_diff_singleton_add (i := 0)]
-                        -- rw [dif_pos (show 0 < tl.length + 1 by omega)]
-                        -- rw [dif_neg (by aesop)]
-                        -- let F : ℕ → V := λ i ↦
-                        --   if h : i < tl.length then
-                        --   if h_1 : tl[i].isDepositBlock = true then
-                        --   (tl[i].getDeposit h_1).2 else 0
-                        --   else 0
-                        -- let F' : (a : ℕ) → a ∈ Finset.range (tl.length + 1) \ {0} → ℕ :=
-                        --   λ a ha ↦ a.pred
-                        -- nth_rw 2 [Finset.sum_bij (t := Finset.range tl.length) (g := F)]
-                        -- simp [F]
-                        -- exact F'
-                        -- simp [F']
-                        -- intros a ha₁ ha₂
-                        -- omega
-                        -- simp [F']; intros a ha₁ ha₂ b hb₁ hb₂ h₃
-                        -- omega
-                        -- simp [F']
-                        -- intros b hb
-                        -- use b.succ
-                        -- simpa
-                        -- simp [F', F]
-                        -- intros a ha₁ ha₂
-                        -- rw [dif_pos ha₁]
-                        -- have : a - 1 < tl.length ↔ a < tl.length + 1 := by omega
-                        -- simp_rw [this, dif_pos ha₁]
-                        -- rcases a with _ | a; simp at ha₂
-                        -- simp
-                        -- rw [Finset.mem_range]; omega
+                        simp [d₁, d₂]
+                        simp [Finset.sum_fin_eq_sum_range]
+                        nth_rw 2 [Finset.sum_eq_sum_diff_singleton_add (i := 0)]
+                        rw [dif_pos (show 0 < tl.length + 1 by omega)]
+                        rw [dif_neg (by aesop)]
+                        let F : ℕ → V := λ i ↦
+                          if h : i < tl.length then
+                          if h_1 : tl[i].isDepositBlock = true then
+                          (tl[i].getDeposit h_1).2 else 0
+                          else 0
+                        let F' : (a : ℕ) → a ∈ Finset.range (tl.length + 1) \ {0} → ℕ :=
+                          λ a ha ↦ a.pred
+                        nth_rw 2 [Finset.sum_bij (t := Finset.range tl.length) (g := F)]
+                        simp [F]
+                        exact F'
+                        simp [F']
+                        intros a ha₁ ha₂
+                        omega
+                        simp [F']; intros a ha₁ ha₂ b hb₁ hb₂ h₃
+                        omega
+                        simp [F']
+                        intros b hb
+                        use b.succ
+                        simpa
+                        simp [F', F]
+                        intros a ha₁ ha₂
+                        rw [dif_pos ha₁]
+                        have : a - 1 < tl.length ↔ a < tl.length + 1 := by omega
+                        simp_rw [this, dif_pos ha₁]
+                        rcases a with _ | a; simp at ha₂
+                        simp
+                        rw [Finset.mem_range]; omega
                       have eq₂ : w₁ = w₂ := by
-                        sorry
-                        -- simp [w₁, w₂]
-                        -- simp [Finset.sum_fin_eq_sum_range]
-                        -- nth_rw 2 [Finset.sum_eq_sum_diff_singleton_add (i := 0)]
-                        -- rw [dif_pos (show 0 < tl.length + 1 by omega)]
-                        -- rw [dif_neg (by aesop)]
-                        -- let F : ℕ → V := λ i ↦
-                        --   if h : i < tl.length then
-                        --   if h_1 : tl[i].isWithdrawalBlock = true
-                        --   then ∑ x_1 : K₁, tl[i].getWithdrawal h_1 x_1 else 0
-                        --   else 0
-                        -- let F' : (a : ℕ) → a ∈ Finset.range (tl.length + 1) \ {0} → ℕ :=
-                        --   λ a ha ↦ a.pred
-                        -- nth_rw 2 [Finset.sum_bij (t := Finset.range tl.length) (g := F)]
-                        -- simp [F]
-                        -- exact F'
-                        -- simp [F']
-                        -- intros a ha₁ ha₂
-                        -- omega
-                        -- simp [F']; intros a ha₁ ha₂ b hb₁ hb₂ h₃
-                        -- omega
-                        -- simp [F']
-                        -- intros b hb
-                        -- use b.succ
-                        -- simpa
-                        -- simp [F', F]
-                        -- intros a ha₁ ha₂
-                        -- rw [dif_pos ha₁]
-                        -- have : a - 1 < tl.length ↔ a < tl.length + 1 := by omega
-                        -- simp_rw [this, dif_pos ha₁]
-                        -- rcases a with _ | a; simp at ha₂
-                        -- simp
-                        -- rw [Finset.mem_range]; omega
+                        simp [w₁, w₂]
+                        simp [Finset.sum_fin_eq_sum_range]
+                        nth_rw 2 [Finset.sum_eq_sum_diff_singleton_add (i := 0)]
+                        rw [dif_pos (show 0 < tl.length + 1 by omega)]
+                        rw [dif_neg (by aesop)]
+                        let F : ℕ → V := λ i ↦
+                          if h : i < tl.length then
+                          if h_1 : tl[i].isWithdrawalBlock = true
+                          then ∑ x_1 : K₁, tl[i].getWithdrawal h_1 x_1 else 0
+                          else 0
+                        let F' : (a : ℕ) → a ∈ Finset.range (tl.length + 1) \ {0} → ℕ :=
+                          λ a ha ↦ a.pred
+                        nth_rw 2 [Finset.sum_bij (t := Finset.range tl.length) (g := F)]
+                        simp [F]
+                        exact F'
+                        simp [F']
+                        intros a ha₁ ha₂
+                        omega
+                        simp [F']; intros a ha₁ ha₂ b hb₁ hb₂ h₃
+                        omega
+                        simp [F']
+                        intros b hb
+                        use b.succ
+                        simpa
+                        simp [F', F]
+                        intros a ha₁ ha₂
+                        rw [dif_pos ha₁]
+                        have : a - 1 < tl.length ↔ a < tl.length + 1 := by omega
+                        simp_rw [this, dif_pos ha₁]
+                        rcases a with _ | a; simp at ha₂
+                        simp
+                        rw [Finset.mem_range]; omega
                       simp [eq₁, eq₂]
     | .deposit _ v => have : w₁ = w₂ := by
                         simp [w₁, w₂]
@@ -383,10 +397,87 @@ private lemma computeBalance'_eq_Erik_aux : computeBalance' σ v = v + computeBa
                       rcases a with _ | a; simp at ha₂
                       simp
                       rw [Finset.mem_range]; omega
-    | _ => sorry
-    
+    | .withdrawal B => have eq₁ : d₁ = d₂ := by
+                         simp [d₁, d₂]
+                         simp [Finset.sum_fin_eq_sum_range]
+                         nth_rw 2 [Finset.sum_eq_sum_diff_singleton_add (i := 0)]
+                         rw [dif_pos (show 0 < tl.length + 1 by omega)]
+                         rw [dif_neg (by aesop)]
+                         let F : ℕ → V := λ i ↦
+                           if h : i < tl.length then
+                           if h_1 : tl[i].isDepositBlock = true then
+                           (tl[i].getDeposit h_1).2 else 0
+                           else 0
+                         let F' : (a : ℕ) → a ∈ Finset.range (tl.length + 1) \ {0} → ℕ :=
+                           λ a ha ↦ a.pred
+                         nth_rw 2 [Finset.sum_bij (t := Finset.range tl.length) (g := F)]
+                         simp [F]
+                         exact F'
+                         simp [F']
+                         intros a ha₁ ha₂
+                         omega
+                         simp [F']; intros a ha₁ ha₂ b hb₁ hb₂ h₃
+                         omega
+                         simp [F']
+                         intros b hb
+                         use b.succ
+                         simpa
+                         simp [F', F]
+                         intros a ha₁ ha₂
+                         rw [dif_pos ha₁]
+                         have : a - 1 < tl.length ↔ a < tl.length + 1 := by omega
+                         simp_rw [this, dif_pos ha₁]
+                         rcases a with _ | a; simp at ha₂
+                         simp
+                         rw [Finset.mem_range]; omega
+                       simp [eq₁]
+                       rw [add_sub, add_comm]
+                       rw [←add_sub]
+                       nth_rw 2 [sub_eq_add_neg]
+                       simp [w₁, w₂]
+                       simp [Finset.sum_fin_eq_sum_range]
+                       nth_rw 3 [Finset.sum_eq_sum_diff_singleton_add (i := 0)]
+                       rw [dif_pos (show 0 < tl.length + 1 by omega)]
+                       rw [dif_pos (by aesop)]
+                       simp_rw [List.getElem_cons_zero]
+                       conv_rhs => congr
+                                   arg 2
+                                   simp [heq]
+                                   simp [Block.getWithdrawal] -- LEMMA
+                       rw [neg_add]     
+                       rw [add_comm]
+                       rw [sub_eq_add_neg]
+                       apply congr_arg
+                       -- shuffle
+                       let F : ℕ → V := λ i ↦
+                         if h : i < tl.length then
+                         if h_1 : tl[i].isWithdrawalBlock = true
+                         then ∑ x_1 : K₁, tl[i].getWithdrawal h_1 x_1 else 0
+                         else 0
+                       let F' : (a : ℕ) → a ∈ Finset.range (tl.length + 1) \ {0} → ℕ :=
+                         λ a ha ↦ a.pred
+                       nth_rw 2 [Finset.sum_bij (t := Finset.range tl.length) (g := F)]
+                       exact F'
+                       simp [F']
+                       intros a ha₁ ha₂
+                       omega
+                       simp [F']; intros a ha₁ ha₂ b hb₁ hb₂ h₃
+                       omega
+                       simp [F']
+                       intros b hb
+                       use b.succ
+                       simpa
+                       simp [F', F]
+                       intros a ha₁ ha₂
+                       rw [dif_pos ha₁]
+                       have : a - 1 < tl.length ↔ a < tl.length + 1 := by omega
+                       simp_rw [this, dif_pos ha₁]
+                       rcases a with _ | a; simp at ha₂
+                       simp
+                       rw [Finset.mem_range]; omega
 
-
+lemma computeBalance_eq_sum : computeBalance σ = computeBalanceErik σ := by
+  simp [computeBalance, computeBalance'_eq_Erik_aux]
 
 @[simp]
 lemma attackGameRGo_nil :
@@ -632,6 +723,66 @@ lemma isWithdrawalRequest_of_isWithdrawalBlock
                                                           (hσ ▸ hi)
   aesop
 
+section MoreUgly
+
+-- private lemma isWithdrawalRequest_and_B_eq_of_isWithdrawalBlock_aux
+--   {π : BalanceProof K₁ K₂ C Pi V}
+--   {σ : RollupState K₁ K₂ V C Sigma}
+--   {requests : List (Request K₁ K₂ C Sigma Pi V)}
+--   (h₀ : ∀ request ∈ requests, request.isValid)
+--   (i : ℕ)
+--   (hi₁ : σ.length ≤ i)
+--   (hi₂ : i < (attackGameR requests σ).length)
+--   (h₁ : ((attackGameR requests σ)[i]'(by simp; simp at hi₂; exact hi₂)).isWithdrawalBlock) :
+--   (requests[i - σ.length]'(by rcases i with _ | i <;> rcases requests with _ | ⟨hd, tl⟩
+--                               · simp at hi₂; omega
+--                               · simp
+--                               · simp at hi₂; omega
+--                               · simp at hi₂ ⊢; omega)) matches .withdrawal π ∧
+--   π.toBalanceF (σ.take i.pred) = ((attackGameR requests σ)[i]'(by simp; simp at hi₂; exact hi₂)).getWithdrawal h₁ := by
+--   simp [attackGameR] at h₁
+--   induction' requests with hd tl ih generalizing i σ
+--   · simp at hi₂ h₁; omega
+--   · rcases i with _ | i
+--     · sorry
+--     -- · simp at hi₁
+--     --   subst hi₁
+--     --   simp [Request.toBlock!] at h₁ ⊢
+--     --   rcases hd with _ | _ | π' <;> [simp at h₁; simp at h₁; skip]
+--     --   unfold BalanceProof.toBalanceF; simp
+--     --   ext k
+--     --   simp [Bal, TransactionsInBlocks]
+--     --   unfold Block.getWithdrawal
+--     --   aesop
+--     · rcases σ with _ | ⟨hd', tl'⟩
+--       · simp at hi₁ hi₂ h₁ ih ⊢
+--         rw [attackGameRGo_isWithdrawal_iff (σ' := [])] at h₁
+--         specialize ih (by aesop) i hi₂ h₁
+--         split_ands
+--         · exact ih.1
+--         · rw [ih.2]
+--           unfold attackGameR
+--           simp [RollupState.appendBlock!, Request.toBlock!]
+--           rcases hd with ⟨r, v⟩ | ⟨a, b, c, d, e⟩ | π'
+--           · simp
+            
+
+
+
+            
+          
+
+
+        
+
+
+      
+      
+      -- rcases hd <;> simp_all
+  -- done
+
+end MoreUgly
+
 end AttackGameLemmas
 
 def getBalanceProof (requests : List (Request K₁ K₂ C Sigma Pi V))
@@ -666,13 +817,47 @@ theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
   let I : List (Fin n) := (List.finRange n).filter (Bstar[·].isWithdrawalBlock)
   have hI : ∀ i ∈ I, Bstar[i].isWithdrawalBlock := by aesop
   let getπ : {i : Fin n // i ∈ I} → BalanceProof K₁ K₂ C Pi V :=
-    λ ⟨i, hi⟩ ↦
+    λ i ↦
       have lenEq : (attackGameR requests! []).length = n := by simp [n, eqBstar]
-      have hi₁ : i.1 < (attackGameR requests! []).length := by rw [lenEq]; exact i.2
-      getBalanceProof requests! hValid ⟨i.1, hi₁⟩ (hI i hi)
+      have hi₁ : i.1.1 < (attackGameR requests! []).length := by rw [lenEq]; exact i.1.2
+      getBalanceProof requests! hValid ⟨i.1.1, hi₁⟩ (hI i.1 i.2)
   let πs : List (BalanceProof K₁ K₂ C Pi V) := I.attach.map getπ
+  -- have hπs :
+  --   ∀ i : Fin I.length, let idx := I[i]
+  --     (Bstar[idx]'(by rcases idx; aesop)).getWithdrawal (hI _ (by simp [idx]; apply List.getElem_mem)) =
+  --     (πs[i]'(by rcases i; aesop)).toBalanceF (Bstar.take idx.1.pred) := by
+  --   intros i idx
+  --   simp [πs, getπ, getBalanceProof, Block.getWithdrawal, BalanceProof.toBalanceF]
+  --   split
+  --   next b hb B hB₁ hB₂ hB₃ =>
+  --     skip
+  --     dsimp only [Request.getWithdrawal]
+  --     done
+  dsimp [adversaryWon] at contra; simp [computeBalance_eq_sum] at contra
+  rcases contra with ⟨h₁, h₂⟩
+  by_cases eq : ∃ join : BalanceProof K₁ K₂ C Pi V, join ∈ πs ∧ IsGLB {π | π ∈ πs} join
+  · /-
+      Careful - The assumption we're making about the relationship between
+                `Bal · σ .Source` and `computeBalance σ` is too strong for the time being.
+                As such, the proof follows immediately from lemma 1.
+                This is, of course, not the most precise of models of what is happening in the paper.
+
+                TODO - Fix.
+    -/
+    rcases eq with ⟨π, ⟨hπ₁, hπ₂⟩⟩
+    have eq₁ : 0 ≤ -Bal π Bstar .Source := by have : Bal π Bstar .Source ≤ 0 := lemma1; aesop
+    have eq₂ := contractBalanceIsSource_entire_game (π := π) h₁; dsimp at eq₁ eq₂
+    simp [eq₂, computeBalance_eq_sum] at eq₁
+    contradiction
+  · let rec mergeR : Fin πs.length → BalanceProof K₁ K₂ C Pi V :=
+                     λ i ↦ match h : i.1 with
+                           | 0 => πs[0]'(h ▸ i.2)
+                           | k + 1 => Dict.Merge (mergeR ⟨k, by rcases i; omega⟩) πs[k + 1]
+                     termination_by i => i
+                     decreasing_by { simp_wf; next m => rcases m; aesop }
+    sorry
+    done
   
-  sorry
 
 end AttackGame
 
