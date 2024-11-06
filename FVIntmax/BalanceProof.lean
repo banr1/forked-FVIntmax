@@ -39,6 +39,8 @@ namespace BalanceProof
 
 section Valid
 
+open Classical
+
 /-
 V is a lattice ordered abelian group
 -/
@@ -63,13 +65,12 @@ PAPER: A balance proof is valid if the following algorithm returns True.
        Verify : Π → {True, F alse}
         (K, D) 7 → ^ (C,s)∈K ((π,salt),t)=D(C,s)
 
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-PAPER FIX - This is for the old dictionaries.
+NB this is slightly more usable than `⨅ x : Dict.keys π, ...`.
 -/
 def Verify (π : BalanceProof K₁ K₂ C Pi V)
            [AD : ADScheme K₂ M C Pi] : Bool :=
-  ⨅ x : Dict.keys π, let ((π', salt), t) := (π x).get (by dict)
-                     AD.Verify π' x.1.2 (H _ (t, salt)) x.1.1
+  ∀ x, (h : x ∈ Dict.keys π) → let ((π', salt), t) := (π x).get (by dict)
+                               AD.Verify π' x.2 (H _ (t, salt)) x.1
 
 end
 

@@ -6,6 +6,8 @@ import FVIntmax.Wheels
 import FVIntmax.Wheels.AuthenticatedDictionary
 import FVIntmax.Wheels.SignatureAggregation
 
+import Mathlib
+
 set_option lang.lemmaCmd true
 set_option linter.unusedSectionVars false
 
@@ -132,7 +134,7 @@ end RollupState
 noncomputable section lemma1
 
 variable {K₁ : Type} [Finite K₁] [LinearOrder K₁] [Nonempty K₁]
-         {K₂ : Type} [Finite K₂] [LinearOrder K₂]
+         {K₂ : Type} [Finite K₂] [LinearOrder K₂] [Nonempty K₂]
          {C : Type} [Nonempty C]
          {Pi : Type}
          {Sigma V : Type} [Lattice V]
@@ -751,246 +753,6 @@ def isπ (requests : List (Request K₁ K₂ C Sigma Pi V)) :=
     let π := getBalanceProof requests h₀ i h 
     let σ := (attackGameR requests []).take i.1
     π.toBalanceF σ
-    
-section MoreUgly
-
--- lemma ith_isToBlock!!
---   {σ : RollupState K₁ K₂ V C Sigma}
---   {requests : List (Request K₁ K₂ C Sigma Pi V)}
---   (h₀ : ∀ request ∈ requests, request.isValid)
---   (i : ℕ)
---   (hi : i < (attackGameRGo requests σ).length)
---   (h₀ : ∀ j block, j < i → block ∈ σ → (σ[j]'(sorry)) :
---   -- (h₁ : ∀ block ∈ σ, ):
---   -- (h : (attackGameR requests σ)[i] = (requests[i - σ.length]'(by simp at hi₂; omega)).toBlock! [])
---   -- {request : Request K₁ K₂ C Sigma Pi V} :
---   (attackGameRGo requests σ)[i]'hi =
---   (requests[i]'(by simp at hi; exact hi)).toBlock! ((attackGameRGo requests σ).take i) := by
---   induction' i with i ih generalizing σ
---   · rcases requests with _ | ⟨b, bs⟩
---     · simp at hi
---     . simp
-
-  
-  
---   -- induction' requests with hd tl ih generalizing i σ
---   -- · simp at hi
---   -- · rcases σ with _ | ⟨block, blocks⟩
---   --   · rcases i with _ | i
---   --     · rfl
---   --     · simp; rw [ih]
-        
-
-        
---   --   · sorry
-
--- lemma ith_isToBlock!
---   {σ : RollupState K₁ K₂ V C Sigma}
---   {requests : List (Request K₁ K₂ C Sigma Pi V)}
---   (h₀ : ∀ request ∈ requests, request.isValid)
---   (i : ℕ)
---   (hi₁ : σ.length ≤ i)
---   (hi₂ : i < (σ ++ attackGameRGo requests σ).length) :
---   -- (h : (attackGameR requests σ)[i] = (requests[i - σ.length]'(by simp at hi₂; omega)).toBlock! [])
---   -- {request : Request K₁ K₂ C Sigma Pi V} :
---   (σ ++ attackGameRGo requests σ)[i]'hi₂ =
---   (requests[i - σ.length]'(by rcases i with _ | i <;> rcases requests with _ | ⟨hd, tl⟩
---                               · simp at hi₂; omega
---                               · simp
---                               · simp at hi₂; omega
---                               · simp at hi₂ ⊢; omega)).toBlock! ((σ ++ attackGameRGo requests σ).take (σ.length + i)) := by
---   induction' requests with hd tl ih generalizing i σ
---   · simp at hi₂; omega
---   · rcases σ with _ | ⟨block, blocks⟩
---     · rcases i with _ | i
---       · rfl
---       · simp
-
---     · sorry
-    
-    
-    
-    -- rw [le_iff_exists_add] at hi₁
-    -- rcases hi₁ with ⟨k, hk⟩
-    -- simp_rw [hk]
-    -- rw [List.getElem_append_right' (by linarith)]
-    -- simp
-    -- rcases k with _ | k
-    -- · simp
-    --   rw [List.take_append]
-    --   congr
-    --   simp
-
-
-    -- have : Request.toBlock! σ hd :: attackGameRGo tl (RollupState.appendBlock! σ hd) =
-    --        [Request.toBlock! σ hd] ++ attackGameRGo tl (RollupState.appendBlock! σ hd) := by simp
-    -- simp_rw [this]
-    -- rcases σ with _ | ⟨block, blocks⟩
-    -- · simp
-    --   specialize @ih [Request.toBlock! [] hd] (by aesop) k (by simp at hi₂ hk ⊢; _) sorry
-    --   -- simp_rw [ih]
-      
-    
-    
-  
-  
-  
-  -- · rcases i with _ | i
-  --   · aesop
-  --   · rcases σ with _ | ⟨block, blocks⟩      
-  --     · simp_rw [attackGameRGo_cons]
-  --       simp_rw [List.nil_append]
-  --       have : Request.toBlock! [] hd :: attackGameRGo tl (RollupState.appendBlock! [] hd) =
-  --               [Request.toBlock! [] hd] ++ attackGameRGo tl (RollupState.appendBlock! [] hd) := by simp
-  --       simp_rw [this, RollupState.appendBlock!_nil]
-  --       specialize @ih [Request.toBlock! [] hd] (by aesop) (i := i + 1) sorry sorry
-  --       simp_rw [ih]
-  --       simp
-  --       have : 1 + (i + 1) = 1 + i + 1 := by omega
-  --       simp_rw [this]
-  --       simp
-
-        -- simp at *
-        
-        -- simp at ih
-        -- rw [←ih]
-        
-
-  
-
-  -- · rcases i with _ | i
-  --   · aesop
-  --   · rcases σ with _ | ⟨hd', tl'⟩
-  --     · -- simp at hi₁ hi₂ h ih ⊢
-  --       -- have : i + 1 - ([] :  List (Block K₁ K₂ C Sigma V)).length =
-  --       --        i - ([] :  List (Block K₁ K₂ C Sigma V)).length + 1 := (by simp); simp_rw [this]
-  --       -- have : Request.toBlock! [] hd :: attackGameRGo tl (RollupState.appendBlock! [] hd) =
-  --       --        [Request.toBlock! [] hd] ++ attackGameRGo tl (RollupState.appendBlock! [] hd) := by simp
-  --       -- simp_rw [attackGameRGo_cons, List.getElem_cons_succ, List.nil_append]
-  --       -- specialize ih (σ := [])
-        
-  --       have : Request.toBlock! [] hd :: attackGameRGo tl (RollupState.appendBlock! [] hd) =
-  --              [Request.toBlock! [] hd] ++ attackGameRGo tl (RollupState.appendBlock! [] hd) := by simp
-  --       simp_rw [attackGameRGo_cons, List.nil_append, this, RollupState.appendBlock!_nil]
-  --       specialize @ih [Request.toBlock! [] hd] (by aesop) (i + 1)
-  --       simp at ih ⊢
-  --       simp at hi₂
-  --       specialize ih (by omega)
-  --       simp_rw [ih]
-
-
-
-
-        -- simp
-        -- specialize ih (σ := [])
-        -- rw [ih]
-
-        -- simp at ih
-        -- simp at hi₂
-
-
-        -- simp_rw [attackGameRGo_cons]
-        -- specialize ih (σ := []) (by aesop) (i := i + 1)
-        -- simp at ih ⊢
-
-
-        
-
-        
-        
-        
-
-        
-        
-
-
--- lemma isToBlock
---   {requests : List (Request K₁ K₂ C Sigma Pi V)}
---   (h₀ : ∀ request ∈ requests, request.isValid)
---   (i : Fin (attackGameR requests []).length)
---   {request : Request K₁ K₂ C Sigma Pi V} :
---   (attackGameR requests [])[i] = (requests[i]'(sorry)).toBlock! ((attackGameR requests []).take i.1.pred) := by
---   let σ : RollupState K₁ K₂ V C Sigma := []
---   have hσ : σ.length = 0 := by simp [σ]
---   rcases i with ⟨i, hi⟩
---   have eq := ith_isToBlock! (σ := [])
---                             (requests := requests)
---                             h₀
---                             (i + σ.length)
---                             (zero_le _)
---                             (hσ ▸ hi)
---   aesop
-
--- lemma isToBlock
---   {requests : List (Request K₁ K₂ C Sigma Pi V)}
---   (h₀ : ∀ request ∈ requests, request.isValid)
---   (i : ℕ)
---   (hi : i < ([] ++ attackGameRGo requests []).length)
---   {request : Request K₁ K₂ C Sigma Pi V} :
---   ([] ++ attackGameRGo requests [])[i] = (requests[i]'(sorry)).toBlock! ((attackGameR requests []).take i.1) := by
---   induction' requests with hd tl ih generalizing i
---   · simp at hi
---   · simp
-  
-
-
--- private lemma isWithdrawalRequest_and_B_eq_of_isWithdrawalBlock_aux
---   {π : BalanceProof K₁ K₂ C Pi V}
---   {σ : RollupState K₁ K₂ V C Sigma}
---   {requests : List (Request K₁ K₂ C Sigma Pi V)}
---   (h₀ : ∀ request ∈ requests, request.isValid)
---   (i : ℕ)
---   (hi₁ : σ.length ≤ i)
---   (hi₂ : i < (attackGameR requests σ).length)
---   (h₁ : ((attackGameR requests σ)[i]'(by simp; simp at hi₂; exact hi₂)).isWithdrawalBlock) :
---   (requests[i - σ.length]'(by rcases i with _ | i <;> rcases requests with _ | ⟨hd, tl⟩
---                               · simp at hi₂; omega
---                               · simp
---                               · simp at hi₂; omega
---                               · simp at hi₂ ⊢; omega)) matches .withdrawal π ∧
---   π.toBalanceF (σ.take i.pred) = ((attackGameR requests σ)[i]'(by simp; simp at hi₂; exact hi₂)).getWithdrawal h₁ := by
---   simp [attackGameR] at h₁
---   induction' requests with hd tl ih generalizing i σ
---   · simp at hi₂ h₁; omega
---   · rcases i with _ | i
---     · sorry
---     -- · simp at hi₁
---     --   subst hi₁
---     --   simp [Request.toBlock!] at h₁ ⊢
---     --   rcases hd with _ | _ | π' <;> [simp at h₁; simp at h₁; skip]
---     --   unfold BalanceProof.toBalanceF; simp
---     --   ext k
---     --   simp [Bal, TransactionsInBlocks]
---     --   unfold Block.getWithdrawal
---     --   aesop
---     · rcases σ with _ | ⟨hd', tl'⟩
---       · simp at hi₁ hi₂ h₁ ih ⊢
---         rw [attackGameRGo_isWithdrawal_iff (σ' := [])] at h₁
---         specialize ih (by aesop) i hi₂ h₁
---         split_ands
---         · exact ih.1
---         · rw [ih.2]
---           unfold attackGameR
---           simp [RollupState.appendBlock!, Request.toBlock!]
---           rcases hd with ⟨r, v⟩ | ⟨a, b, c, d, e⟩ | π'
---           · simp
-            
-
-
-
-            
-          
-
-
-        
-
-
-      
-      
-      -- rcases hd <;> simp_all
-  -- done
-
-end MoreUgly
 
 end AttackGameLemmas
 
@@ -1003,9 +765,7 @@ lemma lemma5 (π : BalanceProof K₁ K₂ C Pi V) :
      else 0) 
   -
   aggregateDeposits σ := by
-  simp only [
-    Finset.univ_product_univ, Fin.getElem_fin, Nat.pred_eq_sub_one, zero_sub, Fintype.sum_prod_type
-  ]
+  simp [Bal]
   sorry
   -- unfold Bal
 
@@ -1013,6 +773,34 @@ variable [ADScheme K₂ (C × K₁ × ExtraDataT) C Pi]
          [CryptoAssumptions.Injective (H (α := TransactionBatch K₁ K₂ V × ExtraDataT) (ω := (C × K₁ × ExtraDataT)))]
          (isπ : isπ (normalise requests))
 include isπ
+
+def mergeR (πs : List (BalanceProof K₁ K₂ C Pi V)) (n : ℕ) : BalanceProof K₁ K₂ C Pi V :=
+  if _ : n < πs.length
+  then match n with
+       | 0 => πs[0]
+       | k + 1 => Dict.Merge (mergeR πs k) (πs[k + 1])
+  else default
+
+def mergeR' (πs : List (BalanceProof K₁ K₂ C Pi V)) : Fin πs.length → BalanceProof K₁ K₂ C Pi V :=
+  λ i ↦ match h : i.1 with
+        | 0 => πs[0]'(h ▸ i.2)
+        | k + 1 => Dict.Merge (mergeR' πs ⟨k, by rcases i; omega⟩) (πs[k + 1])
+  termination_by i => i
+  decreasing_by { simp_wf; next m => rcases m; aesop }
+
+lemma verify_merge_of_valid (π₁ π₂ : BalanceProof K₁ K₂ C Pi V)
+                            (h₁ : π₁.Verify (M := (C × K₁ × ExtraDataT)))
+                            (h₂ : π₂.Verify (M := (C × K₁ × ExtraDataT))) :
+                            BalanceProof.Verify (M := (C × K₁ × ExtraDataT)) (Dict.Merge π₁ π₂) := by
+  simp [-Prod.forall, BalanceProof.Verify, iInf_subtype] at *
+  intros k h
+  rcases h with h | h
+  · simp_rw [Dict.keys_Merge_left (D₂ := π₂) h]; aesop
+  · by_cases h₁ : k ∈ π₁.keys
+    · simp_rw [Dict.keys_Merge_left (D₂ := π₂) h₁]
+      aesop
+    · simp_rw [Dict.keys_Merge_right (D₂ := π₂) h₁ h]
+      aesop
 
 set_option maxHeartbeats 500000 in
 theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
@@ -1091,27 +879,12 @@ theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
                                F, σ, πᵢ, Bstar, isπ, BalanceProof.toBalanceF,
                                πs, getπ, List.lookup_graph])] at contra
     simp at eq₁ contra; contradiction
-    
-
-
-    
-
-               
-    -- generalize P₁ : (List.lookup ⟨a, _⟩ πs).get _ = πᵢ
-    -- have := lemma2 (show πᵢ ≤ π by sorry)
-    -- apply congr_fun
-
-    -- apply lemma2
-
-
-
-  · sorry
-    -- let rec mergeR : Fin πs.length → BalanceProof K₁ K₂ C Pi V :=
-    --                  λ i ↦ match h : i.1 with
-    --                        | 0 => πs[0]'(h ▸ i.2)
-    --                        | k + 1 => Dict.Merge (mergeR ⟨k, by rcases i; omega⟩) πs[k + 1]
-    --                  termination_by i => i
-    --                  decreasing_by { simp_wf; next m => rcases m; aesop }
+  · let rec mergeR : Fin πs.length → BalanceProof K₁ K₂ C Pi V :=
+                     λ i ↦ match h : i.1 with
+                           | 0 => (πs[0]'(h ▸ i.2)).2
+                           | k + 1 => Dict.Merge (mergeR ⟨k, by rcases i; omega⟩) (πs[k + 1]).2
+                     termination_by i => i
+                     decreasing_by { simp_wf; next m => rcases m; aesop }
     
     sorry
     done
