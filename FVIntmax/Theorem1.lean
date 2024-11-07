@@ -764,15 +764,11 @@ lemma lemma5 (π : BalanceProof K₁ K₂ C Pi V) :
           w k ⊓ Bal π (σ.take i.1) k
      else 0) 
   -
-  aggregateDeposits σ := by
-  simp [Bal]
-  sorry
-  -- unfold Bal
+  aggregateDeposits σ := by sorry
 
 variable [ADScheme K₂ (C × K₁ × ExtraDataT) C Pi]
          [CryptoAssumptions.Injective (H (α := TransactionBatch K₁ K₂ V × ExtraDataT) (ω := (C × K₁ × ExtraDataT)))]
          (isπ : isπ (normalise requests))
-include isπ
 
 def mergeR (πs : List (BalanceProof K₁ K₂ C Pi V)) (n : ℕ) : BalanceProof K₁ K₂ C Pi V :=
   if _ : n < πs.length
@@ -788,7 +784,16 @@ def mergeR' (πs : List (BalanceProof K₁ K₂ C Pi V)) : Fin πs.length → Ba
   termination_by i => i
   decreasing_by { simp_wf; next m => rcases m; aesop }
 
-lemma verify_merge_of_valid (π₁ π₂ : BalanceProof K₁ K₂ C Pi V)
+lemma mergeR'_zero {πs : List (BalanceProof K₁ K₂ C Pi V)} (h : 0 < πs.length) :
+  mergeR' πs ⟨0, h⟩ = πs[0] := by
+  unfold mergeR'
+  aesop
+
+lemma mergeR'_cons {πs : List (BalanceProof K₁ K₂ C Pi V)} {n : ℕ} (h : n + 1 < πs.length) :
+  mergeR' πs ⟨n + 1, h⟩ = (mergeR' πs ⟨n, by omega⟩).Merge (πs[n + 1]) := by
+  conv_lhs => unfold mergeR'
+
+lemma verify_merge_of_valid {π₁ π₂ : BalanceProof K₁ K₂ C Pi V}
                             (h₁ : π₁.Verify (M := (C × K₁ × ExtraDataT)))
                             (h₂ : π₂.Verify (M := (C × K₁ × ExtraDataT))) :
                             BalanceProof.Verify (M := (C × K₁ × ExtraDataT)) (Dict.Merge π₁ π₂) := by
@@ -802,6 +807,16 @@ lemma verify_merge_of_valid (π₁ π₂ : BalanceProof K₁ K₂ C Pi V)
     · simp_rw [Dict.keys_Merge_right (D₂ := π₂) h₁ h]
       aesop
 
+lemma valid_mergeR' {πs : List (BalanceProof K₁ K₂ C Pi V)} {n : Fin πs.length}
+  (h : ∀ π ∈ πs, π.Verify (M := (C × K₁ × ExtraDataT))) :
+  (mergeR' πs n).Verify (M := (C × K₁ × ExtraDataT)) := by
+  rcases n with ⟨n, hn⟩
+  induction' n with n ih generalizing πs
+  · unfold mergeR'; aesop (add safe apply List.getElem_mem)
+  · rw [mergeR'_cons]
+    apply verify_merge_of_valid (ih _ _) <;> aesop (add safe apply List.getElem_mem)
+
+include isπ in
 set_option maxHeartbeats 500000 in
 theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
   /-
