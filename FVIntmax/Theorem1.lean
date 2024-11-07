@@ -830,6 +830,28 @@ theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
   -/
   have hValid : ∀ request ∈ (normalise requests), request.isValid := by unfold normalise; aesop
   let n := Bstar.length
+  have hValid_withdrawal {i : Fin n} {h₀} (h : (requests![i.1]'h₀).getWithdrawal.isSome) :
+    requests![i.1]'h₀ matches .withdrawal .. := by
+    rcases i with ⟨i, hi⟩
+    simp [Request.getWithdrawal] at h
+    aesop
+  have hValidπ {i : Fin n} {h₀} {h₁} {π} (h : (requests![i.1]'h₀).getWithdrawal.get h₁ = π) :
+    π.Verify (M := (C × K₁ × ExtraDataT)) := by
+    rcases i with ⟨i, hi⟩
+    unfold Request.isValid at hValid
+    set request := requests![i] with eqRequest
+    specialize hValid request (by simp [eqRequest, requests!]; apply List.getElem_mem)
+    have := @hValid_withdrawal (i := ⟨i, hi⟩)
+    simp [eqRequest] at h
+    next h' => specialize this h'; aesop
+      
+
+    -- generalize_proofs at *
+
+
+
+    -- simp [Request.getWithdrawal] at h
+    -- aesop
   have hn : n = requests!.length := by simp [n, eqBstar]
   let I : List (Fin n) := (List.finRange n).filter (Bstar[·].isWithdrawalBlock)
   have hI : ∀ i, i ∈ I ↔ Bstar[i].isWithdrawalBlock := by aesop
@@ -839,69 +861,99 @@ theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
       have hi₁ : i.1.1 < (attackGameR requests! []).length := by rw [lenEq]; exact i.1.2
       (i, getBalanceProof requests! hValid ⟨i.1.1, hi₁⟩ ((hI i.1).1 i.2))
   let πs : List ({i : Fin n // i ∈ I} × BalanceProof K₁ K₂ C Pi V) := I.attach.map getπ
+  have lenπs : πs.length ≤ n := by
+    simp [πs, I, n]
+    simp_rw [show Bstar.length = (List.finRange (List.length Bstar)).length by aesop]
+    exact List.length_filter_le _ _
   have hπs : ∀ i : {i : Fin n // i ∈ I}, (πs.lookup i).isSome := λ i ↦
     have : i ∈ I.attach := by rcases i with ⟨i, hi⟩; aesop
     by simp [πs, getπ, List.lookup_graph _ this]
   unfold isπ at isπ; specialize isπ hValid; dsimp at isπ
   dsimp [adversaryWon] at contra; simp [computeBalance_eq_sum] at contra
   by_cases eq : ∃ join : BalanceProof K₁ K₂ C Pi V, join ∈ πs.map Prod.snd ∧ ∀ k, IsLUB {π k | π ∈ πs.map Prod.snd} (join k)
-  · rcases eq with ⟨π, ⟨hπ₁, hπ₂⟩⟩
-    have hlub {π'} (h' : π' ∈ πs.map Prod.snd) : π' ≤ π := λ k ↦ by
-      obtain ⟨hπ₂, hπ₃⟩ := hπ₂ k
-      apply mem_upperBounds.1 hπ₂
-      simp at h' ⊢; use π'
-    /-
-      Step 1.
-    -/
-    have eq₁ : 0 ≤ -Bal π Bstar .Source := (by have : Bal π Bstar .Source ≤ 0 := lemma1; aesop)
-    rw [lemma5] at eq₁; simp only [Bstar] at eq₁
-    /-
-      Step 2.
-    -/
-    let indexingSet := Finset.univ (α := Fin n) ×ˢ Finset.univ (α := K₁)
-    let σ := λ x : Fin n × K₁ ↦ List.take x.1.1 Bstar
-    let πᵢ := λ (x : Fin n × K₁) (h : Bstar[x.1].isWithdrawalBlock) ↦
-                (πs.lookup ⟨x.1, (hI x.1).2 h⟩).get (hπs ⟨x.1, (hI x.1).2 h⟩)
-    have hπᵢ {x} (h) : πᵢ x h ∈ List.map Prod.snd πs := by
-      simp [πᵢ, πs, List.lookup_graph, getπ]
-      rw [←hI] at h 
-      use x.1; use h
-    let F : Fin n × K₁ → V :=
-      λ x ↦ if h : Bstar[x.1].isWithdrawalBlock
-            then Bal (πᵢ x h) (σ x) x.2 ⊓ Bal π (σ x) x.2
-            else 0
-    rw [Finset.sum_congr (s₂ := indexingSet) (g := F) (h := rfl)
-                         (by simp [
-                               F, σ, πᵢ, Bstar, isπ, BalanceProof.toBalanceF,
-                               πs, getπ, List.lookup_graph])] at eq₁
-    simp only [Fin.getElem_fin, F] at eq₁
-    let F : Fin n × K₁ → V :=
-      λ x ↦ if h : Bstar[x.1].isWithdrawalBlock
-            then Bal (πᵢ x h) (σ x) x.2
-            else 0
-    rw [Finset.sum_congr (s₂ := indexingSet) (g := F) (h := rfl)
-                         (by simp [F]; intros idx k₁ h
-                             split <;> try simp
-                             next h' =>
-                                have := lemma2 (bs := (σ (idx, k₁)))
-                                               (show πᵢ (idx, k₁) h' ≤ π from hlub (hπᵢ h'))
-                                simp [(·≤·)] at this; apply this)] at eq₁
-    simp only [
-      computeBalanceErik, aggregateWithdrawals_eq_aggregateWithdrawals', aggregateWithdrawals'
-    ] at contra
-    rw [Finset.sum_congr (s₂ := indexingSet) (g := F) (h := by simp [indexingSet])
-                         (by simp [
-                               F, σ, πᵢ, Bstar, isπ, BalanceProof.toBalanceF,
-                               πs, getπ, List.lookup_graph])] at contra
-    simp at eq₁ contra; contradiction
-  · let rec mergeR : Fin πs.length → BalanceProof K₁ K₂ C Pi V :=
-                     λ i ↦ match h : i.1 with
-                           | 0 => (πs[0]'(h ▸ i.2)).2
-                           | k + 1 => Dict.Merge (mergeR ⟨k, by rcases i; omega⟩) (πs[k + 1]).2
-                     termination_by i => i
-                     decreasing_by { simp_wf; next m => rcases m; aesop }
+  · sorry
+  -- · rcases eq with ⟨π, ⟨hπ₁, hπ₂⟩⟩
+  --   have hlub {π'} (h' : π' ∈ πs.map Prod.snd) : π' ≤ π := λ k ↦ by
+  --     obtain ⟨hπ₂, hπ₃⟩ := hπ₂ k
+  --     apply mem_upperBounds.1 hπ₂
+  --     simp at h' ⊢; use π'
+  --   /-
+  --     Step 1.
+  --   -/
+  --   have eq₁ : 0 ≤ -Bal π Bstar .Source := (by have : Bal π Bstar .Source ≤ 0 := lemma1; aesop)
+  --   rw [lemma5] at eq₁; simp only [Bstar] at eq₁
+  --   /-
+  --     Step 2.
+  --   -/
+  --   let indexingSet := Finset.univ (α := Fin n) ×ˢ Finset.univ (α := K₁)
+  --   let σ := λ x : Fin n × K₁ ↦ List.take x.1.1 Bstar
+  --   let πᵢ := λ (x : Fin n × K₁) (h : Bstar[x.1].isWithdrawalBlock) ↦
+  --               (πs.lookup ⟨x.1, (hI x.1).2 h⟩).get (hπs ⟨x.1, (hI x.1).2 h⟩)
+  --   have hπᵢ {x} (h) : πᵢ x h ∈ List.map Prod.snd πs := by
+  --     simp [πᵢ, πs, List.lookup_graph, getπ]
+  --     rw [←hI] at h 
+  --     use x.1; use h
+  --   let F : Fin n × K₁ → V :=
+  --     λ x ↦ if h : Bstar[x.1].isWithdrawalBlock
+  --           then Bal (πᵢ x h) (σ x) x.2 ⊓ Bal π (σ x) x.2
+  --           else 0
+  --   rw [Finset.sum_congr (s₂ := indexingSet) (g := F) (h := rfl)
+  --                        (by simp [
+  --                              F, σ, πᵢ, Bstar, isπ, BalanceProof.toBalanceF,
+  --                              πs, getπ, List.lookup_graph])] at eq₁
+  --   simp only [Fin.getElem_fin, F] at eq₁
+  --   let F : Fin n × K₁ → V :=
+  --     λ x ↦ if h : Bstar[x.1].isWithdrawalBlock
+  --           then Bal (πᵢ x h) (σ x) x.2
+  --           else 0
+  --   rw [Finset.sum_congr (s₂ := indexingSet) (g := F) (h := rfl)
+  --                        (by simp [F]; intros idx k₁ h
+  --                            split <;> try simp
+  --                            next h' =>
+  --                               have := lemma2 (bs := (σ (idx, k₁)))
+  --                                              (show πᵢ (idx, k₁) h' ≤ π from hlub (hπᵢ h'))
+  --                               simp [(·≤·)] at this; apply this)] at eq₁
+  --   simp only [
+  --     computeBalanceErik, aggregateWithdrawals_eq_aggregateWithdrawals', aggregateWithdrawals'
+  --   ] at contra
+  --   rw [Finset.sum_congr (s₂ := indexingSet) (g := F) (h := by simp [indexingSet])
+  --                        (by simp [
+  --                              F, σ, πᵢ, Bstar, isπ, BalanceProof.toBalanceF,
+  --                              πs, getπ, List.lookup_graph])] at contra
+  --   simp at eq₁ contra; contradiction
+  · have lenπs': (πs.map Prod.snd).length = πs.length := by simp
+    let πs' := (List.finRange πs.length).map (λ i ↦ mergeR' (πs.map Prod.snd) ⟨i.1, by simp⟩)
+    have hπs' : ∀ π ∈ πs', π.Verify (M := (C × K₁ × ExtraDataT)) := by
+      simp [πs']; rintro ⟨π, hπ⟩
+      apply valid_mergeR'
+      simp [πs]
+      intros π x hx₁ hx₂
+      apply hValidπ
+      exact hx₂
     
-    sorry
+
+    --   simp [getBalanceProof] at hx₂
+    --   generalize_proofs _ pf₁ at hx₂
+    --   have := hValid_withdrawal pf₁
+
+    --   w [←hx₂]
+      
+    --   unfold Request.isValid at hValid
+    --   simp [Request.getWithdrawal] at hx₂ ⊢
+    --   set request := requests![x.1] with eqRequest
+    --   have : request ∈ requests! := by simp [eqRequest, requests!]; apply List.getElem_mem
+    --   specialize hValid request this
+    --   simp_rw [←eqRequest] at hx₂
+    --   rcases request
+
+
+      
+
+    --   done
+    -- -- List (BalanceProof K₁ K₂ C Pi V) :=
+    -- --   I.attach.map (λ k : {n : Fin n // n ∈ I} ↦ mergeR' (πs.map Prod.snd) ⟨k.1.1, by rw [this]; rcases k; simp; ⟩)
+    
+    -- sorry
     done
   
 
