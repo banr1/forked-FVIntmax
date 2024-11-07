@@ -159,7 +159,7 @@ lemma toBlock!_of_deposit (h : request matches .deposit ..) :
   request.toBlock! σ matches .deposit .. := by unfold toBlock!; aesop
 
 lemma toBlock!_of_transfer (h : request matches .transfer ..) :
-  request.toBlock! σ matches .transfer .. := by unfold toBlock!; aesop
+  request.toBlock! σ matches .transfer .. := by unfold toBlock!; rcases request <;> simp_all
 
 lemma toBlock!_of_withdrawal (h : request matches .withdrawal ..) :
   request.toBlock! σ matches .withdrawal .. := by unfold toBlock!; aesop

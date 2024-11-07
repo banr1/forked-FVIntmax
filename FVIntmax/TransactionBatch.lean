@@ -1,4 +1,4 @@
-import Mathlib.Data.Finite.Basic
+import Mathlib.Data.Finite.Defs
 import Mathlib.Data.Finmap
 import Mathlib.Data.Fintype.Card
 import Mathlib.Data.Fintype.Powerset

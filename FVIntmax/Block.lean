@@ -93,6 +93,10 @@ lemma deposit_ne_widthdrawal :
 lemma transfer_ne_widthdrawal : 
   (transfer aggregator extradata commitment senders sigma).isWithdrawalBlock (V := V) = False := by aesop
 
+@[simp]
+lemma getDeposit_deposit {r : K₂} {v : V₊} :
+  getDeposit (.deposit r v) (by aesop) = (r, v) := rfl
+
 end Block
 
 end Block

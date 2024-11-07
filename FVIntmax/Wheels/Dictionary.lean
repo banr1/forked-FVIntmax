@@ -12,7 +12,7 @@ As such, we use this without abbreviating to `Maybe`.
 /--
 PAPER: Given two sets X and Y, we define Dict(X, Y ) := Maybe(Y )X
 -/
-def Dict (α ω : Type) : Type := α → Option ω
+abbrev Dict (α ω : Type) : Type := α → Option ω
 
 section Dict
 variable {α ω : Type}
@@ -22,7 +22,7 @@ def Dict.is_mem (m : Dict α ω) (x : α) : Prop := (m x).isSome
 @[ext]
 lemma Dict.ext {D₁ D₂ : Dict α ω} (h : ∀ k, D₁ k = D₂ k) : D₁ = D₂ := by funext; aesop
 
-instance : Membership α (Dict α ω) := ⟨flip Dict.is_mem⟩
+instance : Membership α (Dict α ω) := ⟨Dict.is_mem⟩
 
 instance : GetElem (Dict α ω) α ω Dict.is_mem where
   getElem := λ m x h ↦ (m x).get h
@@ -89,6 +89,14 @@ lemma first_left {x₁ x₂ : Option α} (h : x₁.isSome) : First x₁ x₂ = x
 lemma first_right {x₁ x₂ : Option α} (h : x₁.isNone) : First x₁ x₂ = x₂ := by
   simp [First]; ext; aesop
 
+@[simp]
+lemma first_none {x₂ : Option α} : First .none x₂ = x₂ := by
+  simp [First]; ext; aesop
+
+@[simp]
+lemma first_some {x₁ : α} {x₂ : Option α} : First (.some x₁) x₂ = x₁ := by
+  simp [First]; ext; aesop
+
 lemma keys_Merge_left' {D₁ D₂ : Dict α ω} (h : ∀ x, x ∈ D₁) : Merge D₁ D₂ = D₁ := by
   unfold Merge Merge.D
   ext x _; simp [First]
@@ -108,6 +116,29 @@ lemma keys_Merge_right {D₁ D₂ : Dict α ω} {x : α}
   have : (D₂ x).isSome := by dict
   have : (D₁ x).isNone := by rw [mem_iff_isSome] at h₁; aesop
   aesop
+
+lemma keys_Merge_right' {D₁ D₂ : Dict α ω}
+                        (h : ∀ x : α, x ∉ D₁) : Merge D₁ D₂ = D₂ := by
+  unfold Merge Merge.D
+  apply funext; intros x; specialize h x
+  simp [First]
+  have : (D₁ x).isNone := by rw [mem_iff_isSome] at h; aesop
+  aesop
+
+lemma Merge_assoc {D₁ D₂ D₃ : Dict α ω} :
+  Merge (Merge D₁ D₂) D₃ = Merge D₁ (Merge D₂ D₃) := by
+  unfold Merge Merge.D
+  apply funext; intros x
+  unfold First
+  generalize eq₁ : D₁ x = X₁
+  generalize eq₂ : D₂ x = X₂
+  generalize eq₃ : D₃ x = X₃
+  rcases X₁ <;> rcases X₂ <;> rcases X₃ <;> aesop
+
+@[simp]
+lemma First_none_none : Dict.First (.none : Option α) .none = .none := by
+  unfold First
+  simp
 
 end Dict
 

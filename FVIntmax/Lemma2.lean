@@ -21,7 +21,17 @@ variable
 PAPER: First, we give VK+ the discrete preorder
 -/
 instance : Preorder (Key K₁ K₂ → V₊) := discretePreorder
-instance {α ω : Type} [Preorder ω] : Preorder (Dict α ω) := by unfold Dict; infer_instance
+-- instance {α ω : Type} [Preorder ω] : Preorder (Dict α ω) := by unfold Dict; infer_instance
+
+omit [Finite K₁] [Finite K₂] in
+/--
+Demote a preorder on `Key K₁ K₂ → V₊` to equality ASAP.
+-/
+@[simp]
+lemma discretePreorder_eq_equality_Key_Map_Vplus {a b : Key K₁ K₂ → V₊} : a ≤ b ↔ a = b := by
+  simp only [LE.le]
+  aesop
+
 /--
 NB: Actually we'll use the notion of 'transaction batch' here.
     We know that `TransactionBatch K₁ K₂ V` is by definition `Key K₁ K₂ → V₊`.
@@ -29,9 +39,24 @@ NB: Actually we'll use the notion of 'transaction batch' here.
 instance : Preorder (TransactionBatch K₁ K₂ V) := discretePreorder
 
 /--
+Demote a preorder on `TransactionBatch` to equality ASAP.
+-/
+@[simp]
+lemma discretePreorder_eq_equality_TransactionBatch {a b : TransactionBatch K₁ K₂ V} : a ≤ b ↔ a = b := by
+  simp only [LE.le]
+  aesop
+
+/--
 PAPER: Then, we give AD.Π × {0, 1} ∗ the trivial preorder
 -/
 instance : Preorder (Pi × ExtraDataT) := trivialPreorder
+
+/--
+Demote a preorder on `(Pi × ExtraDataT)` to equality ASAP.
+-/
+@[simp]
+lemma discretePreorder_eq_equality_Pi_Prod_ExtraDataT {a b : (Pi × ExtraDataT)} : a ≤ b := by
+  simp [(·≤·), Preorder.toLE, instPreorderProdExtraDataT, trivialPreorder]
 
 /--
 PAPER: Finally, we give (AD.Π × {0, 1}∗) × VK+ the induced product preorder
@@ -167,6 +192,7 @@ lemma senderReceiver_transactionsInBlocks {bs : List (Block K₁ K₂ C Sigma V)
   specialize eq₁ i h₀ h₀; specialize eq₂ i h₀ h₀
   aesop
 
+set_option maxHeartbeats 1000000 in
 /--
 Given our custom preorder structure, articulate how two transactions can differ.
 
@@ -189,7 +215,7 @@ private lemma delta_TransactionsInBlock_transfer
   simp_rw [←eq]
   let elem := (C, (l[i]'this).1.1)
   by_cases eq' : elem ∉ π₁ ∧ elem ∈ π₂
-  · by_cases eq'' : (l[i]'this).1.1 ∈ S <;> simp [← Dict.mem_dict_iff_mem_keys, eq', eq'']
+  · by_cases eq'' : (l[i]'this).1.1 ∈ S <;> simp [← Dict.mem_dict_iff_mem_keys, elem, eq', eq'']
   · rcases not_and_or.1 eq' with eq' | eq'
     · have h₁ : elem ∈ π₁ := by simp at eq'; exact eq'
       have := mem_of_BalanceProof_le h h₁; simp [← Dict.mem_dict_iff_mem_keys, h₁, this]
@@ -259,6 +285,7 @@ lemma monotone_f (h₁ : b₁ ≤ b₂) (h₂ : T₁ ≤ T₂) : f b₁ T₁ k �
   rw [le_isGLB_iff inf₂, mem_lowerBounds]
   aesop
 
+set_option maxHeartbeats 400000 in
 /--
 A version of `monotone_fStarFixed` to induce over an accumulator for which `s₁ ≤ b₂` in the general case.
 
@@ -273,8 +300,8 @@ private theorem monotone_fStarFixed_aux (h : v₁ ≤ v₂) (h₂ : b₁ ≤ b�
   · simp at len₁ len₂; omega
   · simp at len₁ len₂; omega
   · rcases n with _ | n <;> [simp at len₁; skip]
-    have := @Vec.le_cons _ _ _ _ (v₁ := ⟨hd₁ :: tl₁, len₁⟩) (v₂ := ⟨hd₂ :: tl₂, len₂⟩)
-                         _ (by aesop) (by aesop) rfl rfl h
+    have := @Vec.le_cons _ _ _ _ _ _ _ (v₁ := ⟨hd₁ :: tl₁, len₁⟩) (v₂ := ⟨hd₂ :: tl₂, len₂⟩)
+                         (by aesop) (by aesop) rfl rfl h
     have eq : f b₁ hd₁ ≤ f b₂ hd₂ := by
       dsimp [(·≤·)]; intros k
       have := monotone_f (k := k) h₂ this.1; aesop

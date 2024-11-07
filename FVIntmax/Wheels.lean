@@ -29,7 +29,8 @@ class Injective {α ω : Type} (f : α → ω) where
 We do _not_ assume `Injective f` right away to force the usage of the
 `computationallyInfeasible_axiom` to derive this, cf. the instance below.
 -/
-instance {α ω : Type} [Nonempty ω] {f : α → ω} [inj : Injective f] : Function.Injective f := by
+theorem Function.injective_of_CryptInjective
+  {α ω : Type} [Nonempty ω] {f : α → ω} [inj : Injective f] : Function.Injective f := by
   rcases inj with ⟨inj⟩
   apply computationallyInfeasible_axiom at inj
   rwa [not_not] at inj
@@ -290,6 +291,9 @@ lemma zip_eq_iff {α β : Type}
                        rcases l₄ with _ | ⟨hd₄, tl₄⟩ <;>
                        [cases h; cases h; cases h₂; aesop]
 
+lemma getElem_Ico_of_lt {m n : ℕ} (h : n < m) : (List.Ico 0 m)[n]'(by simp [h]) = n := by
+  simp [Ico]
+
 section ImSorry
 
 lemma map_join_eq {α β γ : Type}
@@ -297,7 +301,7 @@ lemma map_join_eq {α β γ : Type}
                   {f : α → β}
                   {f' f'' : γ → List α}
                   (h₂ : ∀ b : γ, List.map f (f' b) = List.map f (f'' b)) :
-  (List.map (List.map f ∘ f') l).join = (List.map (List.map f ∘ f'') l).join := by
+  (List.map (List.map f ∘ f') l).flatten = (List.map (List.map f ∘ f'') l).flatten := by
   induction' l with hd tl ih <;> simp_all
 
 lemma map_eq_project_triple {β γ δ : Type}
@@ -308,7 +312,7 @@ lemma map_eq_project_triple {β γ δ : Type}
                             {h₀}
                             {h : i < l.length} : 
   l[i]'h = ⟨(s, r, v), h₀⟩ → (l[i]'h).1.2.2 = v := by aesop
-            
+
 lemma map_join_unnecessarily_specific
   {α β γ δ Pi : Type}
   [LE δ]
@@ -323,23 +327,23 @@ lemma map_join_unnecessarily_specific
           (i : ℕ) (h : i < (f π a).length),
           (f π a)[i].1.2.2 ≤ ((f π' a)[i]'(by apply congr_fun at h₀; aesop)).1.2.2)
   (h) :
-  ((List.map (f π) l).join[i]'h).1.2.2 ≤
-  ((List.map (f π') l).join[i]'(by aesop)).1.2.2 := by
+  ((List.map (f π) l).flatten[i]'h).1.2.2 ≤
+  ((List.map (f π') l).flatten[i]'(by aesop)).1.2.2 := by
   induction' l with hd tl ih generalizing i
   · simp at h
-  · simp only [map_cons, join_cons]
-    set l₁ := tl.map (f π) |>.join with eq; simp_rw [←eq] at ih ⊢
-    set l₂ := tl.map (f π') |>.join with eq'; simp_rw [←eq'] at ih ⊢
+  · simp only [map_cons, flatten_cons]
+    set l₁ := tl.map (f π) |>.flatten with eq; simp_rw [←eq] at ih ⊢
+    set l₂ := tl.map (f π') |>.flatten with eq'; simp_rw [←eq'] at ih ⊢
     have : l₁.length = l₂.length := eq ▸ eq' ▸ by simp [h₀]
     set xs₁ := f π hd with eq₁; simp_rw [←eq₁]
     set xs₂ := f π' hd with eq₂; simp_rw [←eq₂]
     have : xs₁.length = xs₂.length := by rw [eq₁, eq₂]; apply congr_fun at h₀; aesop
     by_cases eq : i < xs₁.length
-    · rw [List.getElem_append _ eq, List.getElem_append _ (by omega)]
+    · rw [List.getElem_append_left eq, List.getElem_append_left (by omega)]
       apply h₁
     · have _ : i - xs₁.length < l₁.length := by rw [Nat.sub_lt_iff_lt_add (by omega)]; aesop
       have _ : i - xs₂.length < l₂.length := by aesop
-      rw [List.getElem_append_right' (by omega), List.getElem_append_right' (by omega)]
+      rw [List.getElem_append_right (by omega), List.getElem_append_right (by omega)]
       aesop
 
 end ImSorry

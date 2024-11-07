@@ -4,6 +4,7 @@ import Mathlib.Algebra.Group.Int
 import FVIntmax.BalanceProof
 import FVIntmax.Block
 import FVIntmax.Key
+import FVIntmax.Propositions
 import FVIntmax.RollupContract
 import FVIntmax.State
 import FVIntmax.Transaction
@@ -102,9 +103,12 @@ lemma length_TransactionsInBlock_transfer
   {b : { b : Block K₁ K₂ C Sigma V // b.isTransferBlock }} :
   ∀ (π₁ π₂ : BalanceProof K₁ K₂ C Pi V),
     (TransactionsInBlock_transfer π₁ b).length =
-    (TransactionsInBlock_transfer π₂ b).length := by
-  unfold TransactionsInBlock_transfer
-  aesop
+    (TransactionsInBlock_transfer π₂ b).length := λ π₁ π₂ ↦ by
+  unfold TransactionsInBlock_transfer; split <;>
+  simp only [
+    ite_not, List.length_map, List.length_attach, exists_prop,
+    Sum.exists, exists_and_left, true_and, Finset.length_sort
+  ]
 
 end Transfer
 
@@ -116,11 +120,6 @@ def TransactionsInBlock_withdrawal
   (b : { b : Block K₁ K₂ C Sigma V // b.isWithdrawalBlock }) : List (Τ K₁ K₂ V) :=
   match h : b.1 with
   | .withdrawal withdrawals =>
-    /-
-      Plumbing. Ignore.
-    -/
-    have : Fintype K₁ := Fintype.ofFinite _
-
     /-
       Careful, order.
     -/
@@ -135,9 +134,7 @@ lemma length_TransactionsInBlock_withdrawal
   unfold TransactionsInBlock_withdrawal
   rcases b with ⟨b, h⟩
   match b with
-  | Block.withdrawal .. =>
-    simp; rw [List.map_congr_left (g := Function.const _ 1) (by simp), List.map_const]
-    simp
+  | Block.withdrawal .. => simp
   | Block.deposit .. | Block.transfer .. => simp at h 
 
 end Withdrawal
@@ -161,6 +158,7 @@ lemma length_transactionsInBlock {b : Block K₁ K₂ C Sigma V}
   split <;> try simp
   rw [length_TransactionsInBlock_transfer]
 
+set_option maxHeartbeats 400000 in
 lemma sender_transactionsInBlock {b : Block K₁ K₂ C Sigma V}
                                  (π₁ π₂ : BalanceProof K₁ K₂ C Pi V) :
   (TransactionsInBlock π₁ b).map (λ s ↦ s.1.1) =
@@ -173,6 +171,7 @@ lemma sender_transactionsInBlock {b : Block K₁ K₂ C Sigma V}
   | Block.transfer ..   => simp [TransactionsInBlock_transfer]
   | Block.withdrawal .. => simp [TransactionsInBlock_withdrawal]
 
+set_option maxHeartbeats 400000 in
 lemma receiver_transactionsInBlock {b : Block K₁ K₂ C Sigma V}
                                    (π₁ π₂ : BalanceProof K₁ K₂ C Pi V) :
   (TransactionsInBlock π₁ b).map (λ s ↦ s.1.2.1) =
@@ -187,7 +186,7 @@ lemma receiver_transactionsInBlock {b : Block K₁ K₂ C Sigma V}
 
 def TransactionsInBlocks
   (π : BalanceProof K₁ K₂ C Pi V) (bs : List (Block K₁ K₂ C Sigma V)) : List (Τ K₁ K₂ V) :=
-  (bs.map (TransactionsInBlock π)).join
+  (bs.map (TransactionsInBlock π)).flatten
 
 /--
 PAPER: Note that the function TransactionsInBlocks outputs a list of partial transactions whose
@@ -204,14 +203,14 @@ lemma sender_transactionsInBlocks {bs : List (Block K₁ K₂ C Sigma V)}
                                   (π₁ π₂ : BalanceProof K₁ K₂ C Pi V) :
   (TransactionsInBlocks π₁ bs).map (λ s ↦ s.1.1) =
   (TransactionsInBlocks π₂ bs).map (λ s ↦ s.1.1) := by
-  simp [TransactionsInBlocks, List.map_join, List.map_join]
+  simp [TransactionsInBlocks, List.map_flatten, List.map_flatten]
   exact List.map_join_eq (λ _ ↦ sender_transactionsInBlock π₁ π₂)
 
 lemma receiver_transactionsInBlocks {bs : List (Block K₁ K₂ C Sigma V)}
                                   (π₁ π₂ : BalanceProof K₁ K₂ C Pi V) :
   (TransactionsInBlocks π₁ bs).map (λ s ↦ s.1.2.1) =
   (TransactionsInBlocks π₂ bs).map (λ s ↦ s.1.2.1) := by
-  simp [TransactionsInBlocks, List.map_join, List.map_join]
+  simp [TransactionsInBlocks, List.map_flatten, List.map_flatten]
   exact List.map_join_eq (λ _ ↦ receiver_transactionsInBlock π₁ π₂)
 
 end Extraction
@@ -277,7 +276,7 @@ variable [Lattice V]
          [CovariantClass V V (Function.swap (· + ·)) (· ≤ ·)]
 
 /--
-Transaction function for complete transactions.
+Transaction function for complete transactions. -- ⊓ x : fc ...
 -/
 def fc (τcXb : Τc K₁ K₂ V × S K₁ K₂ V) : S K₁ K₂ V :=
   ⟨λ k : Kbar K₁ K₂ ↦
@@ -321,25 +320,6 @@ Demote a preorder on `Kbar K₁ K₂` to equality ASAP.
 -/
 @[simp]
 lemma discretePreorder_eq_equality_Kbar {a b : Kbar K₁ K₂} : a ≤ b ↔ a = b := by rfl
-
-/--
-Definition 15
-Let (X, ≤X) be a proset. We define the induced preorder ≤ on
-Maybe(X) where for all x, y ∈ M aybe(X) we have
-x ≤ y ⇔ x = ⊥ ∨ (x, y ∈ X ∧ x ≤X y)
--/
-instance (priority := high) maybeInduced {α : Type} [Preorder α] : Preorder (Option α) :=
-  let le : Option α → Option α → Prop := λ x y ↦
-                                           match x, y with
-                                           | .none, .none | .none, .some _ => True
-                                           | .some x, .some y => x ≤ y
-                                           | .some _, .none   => False
-  {
-    le := le
-    lt := λ a b ↦ le a b ∧ ¬ le b a -- `False` at home.
-    le_refl := by dsimp [le]; aesop
-    le_trans := by dsimp [le, (·≤·)]; aesop (add safe forward le_trans)
-  }
 
 /--
 PAPER: which induces a preorder on Maybe(V+)
@@ -484,18 +464,26 @@ lemma V'_sset_V'_of_le {b₁ b₂ : S K₁ K₂ V} {T₁ T₂ : Τ K₁ K₂ V} 
 
 section f
 
-opaque exists_inf (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : { s : S K₁ K₂ V // ∀ k, IsGLB (V' b T k) (s k) } :=
-  /-
+/-
   PAPER: The explicit description of the transition function. 
-  -/
-  let f' (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V := 
-    ⟨
-      λ k ↦
-        match h : T with
-        | ⟨(_, _, .some v), hT⟩ => fc (⟨T, by simp [h]⟩, b) k
-        | ⟨(s, _, .none), _⟩ => if k = s then 0 else b k,
-      by rintro (k | k) <;> aesop
-    ⟩
+-/
+def f' (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V := 
+  ⟨
+    λ k ↦
+      match h : T with
+      | ⟨(_, _, .some _), hT⟩ => fc (⟨T, by simp [h]⟩, b) k
+      | ⟨(s, _, .none), _⟩ => if k = s then 0 else b k,
+    by rintro (k | k) <;> aesop
+  ⟩
+
+/--
+  Technically the paper implements `opaque exists_inf` instead of `def exists_inf`, thus prohibiting
+  the proof that `f = f'`.
+
+  This allows for alternative proofs at the cost of flexibility in case one chooses to use
+  a different explicit description function `f'`.
+-/
+def exists_inf (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : { s : S K₁ K₂ V // ∀ k, IsGLB (V' b T k) (s k) } :=
   ⟨
     f' b T,
     λ k ↦
@@ -530,7 +518,7 @@ opaque exists_inf (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : { s : S K₁ K₂ V
         dsimp [V', IsGLB, IsGreatest, lowerBounds, upperBounds, boundedBelow]; simp only [Set.mem_image]
         refine' And.intro ?isLowerBound ?isGreatest
         case isLowerBound =>
-          rintro v ⟨⟨τ', b'⟩, ⟨ha₁, ⟨⟩⟩⟩; simp at ha₁
+          rintro v ⟨⟨τ', b'⟩, ⟨ha₁, ⟨⟩⟩⟩; simp at ha₁; simp [f']
           split
           next s r v? hv? => apply fc_mono ha₁
           next s r hv? =>
@@ -572,6 +560,14 @@ def f (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V :=
   ⟩
 
 /--
+@ERIK - Can we really prove `Lemma 5` with throwing away `f'` and just keeping it as the function
+that exhibits the existence of the least upper bound?
+-/
+lemma f_eq_f' : f = f' (K₁ := K₁) (K₂ := K₂) (V := V) := by
+  ext b T k
+  simp [f, f', infV, exists_inf, iInf, V'_eq_range, if_pos rfl, f']
+
+/--
 `f` is the greatest lower bound of `V'`.
 -/
 lemma f_IsGLB_of_V' {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K₁ K₂} :
@@ -591,11 +587,11 @@ def fStar (Ts : List (Τ K₁ K₂ V)) (s₀ : S K₁ K₂ V) : S K₁ K₂ V :=
   Ts.foldl f s₀
 
 @[simp]
-lemma fStar_nil : fStar [] s = s := by rfl
+lemma fStar_nil : fStar [] s = s := rfl
 
 @[simp]
 lemma fStar_cons {hd : Τ K₁ K₂ V} {tl : List (Τ K₁ K₂ V)} :
-  fStar (hd :: tl) s = fStar tl (f s hd) := by rfl
+  fStar (hd :: tl) s = fStar tl (f s hd) := rfl
 
 end fStar
 

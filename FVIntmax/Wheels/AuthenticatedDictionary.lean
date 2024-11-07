@@ -14,7 +14,7 @@ variable {K : Type} [DecidableEq K]
 /--
 `ADScheme.Commit` returns `C × Dict K Pi` - this is a thin wrapper over said product.
 -/
-structure CommitT (C K Pi : Type) :=
+structure CommitT (C K Pi : Type) where
   commitment : C
   dict       : Dict K Pi
 

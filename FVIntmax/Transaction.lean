@@ -64,6 +64,10 @@ lemma isComplete_none {t'} : ¬isComplete ⟨⟨kb₁, kb₂, (.none : Option V�
 @[simp]
 lemma isComplete_some {t'} : isComplete ⟨⟨kb₁, kb₂, .some v⟩, t'⟩ := rfl
 
+def value (τ : Τ K₁ K₂ V) : Option V₊ := τ.1.2.2
+
+def sender (τ : Τ K₁ K₂ V) : Kbar K₁ K₂ := τ.1.1
+
 end Τ
 
 end Τ

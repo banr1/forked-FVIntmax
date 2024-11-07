@@ -1,6 +1,6 @@
 import Aesop
 
-import Mathlib.Data.Finite.Basic
+import Mathlib.Data.Finite.Defs
 import Mathlib.Data.Finmap
 import Mathlib.Data.Fintype.Card
 import Mathlib.Data.Fintype.Powerset
@@ -197,7 +197,8 @@ instance : Finite (Key K₁ K₂) := by
 noncomputable instance : Fintype (Key K₁ K₂) :=
   have := Fintype.ofFinite K₁
   have := Fintype.ofFinite K₂
-  inferInstance
+  have : Finite (Key K₁ K₂) := inferInstance
+  Fintype.ofFinite (Key K₁ K₂)
 
 /--
 NB not important. There's an obvious equivalence between the inductive `Kbar` and the
