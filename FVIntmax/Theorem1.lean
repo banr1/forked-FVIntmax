@@ -217,7 +217,7 @@ def computeBalance' (blocks : RollupState K₁ K₂ V C Sigma) (acc : V) : V :=
 def computeBalance (blocks : RollupState K₁ K₂ V C Sigma) : V :=
   computeBalance' blocks 0
 
-def adversaryWon (blocks : RollupState K₁ K₂ V C Sigma) :=
+def adversaryWon (blocks : RollupState K₁ K₂ V C Sigma) : Prop :=
   ¬0 ≤ computeBalance blocks
 
 section AttackGameLemmas
@@ -280,12 +280,6 @@ def aggregateWithdrawals (σ : RollupState K₁ K₂ V C Sigma) : V :=
     then ∑ (k : K₁), (σ[i.1].getWithdrawal h) k
     else 0
 
--- (∑ (i : Fin σ.length) (k : K₁),
---  if h : σ[i].isWithdrawalBlock
---  then let w := σ[i].getWithdrawal h
---       w k ⊓ Bal π (σ.take i.1) k
---  else 0)
-
 def aggregateWithdrawals' (σ : RollupState K₁ K₂ V C Sigma) : V :=
   ∑ (i : Fin σ.length × K₁),
     if h : σ[i.1].isWithdrawalBlock
@@ -316,9 +310,8 @@ lemma computeBalance'_cons : computeBalance' (hd :: σ) v =
 lemma computeBalance'_eq_zero : computeBalance' σ v = v + computeBalance' σ 0 := by
   induction' σ with hd tl ih generalizing v
   · simp
-  · rw [computeBalance'_cons, computeBalance'_cons]
-    rw [ih]; nth_rw 2 [ih]
-    rw [Block.updateBalance_eq_zero]
+  · rw [computeBalance'_cons, computeBalance'_cons, ih, Block.updateBalance_eq_zero]
+    nth_rw 2 [ih]
     exact add_assoc v _ _
 
 @[simp]
@@ -332,35 +325,12 @@ lemma TransactionsInBlocks_cons {π : BalanceProof K₁ K₂ C Pi V}
   TransactionsInBlocks π (hd :: tl) =
   TransactionsInBlock π hd ++ (List.map (TransactionsInBlock π) tl).flatten := rfl
 
--- @[simp]
--- lemma f_Source {r : K₂} {v : V₊} {h} :
---   f (K₁ := K₁) acc' ⟨(Kbar.Source, Kbar.key (Sum.inr r), some v), h⟩ .Source = sorry := by
---   have := f_IsGLB_of_V' (b := acc') (T:= ⟨(Kbar.Source, Kbar.key (Sum.inr r), some v), h⟩) (k := .Source)
---   simp at this ⊢
-
-
---   done
-
 @[simp]
 lemma transactionsInBlock_deposit {r : K₂} {v : V₊} :
   TransactionsInBlock (K₁ := K₁) (Sigma := Sigma) π (Block.deposit r v) =
   [⟨(.Source, r, v), by simp [Τ'.isValid]⟩] := by
   unfold TransactionsInBlock
   aesop
-
--- @[simp]
--- lemma is_glb_fold_f_of_glb {σ : RollupState K₁ K₂ V C Sigma}
---                            {π : BalanceProof K₁ K₂ C Pi V}
---                            {acc : S K₁ K₂ V × Fin σ.length}
---                            {k : Kbar K₁ K₂}
---   (h : IsGLB (Set.univ (α := S K₁ K₂ V)) acc.1) :
---   IsGLB _ (List.foldl (λ acc s ↦ (f acc.1 σ, acc.2 + 1)) acc.1 σ) := by sorry
---   -- (h : IsGLB (Set.iUnion (· ∈ TransactionsInBlocks π (σ.take acc.2.1))) acc.1) :
---   -- IsGLB _ (List.foldl (λ acc s ↦ (f acc.1 σ, acc.2 + 1)) acc.1 σ) := by sorry
---   -- -- sorry
-
--- f S (.deposit (r, v)) .Source
--- S .Source
 
 lemma fold_f_any_transaction_transfer {acc : S K₁ K₂ V} {l : List (Τ K₁ K₂ V)}
   (h : ∀ T ∈ l, (¬ T.1.1 matches .Source) ∧ (¬ T.1.2.1 matches .Source)) :
@@ -718,9 +688,16 @@ lemma rR_eq {k : ℕ} :
     (a₂ : ℕ) (ha₂ : a₂ ∈ Finset.range (k + 1) \ {0}),
     reindexRange (k + 1) a₁ ha₁ = lemma5.reindexRange (k + 1) a₂ ha₂ → a₁ = a₂ := by simp [reindexRange]; omega
 
-lemma isK₁_of_withdrawal {T : Τ K₁ K₂ V}
-                         {π : BalanceProof K₁ K₂ C Pi V}
-  (h : ∃ block : {b : Block K₁ K₂ C Sigma V // b.isWithdrawalBlock}, T ∈ TransactionsInBlock π block.1) :
+section LocalProperties
+
+variable {T : Τ K₁ K₂ V}
+         {π : BalanceProof K₁ K₂ C Pi V}
+         {σ : S K₁ K₂ V}
+         {b : Block K₁ K₂ C Sigma V}
+
+lemma isK₁_of_withdrawal        
+  (h : ∃ block : {b : Block K₁ K₂ C Sigma V // b.isWithdrawalBlock},
+         T ∈ TransactionsInBlock π block.1) :
   T.sender.isK₁ := by
   rcases T with ⟨⟨s, r, v⟩, hT⟩
   rcases h with ⟨⟨b, hb⟩, h₁⟩
@@ -734,10 +711,9 @@ lemma isK₁_of_withdrawal {T : Τ K₁ K₂ V}
 -- transactionsinblock_Source_pres_valid_transfer :
 -- Not true when k ∈ senders ∧ h_1 : (c, k) ∉ Dict.keys π
 -- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-lemma isSome_of_deposit {T : Τ K₁ K₂ V}
-                        {π : BalanceProof K₁ K₂ C Pi V}
-  (h : ∃ block : {b : Block K₁ K₂ C Sigma V // b.isDepositBlock}, T ∈ TransactionsInBlock π block.1) :
-  T.value.isSome := by
+lemma isSome_of_deposit
+  (h : ∃ block : {b : Block K₁ K₂ C Sigma V // b.isDepositBlock},
+         T ∈ TransactionsInBlock π block.1) : T.value.isSome := by
   rcases T with ⟨⟨s, r, v⟩, hT⟩
   rcases h with ⟨⟨b, hb⟩, h₁⟩
   simp [TransactionsInBlock] at h₁
@@ -746,10 +722,9 @@ lemma isSome_of_deposit {T : Τ K₁ K₂ V}
   unfold TransactionsInBlock_transfer at h₁; simp at hb
   unfold TransactionsInBlock_withdrawal at h₁; simp at hb
 
-lemma isSome_of_withdrawal {T : Τ K₁ K₂ V}
-                           {π : BalanceProof K₁ K₂ C Pi V}
-  (h : ∃ block : {b : Block K₁ K₂ C Sigma V // b.isWithdrawalBlock}, T ∈ TransactionsInBlock π block.1) :
-  T.value.isSome := by
+lemma isSome_of_withdrawal 
+  (h : ∃ block : {b : Block K₁ K₂ C Sigma V // b.isWithdrawalBlock},
+         T ∈ TransactionsInBlock π block.1) : T.value.isSome := by
   rcases T with ⟨⟨s, r, v⟩, hT⟩
   rcases h with ⟨⟨b, hb⟩, h₁⟩
   simp [TransactionsInBlock] at h₁
@@ -758,12 +733,10 @@ lemma isSome_of_withdrawal {T : Τ K₁ K₂ V}
   unfold TransactionsInBlock_transfer at h₁; simp at hb
   unfold TransactionsInBlock_withdrawal at h₁; aesop
 
-lemma f_deposit_source {T : Τ K₁ K₂ V}
-                       {σ : S K₁ K₂ V}
-                       {π : BalanceProof K₁ K₂ C Pi V}
-                       (h : ∃ block : {b : Block K₁ K₂ C Sigma V // b.isDepositBlock},
-                              T ∈ TransactionsInBlock π block.1) :
-                       (f σ T) .Source = σ .Source + -T.value.get (isSome_of_deposit h) := by
+lemma f_deposit_source
+  (h : ∃ block : {b : Block K₁ K₂ C Sigma V // b.isDepositBlock},
+         T ∈ TransactionsInBlock π block.1) :
+  (f σ T) .Source = σ .Source + -T.value.get (isSome_of_deposit h) := by
   rcases h with ⟨⟨b, hb⟩, h₁⟩
   rcases T with ⟨⟨s, r, v⟩, hT⟩
   unfold Block.isDepositBlock at hb
@@ -774,13 +747,10 @@ lemma f_deposit_source {T : Τ K₁ K₂ V}
   rcases h₁ with ⟨h₁, h₂, h₃⟩
   simp [h₁, h₂, h₃, f_eq_f', f', fc, Τ.value]
 
-lemma f_withdraw_source {T : Τ K₁ K₂ V}
-                        {σ : S K₁ K₂ V}
-                        {π : BalanceProof K₁ K₂ C Pi V}
-                        (h : ∃ block : {b : Block K₁ K₂ C Sigma V // b.isWithdrawalBlock},
-                               T ∈ TransactionsInBlock π block.1) :
-                        (f σ T) .Source =
-                        σ .Source + (↑(T.value.get (isSome_of_withdrawal h)) ⊓ σ T.sender) := by
+lemma f_withdraw_source 
+  (h : ∃ block : {b : Block K₁ K₂ C Sigma V // b.isWithdrawalBlock},
+         T ∈ TransactionsInBlock π block.1) :
+  (f σ T) .Source = σ .Source + (↑(T.value.get (isSome_of_withdrawal h)) ⊓ σ T.sender) := by
   rcases h with ⟨⟨b, hb⟩, h₁⟩
   rcases T with ⟨⟨s, r, v⟩, hT⟩
   unfold Block.isWithdrawalBlock at hb
@@ -792,12 +762,10 @@ lemma f_withdraw_source {T : Τ K₁ K₂ V}
   simp [h₁, h₂, h₃, f_eq_f', f', fc, Τ.value]
   aesop
 
-lemma f_transfer_source {T : Τ K₁ K₂ V}
-                        {σ : S K₁ K₂ V}
-                        {π : BalanceProof K₁ K₂ C Pi V}
-                        (h : ∃ block : {b : Block K₁ K₂ C Sigma V // b.isTransferBlock},
-                               T ∈ TransactionsInBlock π block.1) :
-                        (f σ T) .Source = σ .Source := by
+lemma f_transfer_source 
+  (h : ∃ block : {b : Block K₁ K₂ C Sigma V // b.isTransferBlock},
+         T ∈ TransactionsInBlock π block.1) :
+  (f σ T) .Source = σ .Source := by
   rcases h with ⟨⟨b, hb⟩, h₁⟩
   rcases T with ⟨⟨s, r, v⟩, hT⟩
   unfold Block.isTransferBlock at hb
@@ -812,12 +780,8 @@ lemma f_transfer_source {T : Τ K₁ K₂ V}
   rcases h₁ with ⟨k₁, h₁, ⟨k₂, ⟨h₂, h₃⟩⟩ | ⟨k₂, ⟨h₂, ⟨k₃, ⟨h₃, h₄⟩⟩⟩⟩⟩ <;>
   (simp [h₁, h₂, f_eq_f', f', fc, Τ.value]; aesop)
 
-lemma f_deposit_block_source {σ : S K₁ K₂ V}
-                             {π : BalanceProof K₁ K₂ C Pi V}
-                             (b : Block K₁ K₂ C Sigma V)
-                             (h : b.isDepositBlock) :
-                             ((TransactionsInBlock π b).foldl f σ) .Source =
-                             σ .Source - (b.getDeposit h).2.1 := by
+lemma f_deposit_block_source (h : b.isDepositBlock) :
+  ((TransactionsInBlock π b).foldl f σ) .Source = σ .Source - (b.getDeposit h).2.1 := by
   unfold Block.isDepositBlock at h
   simp only [TransactionsInBlock]
   split <;> [skip; simp at h; simp at h]
@@ -825,87 +789,29 @@ lemma f_deposit_block_source {σ : S K₁ K₂ V}
   simp [TransactionsInBlock_deposit, Block.getDeposit, f_eq_f', f', fc]
   rw [sub_eq_add_neg]
 
-@[simp]
-lemma sort_empty_iff {α : Type} {r : α → α → Prop} {s : Finset α}
-  [IsTotal α r] [IsTrans α r] [IsAntisymm α r] [DecidableRel r] :
-  Finset.sort r s = [] ↔ s = ∅ := by
-  refine' ⟨λ h ↦ _, λ h ↦ _⟩
-  · rcases s with ⟨s, hs⟩
-    simp [Finset.sort] at h
-    have := Multiset.sort_eq (α := α) (r := r)
-    apply congr_arg Multiset.ofList at h
-    rw [Multiset.sort_eq] at h
-    aesop
-  · aesop
-
-lemma f_withdrawal_block_source_aux {σ : S K₁ K₂ V}
-                                    {l : List K₁}
-                                    (h₀ : l.Nodup)
-                                    (b : Block K₁ K₂ C Sigma V)
-                                    (h : b.isWithdrawalBlock) :
-                                    (List.foldl f' σ
-                                      (List.map (λ s : K₁ ↦ ⟨(s, Kbar.Source, some (b.getWithdrawal h s)), by unfold Τ'.isValid; aesop⟩) l)).1
-                                    .Source = σ .Source + ∑ x : K₁, if x ∈ l then (↑(b.getWithdrawal h x) ⊓ σ x) else 0 := by
+private lemma f_withdrawal_block_source_aux {l : List K₁}
+  (h₀ : l.Nodup) (h : b.isWithdrawalBlock) :
+  (List.foldl f' σ
+    (List.map (λ s : K₁ ↦ ⟨(s, Kbar.Source, some (b.getWithdrawal h s)), by unfold Τ'.isValid; aesop⟩) l)).1
+                            .Source = σ .Source + ∑ x : K₁, if x ∈ l then (↑(b.getWithdrawal h x) ⊓ σ x) else 0 := by
   simp only
   induction' l with hd tl ih generalizing σ
   · simp
   · simp only [List.map_cons, List.foldl_cons]
-    rw [ih]
+    rw [ih (by aesop)]
     simp only [f', fc, e_def, Pi.sub_apply, Option.get_some, v'_key_eq_meet, ↓reduceIte,
       reduceCtorEq, sub_zero, one_smul, List.mem_cons]
     conv_rhs => rw [Finset.sum_ite]
     simp only [not_or, Finset.sum_const_zero, add_zero]
-    rw [Finset.filter_or]
-    rw [Finset.filter_eq']
-    simp only [Finset.mem_univ, ↓reduceIte]
-    rw [Finset.sum_union]
-    simp only [Finset.sum_singleton]
-    rw [Finset.sum_ite]
-    simp only [Finset.sum_const_zero, add_zero]
-    rw [add_assoc]
-    simp only [add_right_inj, add_left_inj]
+    rw [Finset.filter_or, Finset.filter_eq']; simp only [Finset.mem_univ, ↓reduceIte]
+    rw [Finset.sum_union (by aesop)]; simp only [Finset.sum_singleton]
+    rw [Finset.sum_ite]; simp only [Finset.sum_const_zero, add_zero]
+    rw [add_assoc]; simp only [add_right_inj, add_left_inj]
     simp only [Kbar.key.injEq, Sum.inl.injEq, zero_sub, neg_smul, ite_smul, one_smul, zero_smul]
-    apply Finset.sum_congr rfl
-    intros k₁ hk₁
-    rw [if_neg]
-    simp
-    have : k₁ ∈ tl := by aesop
-    aesop
-    aesop
-    aesop
-    -- nth_rw 2 [sub_eq_add_neg]
-    -- simp
-    -- rw [add_comm]
-    -- rw [←sub_eq_add_neg]
-    -- simp
+    exact Finset.sum_congr rfl (by aesop)
 
-
-    -- rw [sub_add_eq_sub_sub_swap]
-
-
-
-
-
-  -- generalize eq : (Finset.sort (·≤·) _ : List K₁) = l
-  -- induction' l with hd tl ih generalizing σ
-  -- · simp at eq
-  --   rw [Finset.univ_eq_empty_iff] at eq
-  --   aesop
-  -- · simp
-
-    -- unfold Block.isWithdrawalBlock at h
-  -- simp only [TransactionsInBlock]
-  -- split <;> [simp at h; simp at h; skip]
-  -- next B =>
-  -- simp [TransactionsInBlock_withdrawal, Block.getWithdrawal, f_eq_f', f', fc]
-  -- rw [sub_eq_add_neg]
-
-lemma f_withdrawal_block_source {σ : S K₁ K₂ V}
-                                {π : BalanceProof K₁ K₂ C Pi V}
-                                (b : Block K₁ K₂ C Sigma V)
-                                (h : b.isWithdrawalBlock) :
-                                ((TransactionsInBlock π b).foldl f σ) .Source =
-                                σ .Source + ∑ k : K₁, (b.getWithdrawal h k).1 ⊓ σ k := by
+lemma f_withdrawal_block_source (h : b.isWithdrawalBlock) :
+  ((TransactionsInBlock π b).foldl f σ) .Source = σ .Source + ∑ k : K₁, (b.getWithdrawal h k).1 ⊓ σ k := by
   simp only [TransactionsInBlock]
   split <;> [simp at h; simp at h; skip]
   next B =>
@@ -914,29 +820,11 @@ lemma f_withdrawal_block_source {σ : S K₁ K₂ V}
     List.flatMap_subtype, List.unattach_attach, List.flatMap_singleton', Block.getWithdrawal]
   have : (Block.withdrawal B).getWithdrawal h = B := by ext k; simp [Block.getWithdrawal]
   simp_rw [←this]
-  rw [f_withdrawal_block_source_aux]
-  simp only [sub_right_inj]
+  rw [f_withdrawal_block_source_aux (by simp)]
   simp [Finset.mem_sort]
-  simp
 
-
-  -- have : ∃ (B : K₁ → V₊), b = .withdrawal B := by unfold Block.isWithdrawalBlock at h; aesop
-  -- rcases this with ⟨B, hb⟩
-  -- rcases
-
-
-  -- split <;> [simp at h; simp at h; skip]
-  -- next B =>
-  -- simp [TransactionsInBlock_withdrawal, Block.getWithdrawal, f_eq_f', f', fc]
-
-
-
-lemma f_transfer_block_source {σ : S K₁ K₂ V}
-                              {π : BalanceProof K₁ K₂ C Pi V}
-                              (b : Block K₁ K₂ C Sigma V)
-                              (h : b.isTransferBlock) :
-                              ((TransactionsInBlock π b).foldl f σ) .Source =
-                              σ .Source := by
+lemma f_transfer_block_source (h : b.isTransferBlock) :
+  ((TransactionsInBlock π b).foldl f σ) .Source = σ .Source := by
   rw [fold_f_any_transaction_transfer]
   intros T hT
   simp only [TransactionsInBlock] at hT
@@ -947,6 +835,8 @@ lemma f_transfer_block_source {σ : S K₁ K₂ V}
     and_false, exists_false, or_false, exists_true_left, exists_const, Sum.inr.injEq,
     exists_eq_right_right, false_or, exists_eq_right] at hT
   aesop
+
+end LocalProperties
 
 end lemma5
 

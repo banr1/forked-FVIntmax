@@ -239,6 +239,19 @@ elab "valid" : tactic => do
 
 end Tactics
 
+@[simp]
+lemma sort_empty_iff {α : Type} {r : α → α → Prop} {s : Finset α}
+  [IsTotal α r] [IsTrans α r] [IsAntisymm α r] [DecidableRel r] :
+  Finset.sort r s = [] ↔ s = ∅ := by
+  refine' ⟨λ h ↦ _, λ h ↦ _⟩
+  · rcases s with ⟨s, hs⟩
+    simp [Finset.sort] at h
+    have := Multiset.sort_eq (α := α) (r := r)
+    apply congr_arg Multiset.ofList at h
+    rw [Multiset.sort_eq] at h
+    aesop
+  · aesop
+
 end Intmax
 
 theorem List.keys_zipWith_sigma {l₁ : List α} {l₂ : List β}
