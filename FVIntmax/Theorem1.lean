@@ -202,6 +202,12 @@ variable [Nonempty C] [Finite K₁] [Finite K₂] [Nonempty K₁]
          {requests : List (Request K₁ K₂ C Sigma Pi V)}
          {σ : RollupState K₁ K₂ V C Sigma}
 
+instance : Setoid' ((Pi × ExtraDataT) × TransactionBatch K₁ K₂ V) where
+  isEquiv := λ _ _ ↦
+    by simp [iso, (·≤·)]
+       unfold LE.le Preorder.toLE instPreorderTransactionBatch discretePreorder
+       aesop
+
 def normalise (requests : List (Request K₁ K₂ C Sigma Pi V)) : List (Request K₁ K₂ C Sigma Pi V) :=
   requests.filter Request.isValid
 
@@ -1865,12 +1871,7 @@ lemma BalanceProof.le_initial {k} {π : BalanceProof K₁ K₂ C Pi V} :
 lemma BalanceProof.IsBot_initial : IsBot (BalanceProof.initial : BalanceProof K₁ K₂ C Pi V) := by
   unfold initial; simp [IsBot, (·≤·)]; intros a b; aesop
 
-instance : Setoid' ((Pi × ExtraDataT) × TransactionBatch K₁ K₂ V) where
-  isEquiv := by unfold IsEquivRel
-                intros a b
-                unfold iso
-                simp [(·≤·)]
-                aesop
+
 
 section Ordering
 

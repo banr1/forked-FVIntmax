@@ -11,7 +11,7 @@ NB the `V` here does not _yet_ need the fact that it is a latticed-ordered abeli
 
 𝔹 := Bdeposit ⨿ Btransf er ⨿ Bwithdrawal
 -/
-inductive Block (K₁ K₂ : Type) (C Sigma : Type) (V : Type) [Nonnegative V] :=
+inductive Block (K₁ K₂ : Type) (C Sigma : Type) (V : Type) [Nonnegative V] where
   /--
     Bdeposit - (2.5 - Bdeposit := K₂ × V+)
 

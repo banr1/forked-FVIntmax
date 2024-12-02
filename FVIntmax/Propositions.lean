@@ -87,7 +87,7 @@ end Automation
 
 section Propositions
 
-variable {X : Type}
+variable {X Y : Type}
 
 /--
 PAPER: Proposition 1 Let (X, ≤) be a proset, let (xi)i∈I be an indexed family of el-
@@ -274,7 +274,7 @@ end Automation
 PAPER: Proposition 4 Let (X, ≃) be a setoid, and let x, y ∈ Maybe(X). Then, x and
 y have a join in Maybe(X) iff x̸ = ⊥ ∧ y̸ = ⊥ ⇒ x ≃ y.
 -/
-lemma proposition4 {X : Type} [Setoid' X] {x y : Option X} :
+lemma proposition4 [Setoid' X] {x y : Option X} :
   (∃ join : Option X, IsLUB {x, y, .none} join) ↔ (x ≠ .none ∧ y ≠ .none → x ≅ y) := by
   refine' Iff.intro (λ h ⟨h₁, h₂⟩ ↦ _) (λ h ↦ _)
   · rcases x with _ | x <;> rcases y with _ | y <;> [rfl; simp at h₁; simp at h₂; skip]
@@ -294,7 +294,7 @@ lemma proposition4 {X : Type} [Setoid' X] {x y : Option X} :
 /--
 PAPER: If this is the case, we have x ∨ y ≃ First(x, y).
 -/
-lemma proposition4' {X : Type} [Setoid' X] {join x y : Option X} (h : IsLUB {x, y, .none} join) :
+lemma proposition4' [Setoid' X] {join x y : Option X} (h : IsLUB {x, y, .none} join) :
   join ≅ Dict.First x y := by
   have eq : ∃ join, IsLUB {x, y, .none} join := (by aesop); rw [proposition4] at eq
   rcases x with _ | x <;> rcases y with _ | y <;> rcases join with _ | join <;> simp_all
@@ -305,7 +305,7 @@ PAPER: Let X be a set, let (Y, ≤Y) be a proset and let f, g ∈ Y X. We
 have that f and g have a join in Y X iff f(x) and g(x) have a join f(x) ∨ g(x)
 in Y for all x ∈ X. 
 -/
-lemma proposition5 {X Y : Type} [Preorder Y] {f g : X → Y} {join : X → Y} :
+lemma proposition5 [Preorder Y] {f g : X → Y} {join : X → Y} :
   IsLUB {f, g} join ↔ ∀ x : X, IsLUB {f x, g x} (join x) := by
   simp_rw [isLUB_pi]; simp [Function.eval, Set.image]
   have : ∀ x, {x_1 | f x = x_1 ∨ g x = x_1} = {f x, g x} := by aesop
@@ -315,7 +315,7 @@ lemma proposition5 {X Y : Type} [Preorder Y] {f g : X → Y} {join : X → Y} :
 PAPER: In this case, we have f ∨ g ≃ h, where h is a map where
 h(x) ≃ f(x) ∨ g(x) for all x ∈ X.
 -/
-lemma proposition5' {X Y : Type} [Preorder Y] {f g h join' : X → Y}
+lemma proposition5' [Preorder Y] {f g h join' : X → Y}
   (h₀ : IsLUB {f, g} join')
   (h₁ : ∀ x, h x ≅ join' x) :
   join' ≅ h := by
@@ -327,7 +327,7 @@ lemma proposition5' {X Y : Type} [Preorder Y] {f g h join' : X → Y}
     simp [(·≤·)]
     aesop
 
-private lemma proposition6_aux {X Y : Type} [Setoid' Y] {D₁ D₂ : Dict X Y}
+private lemma proposition6_aux [Setoid' Y] {D₁ D₂ : Dict X Y}
   (h : ∀ k, D₁ k ≠ .none ∧ D₂ k ≠ .none → D₁ k ≅ D₂ k) : IsLUB {D₁, D₂} (Dict.Merge D₁ D₂) := by
   unfold Dict.Merge Dict.Merge.D Dict.First
   simp [IsLUB, IsLeast, lowerBounds]
@@ -382,7 +382,7 @@ PAPER: Proposition 6 Let X be a set, let (Y, ≃) be a setoid and let D1, D2 ∈
 be two dictionaries. Then, we have that D1 and D2 have a join in Dict(X, Y )
 iff for all x ∈ X we have D1(x)̸ = ⊥ ∧ D2(x)̸ = ⊥ ⇒ D1(x) ≃ D2(x).
 -/
-lemma proposition6 {X Y : Type} [Setoid' Y] {D₁ D₂ : Dict X Y} :
+lemma proposition6 [Setoid' Y] {D₁ D₂ : Dict X Y} :
   (∃ join, IsLUB {D₁, D₂} join) ↔ ∀ x, D₁ x ≠ .none ∧ D₂ x ≠ .none → D₁ x ≅ D₂ x := by
   refine' ⟨λ h ↦ _, λ h ↦ _⟩
   simp_rw [proposition5] at h
@@ -394,7 +394,7 @@ lemma proposition6 {X Y : Type} [Setoid' Y] {D₁ D₂ : Dict X Y} :
 /--
 PAPER: If this is the case, then we have D1 ∨ D2 ≃ Merge(D1, D2).
 -/
-lemma proposition6' {X Y : Type} [Setoid' Y] {D₁ D₂ join : Dict X Y} (h : IsLUB {D₁, D₂} join) :
+lemma proposition6' [Setoid' Y] {D₁ D₂ join : Dict X Y} (h : IsLUB {D₁, D₂} join) :
   join ≅ Dict.Merge D₁ D₂ := by
   unfold Dict.Merge Dict.Merge.D
   apply proposition5' (h₀ := h)

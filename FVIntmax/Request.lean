@@ -27,7 +27,7 @@ section
 
 variable [Nonnegative V]
 
-inductive Request :=
+inductive Request where
   | deposit (recipient : K₂) (amount : V₊)
   | transfer (aggregator : K₁) (extradata : ExtraDataT) (commitment : C) (senders : List K₂) (sigma : Sigma)
   | withdrawal (π : BalanceProof K₁ K₂ C Pi V)
