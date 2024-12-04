@@ -83,33 +83,38 @@ macro_rules | `(tactic| get_elem_tactic_trivial) =>
 
 end AutomateMembership
 
-lemma first_left {x₁ x₂ : Option α} (h : x₁.isSome) : First x₁ x₂ = x₁ := by
+section Lemmas
+
+variable {x₁ x₂ : Option α}
+         {D₁ D₂ : Dict α ω}
+
+lemma first_left (h : x₁.isSome) : First x₁ x₂ = x₁ := by
   simp [First]; ext; aesop
 
-lemma first_right {x₁ x₂ : Option α} (h : x₁.isNone) : First x₁ x₂ = x₂ := by
+lemma first_right (h : x₁.isNone) : First x₁ x₂ = x₂ := by
   simp [First]; ext; aesop
 
 @[simp]
-lemma first_none {x₂ : Option α} : First .none x₂ = x₂ := by
+lemma first_none : First .none x₂ = x₂ := by
   simp [First]; ext; aesop
 
 @[simp]
-lemma first_some {x₁ : α} {x₂ : Option α} : First (.some x₁) x₂ = x₁ := by
+lemma first_some {x₁ : α} : First (.some x₁) x₂ = x₁ := by
   simp [First]; ext; aesop
 
-lemma keys_Merge_left' {D₁ D₂ : Dict α ω} (h : ∀ x, x ∈ D₁) : Merge D₁ D₂ = D₁ := by
+lemma keys_Merge_left' (h : ∀ x, x ∈ D₁) : Merge D₁ D₂ = D₁ := by
   unfold Merge Merge.D
   ext x _; simp [First]
   have : (D₁ x).isSome := by dict
   aesop
 
-lemma keys_Merge_left {D₁ D₂ : Dict α ω} {x : α} (h : x ∈ D₁) : Merge D₁ D₂ x = D₁ x := by
+lemma keys_Merge_left {x : α} (h : x ∈ D₁) : Merge D₁ D₂ x = D₁ x := by
   unfold Merge Merge.D
   ext k; simp [First]
   have : (D₁ x).isSome := by dict
   aesop
 
-lemma keys_Merge_right {D₁ D₂ : Dict α ω} {x : α}
+lemma keys_Merge_right {x : α}
                        (h₁ : x ∉ D₁) (h₂ : x ∈ D₂) : Merge D₁ D₂ x = D₂ x := by
   unfold Merge Merge.D
   ext k; simp [First]
@@ -117,15 +122,14 @@ lemma keys_Merge_right {D₁ D₂ : Dict α ω} {x : α}
   have : (D₁ x).isNone := by rw [mem_iff_isSome] at h₁; aesop
   aesop
 
-lemma keys_Merge_right' {D₁ D₂ : Dict α ω}
-                        (h : ∀ x : α, x ∉ D₁) : Merge D₁ D₂ = D₂ := by
+lemma keys_Merge_right' (h : ∀ x : α, x ∉ D₁) : Merge D₁ D₂ = D₂ := by
   unfold Merge Merge.D
   apply funext; intros x; specialize h x
   simp [First]
   have : (D₁ x).isNone := by rw [mem_iff_isSome] at h; aesop
   aesop
 
-lemma Merge_assoc {D₁ D₂ D₃ : Dict α ω} :
+lemma Merge_assoc {D₃ : Dict α ω} :
   Merge (Merge D₁ D₂) D₃ = Merge D₁ (Merge D₂ D₃) := by
   unfold Merge Merge.D
   apply funext; intros x
@@ -139,6 +143,8 @@ lemma Merge_assoc {D₁ D₂ D₃ : Dict α ω} :
 lemma First_none_none : Dict.First (.none : Option α) .none = .none := by
   unfold First
   simp
+
+end Lemmas
 
 end Dict
 

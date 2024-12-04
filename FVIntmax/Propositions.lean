@@ -1,6 +1,5 @@
 import Mathlib.Order.Bounds.Basic
 import Mathlib.Order.Bounds.Defs
-
 import Mathlib.Order.Defs
 
 import Aesop
@@ -30,7 +29,7 @@ instance (priority := high) maybeInduced {α : Type} [Preorder α] : Preorder (O
 
 def iso {X : Type} [Preorder X] (a b : X) := a ≤ b ∧ b ≤ a
 
-notation (priority := high) a " ≅ " b => iso a b
+notation:51 (priority := high) a:52 " ≅ " b:52 => iso a b
 
 section iso
 
@@ -92,13 +91,20 @@ variable {X Y : Type}
 /--
 PAPER: Proposition 1 Let (X, ≤) be a proset, let (xi)i∈I be an indexed family of el-
 ements of X and let x, y ∈ X. If x and y are both joins (or both meets) of
-(xi)i∈I , then we have x ≃ y. If (X, ≤) is also a poset, we have x = y.
+(xi)i∈I , then we have x ≃ y.
 -/
 lemma proposition1 [Preorder X] {x y : X} {s : Set X}
   (h₁ : IsLUB s x) (h₂ : IsLUB s y) : x ≅ y := by
   simp [IsLUB, IsLeast, lowerBounds, upperBounds] at h₁ h₂
   unfold iso
   aesop
+
+/--
+PAPER: If (X, ≤) is also a poset, we have x = y.
+-/
+lemma proposition1' [PartialOrder X] {x y : X} {s : Set X}
+  (h₁ : IsLUB s x) (h₂ : IsLUB s y) : x = y :=
+  PartialOrder.le_antisymm x y (h₁.2 h₂.1) (h₂.2 h₁.1)
 
 /--
 PAPER: Proposition 2 Let (X, ≃) be a setoid, and let x, y ∈ X. Then we have that x
@@ -121,7 +127,7 @@ PAPER: in which case we have x ≃ y ≃ x ∨ y.
 lemma proposition2' [Setoid' X] {join x y : X} (h : IsLUB {x, y} join) :
   (x ≅ join) ∧ y ≅ join := by
   simp [IsLUB, IsLeast, upperBounds, lowerBounds] at h
-  aesop
+  tauto
 
 lemma iso_of_isLUB [Setoid' X] {x y join : X} (h : IsLUB {x, y} join) : x ≅ y :=
   by rw [←proposition2]; tauto
@@ -327,7 +333,7 @@ lemma proposition5' [Preorder Y] {f g h join' : X → Y}
     simp [(·≤·)]
     aesop
 
-private lemma proposition6_aux [Setoid' Y] {D₁ D₂ : Dict X Y}
+lemma proposition6_aux [Setoid' Y] {D₁ D₂ : Dict X Y}
   (h : ∀ k, D₁ k ≠ .none ∧ D₂ k ≠ .none → D₁ k ≅ D₂ k) : IsLUB {D₁, D₂} (Dict.Merge D₁ D₂) := by
   unfold Dict.Merge Dict.Merge.D Dict.First
   simp [IsLUB, IsLeast, lowerBounds]
@@ -377,6 +383,7 @@ private lemma proposition6_aux [Setoid' Y] {D₁ D₂ : Dict X Y}
       specialize hπ₁' i
       aesop
 
+
 /--
 PAPER: Proposition 6 Let X be a set, let (Y, ≃) be a setoid and let D1, D2 ∈ Dict(X, Y )
 be two dictionaries. Then, we have that D1 and D2 have a join in Dict(X, Y )
@@ -404,6 +411,25 @@ lemma proposition6' [Setoid' Y] {D₁ D₂ join : Dict X Y} (h : IsLUB {D₁, D�
   revert x
   rw [proposition5] at h
   simpa
+
+lemma ne_none_of_ne_iso [Setoid' Y] {D₁ D₂ : Dict X Y} {k : X}
+  (h : D₁ k ≠ .none) (h₁ : D₁ ≅ D₂) : D₂ k ≠ .none := by
+  set X := D₁ k with eqX
+  set Y := D₂ k with eqY
+  rcases X with _ | X <;> rcases Y with _ | Y
+  · simp at h
+  · simp
+  · unfold iso at h₁; simp [(·≤·)] at h₁
+    rcases h₁ with ⟨h₁, h₂⟩
+    specialize h₁ k
+    specialize h₂ k
+    rw [←eqX, ←eqY] at h₁ h₂
+    simp at h₁
+  · simp
+
+lemma merge_ne_none_of_join_ne_none_iso [Setoid' Y] {D₁ D₂ join : Dict X Y} {k}
+  (hk : join k ≠ .none) (h : IsLUB {D₁, D₂} join) : Dict.Merge D₁ D₂ k ≠ .none :=
+  ne_none_of_ne_iso hk (proposition6' h)
 
 end Propositions
 

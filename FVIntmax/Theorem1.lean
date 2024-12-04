@@ -332,1132 +332,126 @@ lemma transactionsInBlock_deposit {r : K₂} {v : V₊} :
   unfold TransactionsInBlock
   aesop
 
-lemma fold_f_any_transaction_transfer {acc : S K₁ K₂ V} {l : List (Τ K₁ K₂ V)}
-  (h : ∀ T ∈ l, (¬ T.1.1 matches .Source) ∧ (¬ T.1.2.1 matches .Source)) :
-  (List.foldl f acc l) .Source = acc .Source := by
-  rw [f_eq_f']
-  simp only
-  induction' l with hd tl ih generalizing acc
-  · simp
-  · simp only [List.map_cons, List.foldl_cons, f']
-    simp only [List.mem_cons, Bool.not_eq_true, forall_eq_or_imp, Subtype.forall, Prod.forall] at h ih
-    split
-    next k₁ k₂ v hvalid =>
-      rcases h with ⟨hhd, htl⟩
-      rcases k₁ with k₁ | _ <;> rcases k₂ with k₂ | _ <;> simp at hhd
-      simp [fc]; rw [ih _ _ htl]; aesop
-    next k₁ k₂ hvalid =>
-      obtain ⟨_, ⟨⟩⟩ := Τ'.exists_key_of_isValid hvalid
-      rw [ih _ _ h.2]
-      aesop
+section ComputeBalanceErik
 
-instance {V : Type} [OrderedAddCommMonoid V] : Add V₊ where
-  add := λ a b ↦ ⟨a.1 + b.1, add_nonneg a.2 b.2⟩
+variable {k : ℕ}
 
-structure IterState (K₁ K₂ V : Type) [Nonnegative V] where
-  vs : List V₊
-  ts : List (Τ K₁ K₂ V)
-  s  : S K₁ K₂ V
+@[simp]
+private def reindex : (a : ℕ) → a ∈ Finset.range (k + 1) \ {0} → ℕ :=
+  λ a _ ↦ a.pred
 
-def v'_of_ΤcxS (τc : Τc K₁ K₂ V) (b : S K₁ K₂ V) : V₊ :=
-  match τc with | ⟨⟨⟨s, _, v⟩, _⟩, hτ⟩ => v' (v.get hτ) b s
+private lemma reindex_mem :
+  ∀ (a : ℕ) (ha : a ∈ Finset.range (k + 1) \ {0}), reindex a ha ∈ Finset.range k := by
+  simp; omega
 
-def bumpState (v' : V₊) (τc : Τc K₁ K₂ V) (b : S K₁ K₂ V) : S' K₁ K₂ V :=
-  λ k : Kbar K₁ K₂ ↦ match τc with | ⟨⟨⟨s, r, _⟩, _⟩, _⟩ => b k + (e r - e s) k • v'
-
-def fc' (τc : Τc K₁ K₂ V) (σ : IterState K₁ K₂ V) : IterState K₁ K₂ V :=
-  let v' := v'_of_ΤcxS τc σ.s
-  let s' := bumpState v' τc σ.s
-  {
-    vs := σ.vs ++ [v']
-    ts := σ.ts ++ [τc.1]
-    s  := ⟨s', by simp [S'.isValid, v', v'_of_ΤcxS, s', bumpState];
-                  rintro (k | _) <;>
-                  aesop (add unsafe apply le_add_of_le_of_nonneg)⟩
-  }
-
-lemma snd_fc'_eq_fc {τc : Τc K₁ K₂ V} {b : IterState K₁ K₂ V} : fc (τc, b.s) = (fc' τc b).s := rfl
-
-def fₜ (σ : IterState K₁ K₂ V) (T : Τ K₁ K₂ V) : IterState K₁ K₂ V :=
-  match h : T with
-  | ⟨(_, _, .some _), hT⟩ => fc' ⟨T, by simp [h]⟩ σ
-  | ⟨(s, _, .none), _⟩ =>
-  {
-    vs := σ.vs ++ [0]
-    ts := σ.ts ++ [T]
-    s  := ⟨λ k ↦ if k = s then 0 else σ.s k, by rintro (k | k) <;> valid⟩
-  }
-
-lemma fₜ_eq_f' {σ : IterState K₁ K₂ V} {T : Τ K₁ K₂ V} : (fₜ σ T).s = f' σ.s T := by
-  unfold fₜ f'
-  simp_rw [snd_fc'_eq_fc]
-  split <;> simp
-
-lemma fold_fₜ_eq_fold_f {σ : IterState K₁ K₂ V} {l : List (Τ K₁ K₂ V)} :
-  (l.foldl fₜ σ).s = l.foldl f σ.s := by
-  induction' l with hd tl ih generalizing σ
-  · simp
-  · simp [ih, fₜ_eq_f']; congr; rw [f_eq_f']
-
-def P (acc : IterState K₁ K₂ V) : Prop := True -- acc.s .Source = fStar acc.ts acc.s .Source
-
-def IterState.initial (K₁ K₂ V : Type) [Nonnegative V] : IterState K₁ K₂ V :=
-  {
-    ts := []
-    vs := []
-    s  := S.initial K₁ K₂ V
-  }
-
-lemma P_initial : P (IterState.initial K₁ K₂ V) := by unfold P; aesop
-
-namespace lemma5
-
-section lemma5_aux
-
--- def reindexRange {k : ℕ} : (a : ℕ) → a ∈ Finset.range k \ {0} → ℕ := λ a _ ↦ a.pred
-
-end lemma5_aux
-
-end lemma5
-
-lemma f'_comm {hd T : Τ K₁ K₂ V} :
-  f' (f' s T) hd = f' (f' s hd) T := by sorry
---   ext k
---   simp [f']
---   rcases hd with ⟨⟨s, r, _ | v⟩, hT⟩
---   · rcases T with ⟨⟨s', r', _ | v'⟩, hT₁⟩
---     · unfold Τ'.isValid at hT hT₁
---       simp at hT hT₁
---       rcases s with s | _ <;> [skip; simp at hT]
---       rcases s' with s' | _ <;> [skip; simp at hT₁]
---       rcases hT with ⟨h₁, _⟩
---       rcases hT₁ with ⟨h₂, _⟩
---       simp only
---       aesop
---     · unfold Τ'.isValid at hT hT₁
---       rcases s with s | _ <;> [skip; simp at hT]
---       rcases s' with s' | _
---       · simp at hT hT₁
---         simp [fc]
---         by_cases eq : k = Kbar.key s
---         · simp [eq]
---           by_cases eq₁ : r' = Kbar.key s
---           · simp [eq₁]
---             by_cases eq₂ : s' = s
---             · simp [eq₂]
---             · simp [eq₂]
-              
-
-          
-        
-
-      
-  -- · sorry
-  
-    
-
-
--- lemma lem {T : Τ K₁ K₂ V}
---           {ts : List (Τ K₁ K₂ V)}
---           {k : Kbar K₁ K₂}
---           {s : S K₁ K₂ V}
---           (h : ∃ block : Block K₁ K₂ C Sigma V, T ∈ TransactionsInBlock π block)
---           (h₁ : ∀ T ∈ ts, ∃ block : Block K₁ K₂ C Sigma V, T ∈ TransactionsInBlock π block) :
---   fStar ts (f s T) k = f s T k + fStar ts (S.initial K₁ K₂ V) k := by
---   simp; rw [f_eq_f']
---   induction' ts with hd tl ih generalizing s 
---   · simp
---   · simp; rw [f_eq_f']
---     generalize eq : f' s T = next
---     nth_rw 1 [f']
---     simp
---     rcases h with ⟨⟨r, v⟩ | _ | _, hb⟩
---     · simp at hb h₁
---       rcases h₁ with ⟨⟨b', h₂⟩, hb'⟩
---       rcases b' with ⟨r', v'⟩ | _ | _
---       · simp at h₂
---         rw [h₂]
---         simp [fc]
-
--- lemma Bal_cons_aux -- {hd : Block K₁ K₂ C Sigma V}
---                    {σ : RollupState K₁ K₂ V C Sigma}
---                    {π : BalanceProof K₁ K₂ C Pi V}
---                    {k : Kbar K₁ K₂}
---                    {acc : S K₁ K₂ V} :
---   (fStar (TransactionsInBlock π hd ++ (List.map (TransactionsInBlock π) tl).flatten) acc) k =
---   fStar (TransactionsInBlock π hd) acc k + fStar (TransactionsInBlocks π tl) (S.initial K₁ K₂ V) k := by
---   simp only
---   induction' tl with hd' tl' ih generalizing acc
---   · simp [Bal]
---   · simp [fStar]
-
-    
-
-
-  
-
--- lemma traverse_split {hd : Block K₁ K₂ C Sigma V}
---                      {tl : RollupState K₁ K₂ V C Sigma}
---                      {π : BalanceProof K₁ K₂ C Pi V}
---                      {k : Kbar K₁ K₂} :
---   (fStar (TransactionsInBlock π hd ++ (List.map (TransactionsInBlock π) tl).flatten) (S.initial K₁ K₂ V)) k =
---   fStar (TransactionsInBlock π hd) (S.initial K₁ K₂ V) k + Bal π tl k := by
---   unfold Bal fStar
---   simp
-
-
-
--- -- X = Y + whatever there was left in acc!!!!!
--- -- -- {l : List (Τ K₁ K₂ V)} {∀ T ∈ l, T ∈ TransactionsInBlocks π σ} - If not general enough. P acc'????
--- lemma lemma5_aux''''' {σ : RollupState K₁ K₂ V C Sigma}
---                       {π : BalanceProof K₁ K₂ C Pi V}
---                       {acc acc' : IterState K₁ K₂ V}
---                       (h : P acc) :
---   (List.foldl fₜ acc (List.map (TransactionsInBlock π) σ).flatten).s Kbar.Source =
---   (∑ x : Fin (List.length σ) × K₁,
---      if h : σ[x.1].isWithdrawalBlock
---      then ↑(σ[x.1].getWithdrawal h x.2) ⊓
---           (List.foldl fₜ acc' (List.map (TransactionsInBlock π) (List.take x.1.1 σ)).flatten).s x.2
---      else 0) -
---   aggregateDeposits σ := by
---   have : (∑ x : Fin (List.length σ) × K₁,
---            if h : σ[x.1].isWithdrawalBlock
---            then (σ[x.1].getWithdrawal h x.2).1 ⊓
---                 (List.foldl fₜ acc' (List.map (TransactionsInBlock π) (List.take x.1.1 σ)).flatten).s x.2
---            else 0) =
---          (∑ x : Fin (List.length σ),
---            if h : σ[x].isWithdrawalBlock
---            then ∑ y : K₁,
---                   (σ[x].getWithdrawal h y).1 ⊓
---                   (List.foldl fₜ acc' (List.map (TransactionsInBlock π) (List.take x.1 σ)).flatten).s y
---            else 0) := by sorry -- rw [Fintype.sum_prod_type]; exact Finset.sum_congr rfl (λ _ _ ↦ by aesop)
---   rw [this]; clear this
---   simp only [Fin.getElem_fin, List.map_take]
---   induction' σ with hd tl ih generalizing acc acc'
---   · simp
---   · simp only [List.map_cons, List.flatten_cons, List.foldl_append, List.length_cons, aggregateDeposits_cons]
---     generalize eqsmol : (List.foldl _ _ _) = smol
---     rw [
---       Finset.sum_fin_eq_sum_range,
---       Finset.sum_eq_sum_diff_singleton_add (i := 0) (Finset.mem_range.2 (by omega)),
---       dif_pos (show 0 < tl.length + 1 by omega)
---     ]
---     simp_rw [List.getElem_cons_zero]
---     generalize eqpartialsum : (∑ _ ∈ _, (_ : V)) = partialsum
---     rcases hd with ⟨r, v⟩ | ⟨a, b, c, d, e⟩ | vs
---     · simp [Block.getDeposit]
---       generalize eqsummand : ↑v + aggregateDeposits tl = summand
---       rw [←eqpartialsum]
---       let F : ℕ → V := λ x ↦
---         if h : x < tl.length then
---           ∑ k₁ : K₁,
---             if h' : (tl[x]'h).isWithdrawalBlock = true then
---               ((tl[x]'h).getWithdrawal h' k₁).1 ⊓
---                 (List.foldl fₜ acc'
---                   (List.take (x + 1)
---                     (TransactionsInBlock (Sigma := Sigma) π (Block.deposit r v) :: List.map (TransactionsInBlock π) tl)).flatten).s k₁
---             else 0
---         else 0
---       let F' : (a : ℕ) → a ∈ Finset.range (tl.length + 1) \ {0} → ℕ :=
---         λ a ha ↦ a.pred
---       rw [Finset.sum_bij (t := Finset.range tl.length) (g := F) (i := F')] <;>
---          [skip; (simp [F']; omega); (simp [F']; omega); (simp [F']; intros b _; use b + 1; omega);
---          (
---           simp only [Finset.mem_sdiff, Finset.mem_range, Finset.mem_singleton, List.take_succ_cons,
---                      List.flatten_cons, List.foldl_append, Finset.sum_dite_irrel, Finset.sum_const_zero,
---                      Nat.pred_eq_sub_one, and_imp, F, F']
---           intros i hi₁ hi₂
---           rw [dif_pos hi₁]; nth_rw 2 [dif_pos (by omega)]
---           rcases i with _ | i <;> [contradiction; skip]
---           simp only [List.getElem_cons_succ, List.take_succ_cons, List.flatten_cons, List.foldl_append,
---             Finset.sum_dite_irrel, Finset.sum_const_zero, add_tsub_cancel_right, Nat.add_one_sub_one,
---             Int.Nat.cast_ofNat_Int, id_eq, Int.reduceNeg, Int.reduceAdd])
---          ]
---       simp only [List.take_succ_cons, List.flatten_cons, List.foldl_append, Finset.sum_dite_irrel,
---                  Finset.sum_const_zero, F]
---       rw [Finset.sum_dite_of_true]; case h => exact λ _ ↦ (Finset.mem_range.1 ·)
---       simp only [← eqsmol, Finset.univ_eq_attach]
---       rw [ih (acc' := acc') sorry, Finset.sum_fin_eq_sum_range] -- `P` →! `P (List.foldl fₜ acc (TransactionsInBlock π (Block.deposit r v)))`
---       simp only [Fin.getElem_fin, List.map_take]
---       rw [Finset.sum_dite_of_true]; case h => exact λ _ ↦ (Finset.mem_range.1 ·)
---       simp only [Finset.univ_eq_attach]
---       rw [←eqsummand]
---       generalize eqindices : (Finset.range tl.length).attach = indices
---       rw [sub_add_eq_sub_sub]
---       simp only [sub_left_inj, transactionsInBlock_deposit, List.foldl_cons, List.foldl_nil]
---       sorry
---     · simp only [Block.transfer_ne_widthdrawal, ↓reduceDIte, add_zero, Block.transfer_ne_deposit, zero_add]
---       rw [←eqpartialsum]
---       let F : ℕ → V := λ x ↦
---         if h : x < tl.length then
---           ∑ k₁ : K₁,
---             if h' : (tl[x]'h).isWithdrawalBlock = true then
---               ((tl[x]'h).getWithdrawal h' k₁).1 ⊓
---                 (List.foldl fₜ acc'
---                   (List.take (x + 1)
---                     (TransactionsInBlock (Sigma := Sigma) π (Block.transfer a b c d e) :: List.map (TransactionsInBlock π) tl)).flatten).s k₁
---             else 0
---         else 0
---       let F' : (a : ℕ) → a ∈ Finset.range (tl.length + 1) \ {0} → ℕ :=
---         λ a ha ↦ a.pred
---       rw [Finset.sum_bij (t := Finset.range tl.length) (g := F) (i := F')] <;>
---          [skip; (simp [F']; omega); (simp [F']; omega); (simp [F']; intros b _; use b + 1; omega);
---          (
---           simp only [Finset.mem_sdiff, Finset.mem_range, Finset.mem_singleton, List.take_succ_cons,
---                      List.flatten_cons, List.foldl_append, Finset.sum_dite_irrel, Finset.sum_const_zero,
---                      Nat.pred_eq_sub_one, and_imp, F, F']
---           intros i hi₁ hi₂
---           rw [dif_pos hi₁]; nth_rw 2 [dif_pos (by omega)]
---           rcases i with _ | i <;> [contradiction; skip]
---           simp only [List.getElem_cons_succ, List.take_succ_cons, List.flatten_cons, List.foldl_append,
---             Finset.sum_dite_irrel, Finset.sum_const_zero, add_tsub_cancel_right, Nat.add_one_sub_one,
---             Int.Nat.cast_ofNat_Int, id_eq, Int.reduceNeg, Int.reduceAdd])
---          ]
---       simp only [List.take_succ_cons, List.flatten_cons, List.foldl_append, Finset.sum_dite_irrel,
---                  Finset.sum_const_zero, F]
---       rw [Finset.sum_dite_of_true]; case h => exact λ _ ↦ (Finset.mem_range.1 ·)
---       simp only [← eqsmol, Finset.univ_eq_attach]
---       rw [ih (acc' := acc') sorry, Finset.sum_fin_eq_sum_range] -- `P` →! `P (List.foldl fₜ acc (TransactionsInBlock π (Block.transfer a b c d e)))`
---       simp only [Fin.getElem_fin, List.map_take]
---       rw [Finset.sum_dite_of_true]; case h => exact λ _ ↦ (Finset.mem_range.1 ·)
---       simp only [Finset.univ_eq_attach]
---       generalize eqindices : (Finset.range tl.length).attach = indices
---       simp only [sub_left_inj]
---       refine' Finset.sum_congr rfl (λ i hi ↦ _)
---       split_ifs with eq
---       · refine' Finset.sum_congr rfl (λ i' hi' ↦ _)
---         simp_rw [fold_fₜ_eq_fold_f]
---         have := fold_f_any_transaction_transfer
---           (acc := acc'.s)
---           (l := TransactionsInBlock π (Block.transfer a b c d e))
---           sorry
---         dsimp at this
---         rw [inf_eq_inf_iff_left]
---         refine' ⟨_, _⟩
---         · sorry
---         · sorry
---       · rfl
---     · simp only [Block.transfer_ne_widthdrawal, ↓reduceDIte, add_zero, Block.transfer_ne_deposit, zero_add]
---       rw [←eqpartialsum]
---       let F : ℕ → V := λ x ↦
---         if h : x < tl.length then
---           ∑ k₁ : K₁,
---             if h' : (tl[x]'h).isWithdrawalBlock = true then
---               ((tl[x]'h).getWithdrawal h' k₁).1 ⊓
---                 (List.foldl fₜ acc'
---                   (List.take (x + 1)
---                     (TransactionsInBlock (Sigma := Sigma) π (Block.withdrawal vs) :: List.map (TransactionsInBlock π) tl)).flatten).s k₁
---             else 0
---         else 0
---       let F' : (a : ℕ) → a ∈ Finset.range (tl.length + 1) \ {0} → ℕ :=
---         λ a ha ↦ a.pred
---       rw [Finset.sum_bij (t := Finset.range tl.length) (g := F) (i := F')] <;>
---          [skip; (simp [F']; omega); (simp [F']; omega); (simp [F']; intros b _; use b + 1; omega);
---          (
---           simp only [Finset.mem_sdiff, Finset.mem_range, Finset.mem_singleton, List.take_succ_cons,
---                      List.flatten_cons, List.foldl_append, Finset.sum_dite_irrel, Finset.sum_const_zero,
---                      Nat.pred_eq_sub_one, and_imp, F, F']
---           intros i hi₁ hi₂
---           rw [dif_pos hi₁]; nth_rw 2 [dif_pos (by omega)]
---           rcases i with _ | i <;> [contradiction; skip]
---           simp only [List.getElem_cons_succ, List.take_succ_cons, List.flatten_cons, List.foldl_append,
---             Finset.sum_dite_irrel, Finset.sum_const_zero, add_tsub_cancel_right, Nat.add_one_sub_one,
---             Int.Nat.cast_ofNat_Int, id_eq, Int.reduceNeg, Int.reduceAdd])
---          ]
---       simp only [List.take_succ_cons, List.flatten_cons, List.foldl_append, Finset.sum_dite_irrel,
---                  Finset.sum_const_zero, F]
---       rw [Finset.sum_dite_of_true]; case h => exact λ _ ↦ (Finset.mem_range.1 ·)
---       simp only [← eqsmol, Finset.univ_eq_attach]
---       rw [ih (acc' := acc') sorry, Finset.sum_fin_eq_sum_range] -- `P` →! `P (List.foldl fₜ acc (TransactionsInBlock π (Block.withdrawal vs)))`
---       simp only [Fin.getElem_fin, List.map_take]
---       rw [Finset.sum_dite_of_true]; case h => exact λ _ ↦ (Finset.mem_range.1 ·)
---       simp only [Finset.univ_eq_attach]
---       simp only [List.take_zero, List.flatten_nil, List.foldl_nil, Block.withdrawal_ne_deposit,
---         ↓reduceDIte, zero_add, sub_left_inj]
---       sorry
-
-namespace lemma5
-
-def reindexRange (k : ℕ) : (a : ℕ) → a ∈ Finset.range k \ {0} → ℕ := λ a _ ↦ a.pred
-
-lemma rR_mem {k : ℕ} : ∀ (a : ℕ) (ha : a ∈ Finset.range (k + 1) \ {0}),
-  reindexRange (k + 1) a ha ∈ Finset.range k := by simp [reindexRange]; omega
-
-lemma rR_eq {k : ℕ} :
+private lemma reindex_inj :
   ∀ (a₁ : ℕ) (ha₁ : a₁ ∈ Finset.range (k + 1) \ {0})
     (a₂ : ℕ) (ha₂ : a₂ ∈ Finset.range (k + 1) \ {0}),
-    reindexRange (k + 1) a₁ ha₁ = lemma5.reindexRange (k + 1) a₂ ha₂ → a₁ = a₂ := by simp [reindexRange]; omega
+  reindex a₁ ha₁ = reindex a₂ ha₂ → a₁ = a₂ := by simp; omega
 
-section LocalProperties
+end ComputeBalanceErik
 
-variable {T : Τ K₁ K₂ V}
-         {π : BalanceProof K₁ K₂ C Pi V}
-         {σ : S K₁ K₂ V}
-         {b : Block K₁ K₂ C Sigma V}
-
-lemma isK₁_of_withdrawal        
-  (h : ∃ block : {b : Block K₁ K₂ C Sigma V // b.isWithdrawalBlock},
-         T ∈ TransactionsInBlock π block.1) :
-  T.sender.isK₁ := by
-  rcases T with ⟨⟨s, r, v⟩, hT⟩
-  rcases h with ⟨⟨b, hb⟩, h₁⟩
-  simp [TransactionsInBlock] at h₁
-  split at h₁
-  unfold TransactionsInBlock_deposit at h₁; simp at hb
-  unfold TransactionsInBlock_transfer at h₁; simp at hb
-  unfold TransactionsInBlock_withdrawal at h₁; aesop
-
--- VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
--- transactionsinblock_Source_pres_valid_transfer :
--- Not true when k ∈ senders ∧ h_1 : (c, k) ∉ Dict.keys π
--- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-lemma isSome_of_deposit
-  (h : ∃ block : {b : Block K₁ K₂ C Sigma V // b.isDepositBlock},
-         T ∈ TransactionsInBlock π block.1) : T.value.isSome := by
-  rcases T with ⟨⟨s, r, v⟩, hT⟩
-  rcases h with ⟨⟨b, hb⟩, h₁⟩
-  simp [TransactionsInBlock] at h₁
-  split at h₁
-  unfold TransactionsInBlock_deposit at h₁; aesop
-  unfold TransactionsInBlock_transfer at h₁; simp at hb
-  unfold TransactionsInBlock_withdrawal at h₁; simp at hb
-
-lemma isSome_of_withdrawal 
-  (h : ∃ block : {b : Block K₁ K₂ C Sigma V // b.isWithdrawalBlock},
-         T ∈ TransactionsInBlock π block.1) : T.value.isSome := by
-  rcases T with ⟨⟨s, r, v⟩, hT⟩
-  rcases h with ⟨⟨b, hb⟩, h₁⟩
-  simp [TransactionsInBlock] at h₁
-  split at h₁
-  unfold TransactionsInBlock_deposit at h₁; simp at hb
-  unfold TransactionsInBlock_transfer at h₁; simp at hb
-  unfold TransactionsInBlock_withdrawal at h₁; aesop
-
-lemma f_deposit_source
-  (h : ∃ block : {b : Block K₁ K₂ C Sigma V // b.isDepositBlock},
-         T ∈ TransactionsInBlock π block.1) :
-  (f σ T) .Source = σ .Source + -T.value.get (isSome_of_deposit h) := by
-  rcases h with ⟨⟨b, hb⟩, h₁⟩
-  rcases T with ⟨⟨s, r, v⟩, hT⟩
-  unfold Block.isDepositBlock at hb
-  simp [TransactionsInBlock] at h₁
-  split at h₁ <;> [skip; simp at hb; simp at hb]
-  next r' v' =>
-  simp [TransactionsInBlock_deposit] at h₁ ⊢
-  rcases h₁ with ⟨h₁, h₂, h₃⟩
-  simp [h₁, h₂, h₃, f_eq_f', f', fc, Τ.value]
-
-lemma f_withdraw_source 
-  (h : ∃ block : {b : Block K₁ K₂ C Sigma V // b.isWithdrawalBlock},
-         T ∈ TransactionsInBlock π block.1) :
-  (f σ T) .Source = σ .Source + (↑(T.value.get (isSome_of_withdrawal h)) ⊓ σ T.sender) := by
-  rcases h with ⟨⟨b, hb⟩, h₁⟩
-  rcases T with ⟨⟨s, r, v⟩, hT⟩
-  unfold Block.isWithdrawalBlock at hb
-  simp [TransactionsInBlock] at h₁
-  split at h₁ <;> [simp at hb; simp at hb; skip]
-  next r' v' =>
-  simp [TransactionsInBlock_withdrawal] at h₁ ⊢
-  rcases h₁ with ⟨k₁, h₁, h₂, h₃⟩
-  simp [h₁, h₂, h₃, f_eq_f', f', fc, Τ.value]
-  aesop
-
-lemma f_transfer_source 
-  (h : ∃ block : {b : Block K₁ K₂ C Sigma V // b.isTransferBlock},
-         T ∈ TransactionsInBlock π block.1) :
-  (f σ T) .Source = σ .Source := by
-  rcases h with ⟨⟨b, hb⟩, h₁⟩
-  rcases T with ⟨⟨s, r, v⟩, hT⟩
-  unfold Block.isTransferBlock at hb
-  simp [TransactionsInBlock] at h₁
-  split at h₁ <;> [simp at hb; skip; simp at hb]
-  next a b c d e =>
-  simp only [TransactionsInBlock_transfer, ite_not, List.mem_map, List.mem_attach, Subtype.mk.injEq,
-    Prod.mk.injEq, true_and, Subtype.exists, exists_prop, Sum.exists, exists_and_left,
-    Finset.mem_sort, Finset.mem_filter, Finset.mem_univ, Prod.exists, Sum.inl.injEq, exists_eq,
-    and_true, reduceCtorEq, and_false, exists_false, or_false, exists_true_left, exists_const,
-    Sum.inr.injEq, exists_eq_right_right, false_or, exists_eq_right] at h₁ ⊢
-  rcases h₁ with ⟨k₁, h₁, ⟨k₂, ⟨h₂, h₃⟩⟩ | ⟨k₂, ⟨h₂, ⟨k₃, ⟨h₃, h₄⟩⟩⟩⟩⟩ <;>
-  (simp [h₁, h₂, f_eq_f', f', fc, Τ.value]; aesop)
-
-lemma f_deposit_block_source (h : b.isDepositBlock) :
-  ((TransactionsInBlock π b).foldl f σ) .Source = σ .Source - (b.getDeposit h).2.1 := by
-  unfold Block.isDepositBlock at h
-  simp only [TransactionsInBlock]
-  split <;> [skip; simp at h; simp at h]
-  next r v =>
-  simp [TransactionsInBlock_deposit, Block.getDeposit, f_eq_f', f', fc]
-  rw [sub_eq_add_neg]
-
-private lemma f_withdrawal_block_source_aux {l : List K₁}
-  (h₀ : l.Nodup) (h : b.isWithdrawalBlock) :
-  (List.foldl f' σ
-    (List.map (λ s : K₁ ↦ ⟨(s, Kbar.Source, some (b.getWithdrawal h s)), by unfold Τ'.isValid; aesop⟩) l)).1
-                            .Source = σ .Source + ∑ x : K₁, if x ∈ l then (↑(b.getWithdrawal h x) ⊓ σ x) else 0 := by
-  simp only
-  induction' l with hd tl ih generalizing σ
-  · simp
-  · simp only [List.map_cons, List.foldl_cons]
-    rw [ih (by aesop)]
-    simp only [f', fc, e_def, Pi.sub_apply, Option.get_some, v'_key_eq_meet, ↓reduceIte,
-      reduceCtorEq, sub_zero, one_smul, List.mem_cons]
-    conv_rhs => rw [Finset.sum_ite]
-    simp only [not_or, Finset.sum_const_zero, add_zero]
-    rw [Finset.filter_or, Finset.filter_eq']; simp only [Finset.mem_univ, ↓reduceIte]
-    rw [Finset.sum_union (by aesop)]; simp only [Finset.sum_singleton]
-    rw [Finset.sum_ite]; simp only [Finset.sum_const_zero, add_zero]
-    rw [add_assoc]; simp only [add_right_inj, add_left_inj]
-    simp only [Kbar.key.injEq, Sum.inl.injEq, zero_sub, neg_smul, ite_smul, one_smul, zero_smul]
-    exact Finset.sum_congr rfl (by aesop)
-
-lemma f_withdrawal_block_source (h : b.isWithdrawalBlock) :
-  ((TransactionsInBlock π b).foldl f σ) .Source = σ .Source + ∑ k : K₁, (b.getWithdrawal h k).1 ⊓ σ k := by
-  simp only [TransactionsInBlock]
-  split <;> [simp at h; simp at h; skip]
-  next B =>
-  simp only [f_eq_f', TransactionsInBlock_withdrawal, List.pure_def, List.bind_eq_flatMap,
-    exists_eq, Set.setOf_true, Set.toFinset_univ, Finset.mem_sort, Finset.mem_univ, forall_const,
-    List.flatMap_subtype, List.unattach_attach, List.flatMap_singleton', Block.getWithdrawal]
-  have : (Block.withdrawal B).getWithdrawal h = B := by ext k; simp [Block.getWithdrawal]
-  simp_rw [←this]
-  rw [f_withdrawal_block_source_aux (by simp)]
-  simp [Finset.mem_sort]
-
-lemma f_transfer_block_source (h : b.isTransferBlock) :
-  ((TransactionsInBlock π b).foldl f σ) .Source = σ .Source := by
-  rw [fold_f_any_transaction_transfer]
-  intros T hT
-  simp only [TransactionsInBlock] at hT
-  rcases b with _ | ⟨a, b, c, d, e⟩ | _ <;> [simp at h; skip; simp at h]
-  simp only [TransactionsInBlock_transfer, ite_not, List.mem_map, List.mem_attach, true_and,
-    Subtype.exists, exists_prop, Sum.exists, exists_and_left, Finset.mem_sort, Finset.mem_filter,
-    Finset.mem_univ, Prod.exists, Prod.mk.injEq, Sum.inl.injEq, exists_eq, and_true, reduceCtorEq,
-    and_false, exists_false, or_false, exists_true_left, exists_const, Sum.inr.injEq,
-    exists_eq_right_right, false_or, exists_eq_right] at hT
-  aesop
-
-end LocalProperties
-
-end lemma5
-
--- lemma lemma5_aux {π : BalanceProof K₁ K₂ C Pi V}
---                  {h : ∀ T ∈ ts, ∃ block : Block K₁ K₂ C Sigma V, T ∈ TransactionsInBlock π block}
---                  {acc acc' : S K₁ K₂ V} :
---   (List.foldl f acc (List.map (TransactionsInBlock π) σ).flatten).1 .Source =
---   (∑ x ∈ Finset.univ ×ˢ Finset.univ,
---       if h : σ[x.1].isWithdrawalBlock = true then
---         ↑(σ[x.1].getWithdrawal ⋯ x.2) ⊓
---           ↑(List.foldl f (S.initial K₁ K₂ V) (List.map (TransactionsInBlock π) (List.take (↑x.1) σ)).flatten)
---             (Kbar.key (Sum.inl x.2))
---       else 0) -
---     aggregateDeposits σ
-
--- -- lemma lemma5_aux {ts : List (Τ K₁ K₂ V)}
--- --                  {π : BalanceProof K₁ K₂ C Pi V}
--- --                  {h : ∀ T ∈ ts, ∃ block : Block K₁ K₂ C Sigma V, T ∈ TransactionsInBlock π block}
--- --                  {acc acc' : S K₁ K₂ V} :
--- --   (List.foldl f acc ts).1 Kbar.Source =
--- --   acc .Source +
--- --   (∑ x : Fin ts.length × K₁,
--- --     if h : ∃ block : {b : Block K₁ K₂ C Sigma V // b.isWithdrawalBlock},
--- --              ts[x.1.1] ∈ TransactionsInBlock π block.1
--- --     then (ts[x.1.1].value.get (lemma5.isSome_of_withdrawal h)).1 ⊓
--- --          (List.foldl f acc'
--- --             (List.foldl (λ acc a ↦ acc ++ id a) ts (List.take x.1.1 (List.map (TransactionsInBlock π) σ)))).1 x.2
--- --     else 0) -
--- --     aggregateDeposits σ := by
--- --   induction' σ with hd tl ih
--- --   · simp
-
--- -- lemma lemma5_aux {ts : List (Τ K₁ K₂ V)}
--- --                  {π : BalanceProof K₁ K₂ C Pi V}
--- --                  {h : ∀ T ∈ ts, ∃ block : Block K₁ K₂ C Sigma V, T ∈ TransactionsInBlock π block}
--- --                  {acc acc' : S K₁ K₂ V} :
--- --   (List.foldl f acc
--- --                 (List.foldl (λ acc a ↦ acc ++ TransactionsInBlock π a) ts σ)).1
--- --                 Kbar.Source =
--- --   acc .Source +
--- --   (∑ x : Fin (List.length σ) × K₁,
--- --     if h : σ[↑x.1].isWithdrawalBlock
--- --     then ↑(σ[↑x.1].getWithdrawal h x.2) ⊓
--- --           (List.foldl f acc'
--- --             (List.foldl (λ acc a ↦ acc ++ id a) ts (List.take x.1.1 (List.map (TransactionsInBlock π) σ)))).1 x.2
--- --     else 0) -
--- --     aggregateDeposits σ := by
--- --   induction' σ with hd tl ih
--- --   · simp
-
--- lemma lemma5 {σ : RollupState K₁ K₂ V C Sigma}
---              {π : BalanceProof K₁ K₂ C Pi V} :
---   Bal π σ .Source =
---   (∑ (i : Fin σ.length) (k : K₁),
---      if h : σ[i].isWithdrawalBlock
---      then let w := σ[i].getWithdrawal h
---           w k ⊓ Bal π (σ.take i.1) k
---      else 0)
---   -
---   aggregateDeposits σ := by
---   simp only
---   unfold Bal fStar TransactionsInBlocks
---   simp only [← List.flatMap_def, List.flatMap_eq_foldl, Finset.univ_product_univ, Fin.getElem_fin, List.map_take]
---   simp_rw [List.flatten_eq_flatMap, List.flatMap_eq_foldl]
---   rw [lemma5_aux]
---   rfl
-
--- lemma www' {ts : List (Τ K₁ K₂ V)}:
---   (List.foldl f acc ts).1 Kbar.Source =
---   acc .Source + (List.foldl f (S.initial K₁ K₂ V) ts) .Source := by
---   simp
---   induction' ts with hd tl ih generalizing acc
---   · simp
---   · simp
---     rw [ih]
-
-
--- lemma www {acc} :
---   (List.foldl f
---     acc
---     (List.map (TransactionsInBlock π) tl).flatten).1 Kbar.Source =
---   acc .Source +
---   (List.foldl f (S.initial K₁ K₂ V) (List.map (TransactionsInBlock π) tl).flatten).1 Kbar.Source := by
---   simp
---   induction' tl with hd' tl' ih generalizing acc
---   · simp
---   · simp
---     rw [ih]
---     nth_rw 2 [ih]
---     simp
-
-
-
--- lemma lemma5_julian {σ : RollupState K₁ K₂ V C Sigma}
---                     {π : BalanceProof K₁ K₂ C Pi V} :
---   Bal π σ .Source =
---   (∑ (i : Fin σ.length) (k : K₁),
---      if h : σ[i].isWithdrawalBlock
---      then let w := σ[i].getWithdrawal h
---           w k ⊓ Bal π (σ.take i.1) k
---      else 0)
---   -
---   aggregateDeposits σ := by
---   simp [Bal, fStar]
---   induction' σ with hd tl ih
---   · simp
---   · simp only [TransactionsInBlocks_cons, List.foldl_append, List.length_cons, aggregateDeposits_cons]
---     rcases hd with ⟨r, v⟩ | _ | _
---     · 
-
---   -- · generalize eq : (_ : V) - _ = rhs
---   --   generalize eq₁ : (_ : V) - _ = rhsih at ih
---   --   unfold TransactionsInBlocks at ih
---   --   simp
---   --   rw [www]
---   --   simp [ih]
-
-
---     -- simp only [TransactionsInBlocks_cons, List.foldl_append, List.length_cons,
---     --   aggregateDeposits_cons]
---     -- generalize eq₁ : (List.map (TransactionsInBlock π) tl).flatten = smol at *
---     -- generalize eq₃ : List.foldl f (S.initial K₁ K₂ V) (TransactionsInBlock π hd) = acc'
---     -- rcases hd with ⟨r, v⟩ | _ | _
---     -- · have := lemma5.f_deposit_block_source (K₂ := K₂) (Sigma := Sigma) (π := π) (σ := S.initial K₁ K₂ V) (b := Block.deposit r v)
---     --   simp only at this
-
-
-
-
---   -- unfold Bal fStar
---   -- have := lemma5_aux''''' (σ := σ) (π := π)
---   --                         (acc := IterState.initial K₁ K₂ V)
---   --                         (acc' := IterState.initial K₁ K₂ V)
---   --                         (h := P_initial)
---   -- simp_rw [fold_fₜ_eq_fold_f] at this
---   -- exact this
-
--- -- lemma lemma5_aux'''' {σ : RollupState K₁ K₂ V C Sigma}
--- --                      {π : BalanceProof K₁ K₂ C Pi V}
--- --                      {l : List (Τ K₁ K₂ V)}
--- --                      {acc acc' : IterState K₁ K₂ V}
--- --                      (h₀ : ∀ T ∈ l, T ∈ TransactionsInBlocks π σ)
--- --                      (h : acc.s .Source = fStar acc.ts acc.s .Source) :
--- --   (List.foldl fₐ acc l).s Kbar.Source = -- prolly a list of transactions created by transactionsinblock
--- --   (∑ x : Fin (List.length σ) × K₁,
--- --      if h : σ[x.1].isWithdrawalBlock
--- --      then ↑(σ[x.1].getWithdrawal h x.2) ⊓
--- --           (List.foldl fα acc' (List.map (TransactionsInBlock π) (List.take x.1.1 σ)).flatten).s x.2
--- --      else 0) -
--- --   aggregateDeposits σ := sorry
-
---   -- by
---   -- induction' σ with hd tl ih generalizing acc acc'
---   -- · simp at h ⊢
-
--- -- lemma lemma5_aux''' {σ : RollupState K₁ K₂ V C Sigma}
--- --                     {π : BalanceProof K₁ K₂ C Pi V}
--- --                     {acc acc' : IterState K₁ K₂ V}
--- --                     (h : acc.s .Source = fStar acc.ts acc.s .Source) :
--- --   (List.foldl fₐ acc (List.map (TransactionsInBlock π) σ).flatten).s Kbar.Source = -- prolly a list of transactions created by transactionsinblock
--- --   (∑ x : Fin (List.length σ) × K₁,
--- --      if h : σ[x.1].isWithdrawalBlock
--- --      then ↑(σ[x.1].getWithdrawal h x.2) ⊓
--- --           (List.foldl fᵢ acc' (List.map (TransactionsInBlock π) (List.take x.1.1 σ)).flatten).s x.2
--- --      else 0) -
--- --   aggregateDeposits σ := by
--- --   induction' σ with hd tl ih generalizing acc acc'
--- --   · simp at h ⊢
-
--- -- def fᵢ (b : ℕ × S K₁ K₂ V) (T : Τ K₁ K₂ V) : ℕ × S K₁ K₂ V :=
--- --   ⟨b.1 + 1, f b.2 T⟩
-
--- -- lemma lemma5_aux'' {σ : RollupState K₁ K₂ V C Sigma}
--- --                    {π : BalanceProof K₁ K₂ C Pi V}
--- --                    {acc acc' : ℕ × S K₁ K₂ V}
--- --                    (h : acc.2 .Source = Bal π (σ.take acc.1) .Source) :
--- --   (List.foldl fᵢ acc (List.map (TransactionsInBlock π) σ).flatten).2 Kbar.Source =
--- --   (∑ x : Fin (List.length σ) × K₁,
--- --      if h : σ[x.1].isWithdrawalBlock
--- --      then ↑(σ[x.1].getWithdrawal h x.2) ⊓
--- --           (List.foldl fᵢ acc' (List.map (TransactionsInBlock π) (List.take x.1.1 σ)).flatten).2 x.2
--- --      else 0) -
--- --   aggregateDeposits σ := by
--- --   have :
--- --     (∑ x : Fin (List.length σ) × K₁,
--- --       if h : σ[x.1].isWithdrawalBlock = true then
--- --         (σ[x.1].getWithdrawal h x.2).1 ⊓
--- --           (List.foldl fᵢ acc' (List.map (TransactionsInBlock π) (List.take x.1.1 σ)).flatten).2 x.2
--- --       else 0) =
--- --     (∑ x : Fin (List.length σ),
--- --       if h : σ[x].isWithdrawalBlock = true then
--- --         ∑ y : K₁,
--- --         (σ[x].getWithdrawal h y).1 ⊓
--- --           (List.foldl fᵢ acc' (List.map (TransactionsInBlock π) (List.take x.1 σ)).flatten).2 y
--- --       else 0) := by
--- --       rw [Fintype.sum_prod_type]
--- --       apply Finset.sum_congr
--- --       rfl
--- --       intros i hi
--- --       simp only [Fin.getElem_fin, List.map_take]
--- --       by_cases eq : σ[i.1].isWithdrawalBlock
--- --       · simp only [eq, ↓reduceDIte]
--- --       · simp [eq]
--- --   rw [this]
--- --   simp only [Fin.getElem_fin, List.map_take]
--- --   induction' σ with hd tl ih generalizing acc acc'
--- --   · simp [Bal] at h; simp [h]
--- --   · simp only [List.map_cons, List.flatten_cons, List.foldl_append, List.length_cons,
--- --                aggregateDeposits_cons]
--- --     generalize eqsmol : (List.foldl _ _ _) = smol
--- --     rw [
--- --       Finset.sum_fin_eq_sum_range,
--- --       Finset.sum_eq_sum_diff_singleton_add (i := 0),
--- --       dif_pos (show 0 < tl.length + 1 by omega)
--- --     ]
--- --     simp_rw [List.getElem_cons_zero (h := _)]; case h => exact Finset.mem_range.2 (by omega)
--- --     generalize eqpartialsum : (∑ _ ∈ _, (_ : V)) = partialsum
--- --     rcases hd with ⟨r, v⟩ | _ | _
--- --     · simp [Block.getDeposit]
--- --       generalize eqsummand : ↑v + aggregateDeposits tl = summand
--- --       rw [←eqpartialsum]
--- --       let F : ℕ → V := λ x ↦
--- --         if h : x < tl.length then
--- --           ∑ k₁ : K₁,
--- --             if h' : (tl[x]'h).isWithdrawalBlock = true then
--- --               ((tl[x]'h).getWithdrawal h' k₁).1 ⊓
--- --                 (List.foldl fᵢ acc'
--- --                   (List.take (x + 1)
--- --                     (TransactionsInBlock (Sigma := Sigma) π (Block.deposit r v) :: List.map (TransactionsInBlock π) tl)).flatten).2 k₁
--- --             else 0
--- --         else 0
--- --       let F' : (a : ℕ) → a ∈ Finset.range (tl.length + 1) \ {0} → ℕ :=
--- --         λ a ha ↦ a.pred
--- --       rw [Finset.sum_bij (t := Finset.range tl.length) (g := F) (i := F')]
--- --       swap
--- --       simp [F']; intros a ha₁ ha₂; omega
--- --       swap
--- --       simp [F']; intros a ha b hb; omega
--- --       swap
--- --       simp [F']; intros b hb; use b + 1; omega
--- --       swap
--- --       simp only [Finset.mem_sdiff, Finset.mem_range, Finset.mem_singleton, List.take_succ_cons,
--- --         List.flatten_cons, List.foldl_append, Finset.sum_dite_irrel, Finset.sum_const_zero,
--- --         Nat.pred_eq_sub_one, and_imp, F, F']
--- --       intros i hi₁ hi₂
--- --       rw [dif_pos hi₁]; nth_rw 2 [dif_pos (by omega)]
--- --       rcases i with _ | i <;> [contradiction; skip]
--- --       simp only [List.getElem_cons_succ, List.take_succ_cons, List.flatten_cons, List.foldl_append,
--- --         Finset.sum_dite_irrel, Finset.sum_const_zero, add_tsub_cancel_right, Nat.add_one_sub_one,
--- --         Int.Nat.cast_ofNat_Int, id_eq, Int.reduceNeg, Int.reduceAdd]
--- --       simp only [List.take_succ_cons, List.flatten_cons, List.foldl_append, Finset.sum_dite_irrel,
--- --         Finset.sum_const_zero, F]
--- --       rw [Finset.sum_dite_of_true]; case h => exact λ _ ↦ (Finset.mem_range.1 ·)
--- --       simp only [← eqsmol, Finset.univ_eq_attach]
--- --       rw [ih (acc' := acc'), Finset.sum_fin_eq_sum_range]
--- --       swap
--- --       simp
-
--- --       simp only [Fin.getElem_fin, List.map_take]
--- --       rw [Finset.sum_dite_of_true]; case h => exact λ _ ↦ (Finset.mem_range.1 ·)
--- --       simp only [Finset.univ_eq_attach]
--- --       rw [←eqsummand]
--- --       generalize eqindices : (Finset.range tl.length).attach = indices
--- --       rw [sub_add_eq_sub_sub]
--- --       simp only [sub_left_inj, transactionsInBlock_deposit, List.foldl_cons, List.foldl_nil]
--- --       rw [List.foldl_assoc]
--- --       have : f acc' ⟨(Kbar.Source, Kbar.key (Sum.inr r), some v), ⋯⟩
-
--- -- -- #exit
-
--- -- -- invariant: split into two parts, show something! (needs acc × nat)
--- -- lemma lemma5_aux' {σ : RollupState K₁ K₂ V C Sigma}
--- --                   {π : BalanceProof K₁ K₂ C Pi V}
--- --                   {acc acc' : S K₁ K₂ V}
--- --                   (h₁ :  )
--- --                   (h₂ : acc' .Source ≤ 0) :
--- --   (List.foldl f acc (List.map (TransactionsInBlock π) σ).flatten).1 Kbar.Source =
--- --   (∑ x : Fin (List.length σ) × K₁,
--- --      if h : σ[x.1].isWithdrawalBlock
--- --      then ↑(σ[x.1].getWithdrawal h x.2) ⊓
--- --           (List.foldl f acc' (List.map (TransactionsInBlock π) (List.take x.1.1 σ)).flatten).1 x.2
--- --      else 0) -
--- --   aggregateDeposits σ := by
--- --   have :
--- --     (∑ x : Fin (List.length σ) × K₁,
--- --       if h : σ[x.1].isWithdrawalBlock = true then
--- --         (σ[x.1].getWithdrawal h x.2).1 ⊓
--- --           (List.foldl f acc' (List.map (TransactionsInBlock π) (List.take x.1.1 σ)).flatten).1 x.2
--- --       else 0) =
--- --     (∑ x : Fin (List.length σ),
--- --       if h : σ[x].isWithdrawalBlock = true then
--- --         ∑ y : K₁,
--- --         (σ[x].getWithdrawal h y).1 ⊓
--- --           (List.foldl f acc' (List.map (TransactionsInBlock π) (List.take x.1 σ)).flatten).1 y
--- --       else 0) := by
--- --       rw [Fintype.sum_prod_type]
--- --       apply Finset.sum_congr
--- --       rfl
--- --       intros i hi
--- --       simp only [Fin.getElem_fin, List.map_take]
--- --       by_cases eq : σ[i.1].isWithdrawalBlock
--- --       · simp only [eq, ↓reduceDIte]
--- --       · simp [eq]
--- --   rw [this]
--- --   induction' σ with hd tl ih generalizing acc acc'
--- --   · simp at h₁
--- --     simp
--- --     sorry
--- --   · simp only [List.map_cons, List.flatten_cons, List.foldl_append, List.length_cons,
--- --                Fin.getElem_fin, List.map_take, aggregateDeposits_cons]
--- --     generalize eqsmol : (List.foldl _ _ _) = smol
--- --     rw [
--- --       Finset.sum_fin_eq_sum_range,
--- --       Finset.sum_eq_sum_diff_singleton_add (i := 0),
--- --       dif_pos (show 0 < tl.length + 1 by omega)
--- --     ]
--- --     simp_rw [List.getElem_cons_zero (h := _)]; case h => exact Finset.mem_range.2 (by omega)
--- --     generalize eqpartialsum : (∑ _ ∈ _, (_ : V)) = partialsum
--- --     rcases hd with ⟨r, v⟩ | _ | _
--- --     · simp [Block.getDeposit]
--- --       generalize eqsummand : ↑v + aggregateDeposits tl = summand
--- --       rw [←eqpartialsum]
--- --       let F : ℕ → V := λ x ↦
--- --         if h : x < tl.length then
--- --           ∑ k₁ : K₁,
--- --             if h' : (tl[x]'h).isWithdrawalBlock = true then
--- --               ((tl[x]'h).getWithdrawal h' k₁).1 ⊓
--- --                 (List.foldl f acc'
--- --                   (List.take (x + 1)
--- --                     (TransactionsInBlock (Sigma := Sigma) π (Block.deposit r v) :: List.map (TransactionsInBlock π) tl)).flatten).1 k₁
--- --             else 0
--- --         else 0
--- --       let F' : (a : ℕ) → a ∈ Finset.range (tl.length + 1) \ {0} → ℕ :=
--- --         λ a ha ↦ a.pred
--- --       rw [Finset.sum_bij (t := Finset.range tl.length) (g := F) (i := F')]
--- --       swap
--- --       simp [F']; intros a ha₁ ha₂; omega
--- --       swap
--- --       simp [F']; intros a ha b hb; omega
--- --       swap
--- --       simp [F']; intros b hb; use b + 1; omega
--- --       swap
--- --       simp only [Finset.mem_sdiff, Finset.mem_range, Finset.mem_singleton, List.take_succ_cons,
--- --         List.flatten_cons, List.foldl_append, Finset.sum_dite_irrel, Finset.sum_const_zero,
--- --         Nat.pred_eq_sub_one, and_imp, F, F']
--- --       intros i hi₁ hi₂
--- --       rw [dif_pos hi₁]; nth_rw 2 [dif_pos (by omega)]
--- --       rcases i with _ | i <;> [contradiction; skip]
--- --       simp only [List.getElem_cons_succ, List.take_succ_cons, List.flatten_cons, List.foldl_append,
--- --         Finset.sum_dite_irrel, Finset.sum_const_zero, add_tsub_cancel_right, Nat.add_one_sub_one,
--- --         Int.Nat.cast_ofNat_Int, id_eq, Int.reduceNeg, Int.reduceAdd]
--- --       simp only [List.take_succ_cons, List.flatten_cons, List.foldl_append, Finset.sum_dite_irrel,
--- --         Finset.sum_const_zero, F]
--- --       rw [Finset.sum_dite_of_true]; case h => exact λ _ ↦ (Finset.mem_range.1 ·)
--- --       simp only [← eqsmol, Finset.univ_eq_attach]
--- --       rw [ih (acc' := acc'), Finset.sum_fin_eq_sum_range]
--- --       simp only [Fin.getElem_fin, List.map_take]
--- --       rw [Finset.sum_dite_of_true]; case h => exact λ _ ↦ (Finset.mem_range.1 ·)
--- --       simp only [Finset.univ_eq_attach]
--- --       rw [←eqsummand]
--- --       generalize eqindices : (Finset.range tl.length).attach = indices
--- --       rw [sub_add_eq_sub_sub]
--- --       simp only [sub_left_inj, transactionsInBlock_deposit, List.foldl_cons, List.foldl_nil]
--- --       rw [List.foldl_assoc]
--- --       have : f acc' ⟨(Kbar.Source, Kbar.key (Sum.inr r), some v), ⋯⟩
--- --       -- IsGLB (V' b T k) (f b T k
-
-
-
--- --   done
-
--- -- -- #exit
-
--- -- lemma lemma5_aux {σ : RollupState K₁ K₂ V C Sigma}
--- --                  {π : BalanceProof K₁ K₂ C Pi V}
--- --                  {acc acc' : S K₁ K₂ V}
--- --                  (h₁ : acc .Source = 0)
--- --                  (h₂ : acc' .Source = 0) :
--- --   (fStar (TransactionsInBlocks π σ) acc).1 Kbar.Source =
--- --   (∑ x : Fin (List.length σ) × K₁,
--- --     if h : σ[↑x.1].isWithdrawalBlock = true then
--- --       ↑(σ[↑x.1].getWithdrawal h x.2) ⊓
--- --         (fStar (TransactionsInBlocks π (List.take x.1.1 σ)) acc').1 x.2
--- --     else 0) -
--- --     aggregateDeposits σ := by apply lemma5_aux' <;> assumption
--- --   -- unfold fStar
--- --   -- induction' σ with hd tl ih generalizing acc acc'
--- --   -- · simp [h₁]
--- --   -- · simp
--- --   --   rw [List.foldl_flatten, List.foldl_map]
-
-
-
-
--- --   sorry
+set_option hygiene false in
+open Lean.Elab.Tactic in
+scoped elab "blast_sum" "with" f:ident : tactic => do
+  evalTactic <| ← `(tactic| (
+    simp [d₁, d₂, Finset.sum_fin_eq_sum_range]
+    rw [
+      Finset.sum_eq_sum_diff_singleton_add (s := Finset.range (tl.length + 1)) (i := 0) eq₁,
+      dif_pos (show 0 < tl.length + 1 by omega),
+      dif_neg (by rcases hd <;> aesop),
+      add_zero
+    ]
+    rw [Finset.sum_bij (s := _ \ _)
+                       (t := Finset.range tl.length)
+                       (i := reindex) (g := $f)
+                       (hi := reindex_mem)
+                       (i_inj := reindex_inj)
+                       (i_surj := λ b hb ↦ by use b.succ; simp; exact Finset.mem_range.1 hb)]
+    intros n hn
+    rw [dif_pos (by simp at hn; exact hn.1)]
+    rcases n with _ | n <;> simp at hn
+    simp [$f:ident, hn]))
 
 set_option maxHeartbeats 600000 in
-/--
-Obviously needs to be cleaned up.
--/
 private lemma computeBalance'_eq_Erik_aux : computeBalance' σ v = v + computeBalanceErik σ := by
-  sorry
-  -- induction' σ with hd tl ih generalizing v
-  -- · simp [computeBalanceErik, aggregateWithdrawals, aggregateDeposits]
-  -- · rw [computeBalance'_eq_zero]; simp
-  --   unfold computeBalance' computeBalanceErik aggregateWithdrawals aggregateDeposits at ih ⊢
-  --   rw [ih]
-  --   lift_lets
-  --   intros d₁ w₁ d₂ w₂
-  --   match heq : hd with
-  --   | .transfer .. => have eq₁ : d₁ = d₂ := by
-  --                       simp [d₁, d₂]
-  --                       simp [Finset.sum_fin_eq_sum_range]
-  --                       nth_rw 2 [Finset.sum_eq_sum_diff_singleton_add (i := 0)]
-  --                       rw [dif_pos (show 0 < tl.length + 1 by omega)]
-  --                       rw [dif_neg (by aesop)]
-  --                       let F : ℕ → V := λ i ↦
-  --                         if h : i < tl.length then
-  --                         if h_1 : tl[i].isDepositBlock = true then
-  --                         (tl[i].getDeposit h_1).2 else 0
-  --                         else 0
-  --                       let F' : (a : ℕ) → a ∈ Finset.range (tl.length + 1) \ {0} → ℕ :=
-  --                         λ a ha ↦ a.pred
-  --                       nth_rw 2 [Finset.sum_bij (t := Finset.range tl.length) (g := F)]
-  --                       simp [F]
-  --                       exact F'
-  --                       simp [F']
-  --                       intros a ha₁ ha₂
-  --                       omega
-  --                       simp [F']; intros a ha₁ ha₂ b hb₁ hb₂ h₃
-  --                       omega
-  --                       simp [F']
-  --                       intros b hb
-  --                       use b.succ
-  --                       simpa
-  --                       simp [F', F]
-  --                       intros a ha₁ ha₂
-  --                       rw [dif_pos ha₁]
-  --                       have : a - 1 < tl.length ↔ a < tl.length + 1 := by omega
-  --                       simp_rw [this, dif_pos ha₁]
-  --                       rcases a with _ | a; simp at ha₂
-  --                       simp
-  --                       rw [Finset.mem_range]; omega
-  --                     have eq₂ : w₁ = w₂ := by
-  --                       simp [w₁, w₂]
-  --                       simp [Finset.sum_fin_eq_sum_range]
-  --                       nth_rw 2 [Finset.sum_eq_sum_diff_singleton_add (i := 0)]
-  --                       rw [dif_pos (show 0 < tl.length + 1 by omega)]
-  --                       rw [dif_neg (by aesop)]
-  --                       let F : ℕ → V := λ i ↦
-  --                         if h : i < tl.length then
-  --                         if h_1 : tl[i].isWithdrawalBlock = true
-  --                         then ∑ x_1 : K₁, tl[i].getWithdrawal h_1 x_1 else 0
-  --                         else 0
-  --                       let F' : (a : ℕ) → a ∈ Finset.range (tl.length + 1) \ {0} → ℕ :=
-  --                         λ a ha ↦ a.pred
-  --                       nth_rw 2 [Finset.sum_bij (t := Finset.range tl.length) (g := F)]
-  --                       simp [F]
-  --                       exact F'
-  --                       simp [F']
-  --                       intros a ha₁ ha₂
-  --                       omega
-  --                       simp [F']; intros a ha₁ ha₂ b hb₁ hb₂ h₃
-  --                       omega
-  --                       simp [F']
-  --                       intros b hb
-  --                       use b.succ
-  --                       simpa
-  --                       simp [F', F]
-  --                       intros a ha₁ ha₂
-  --                       rw [dif_pos ha₁]
-  --                       have : a - 1 < tl.length ↔ a < tl.length + 1 := by omega
-  --                       simp_rw [this, dif_pos ha₁]
-  --                       rcases a with _ | a; simp at ha₂
-  --                       simp
-  --                       rw [Finset.mem_range]; omega
-  --                     simp [eq₁, eq₂]
-  --   | .deposit _ v => have : w₁ = w₂ := by
-  --                       simp [w₁, w₂]
-  --                       simp [Finset.sum_fin_eq_sum_range]
-  --                       nth_rw 2 [Finset.sum_eq_sum_diff_singleton_add (i := 0)]
-  --                       rw [dif_pos (show 0 < tl.length + 1 by omega)]
-  --                       rw [dif_neg (by aesop)]
-  --                       let F : ℕ → V := λ i ↦
-  --                         if h : i < tl.length then
-  --                         if h_1 : tl[i].isWithdrawalBlock = true
-  --                         then ∑ x_1 : K₁, tl[i].getWithdrawal h_1 x_1 else 0
-  --                         else 0
-  --                       let F' : (a : ℕ) → a ∈ Finset.range (tl.length + 1) \ {0} → ℕ :=
-  --                         λ a ha ↦ a.pred
-  --                       nth_rw 2 [Finset.sum_bij (t := Finset.range tl.length) (g := F)]
-  --                       simp [F]
-  --                       exact F'
-  --                       simp [F']
-  --                       intros a ha₁ ha₂
-  --                       omega
-  --                       simp [F']; intros a ha₁ ha₂ b hb₁ hb₂ h₃
-  --                       omega
-  --                       simp [F']
-  --                       intros b hb
-  --                       use b.succ
-  --                       simpa
-  --                       simp [F', F]
-  --                       intros a ha₁ ha₂
-  --                       rw [dif_pos ha₁]
-  --                       have : a - 1 < tl.length ↔ a < tl.length + 1 := by omega
-  --                       simp_rw [this, dif_pos ha₁]
-  --                       rcases a with _ | a; simp at ha₂
-  --                       simp
-  --                       rw [Finset.mem_range]; omega
-  --                     simp [this]
-  --                     rw [add_sub]
-  --                     simp [d₁, d₂]
-  --                     simp [Finset.sum_fin_eq_sum_range]
-  --                     nth_rw 2 [Finset.sum_eq_sum_diff_singleton_add (i := 0)]
-  --                     rw [dif_pos (show 0 < tl.length + 1 by omega)]
-  --                     rw [dif_pos (by aesop)]
-  --                     simp_rw [List.getElem_cons_zero, heq]
-  --                     dsimp [Block.getDeposit] -- TODO: make lemma
-  --                     nth_rw 2 [add_comm]
-  --                     apply congr_arg
-  --                     symm
-  --                     -- reorder
-  --                     let F' : (a : ℕ) → a ∈ Finset.range (tl.length + 1) \ {0} → ℕ :=
-  --                         λ a ha ↦ a.pred
-  --                     apply Finset.sum_bij (i := F')
-  --                     simp [F']
-  --                     intros a ha₁ ha₂
-  --                     omega
-  --                     simp [F']; intros a ha₁ ha₂ b hb₁ hb₂ h₃
-  --                     omega
-  --                     simp [F']
-  --                     intros b hb
-  --                     use b.succ
-  --                     simpa
-  --                     simp [F']
-  --                     rintro a ⟨ha₁, ha₂⟩
-  --                     rw [dif_pos ha₁]
-  --                     have : a - 1 < tl.length ↔ a < tl.length + 1 := by omega
-  --                     simp_rw [this, dif_pos ha₁]
-  --                     rcases a with _ | a; simp at ha₂
-  --                     simp
-  --                     rw [Finset.mem_range]; omega
-  --   | .withdrawal B => have eq₁ : d₁ = d₂ := by
-  --                        simp [d₁, d₂]
-  --                        simp [Finset.sum_fin_eq_sum_range]
-  --                        nth_rw 2 [Finset.sum_eq_sum_diff_singleton_add (i := 0)]
-  --                        rw [dif_pos (show 0 < tl.length + 1 by omega)]
-  --                        rw [dif_neg (by aesop)]
-  --                        let F : ℕ → V := λ i ↦
-  --                          if h : i < tl.length then
-  --                          if h_1 : tl[i].isDepositBlock = true then
-  --                          (tl[i].getDeposit h_1).2 else 0
-  --                          else 0
-  --                        let F' : (a : ℕ) → a ∈ Finset.range (tl.length + 1) \ {0} → ℕ :=
-  --                          λ a ha ↦ a.pred
-  --                        nth_rw 2 [Finset.sum_bij (t := Finset.range tl.length) (g := F)]
-  --                        simp [F]
-  --                        exact F'
-  --                        simp [F']
-  --                        intros a ha₁ ha₂
-  --                        omega
-  --                        simp [F']; intros a ha₁ ha₂ b hb₁ hb₂ h₃
-  --                        omega
-  --                        simp [F']
-  --                        intros b hb
-  --                        use b.succ
-  --                        simpa
-  --                        simp [F', F]
-  --                        intros a ha₁ ha₂
-  --                        rw [dif_pos ha₁]
-  --                        have : a - 1 < tl.length ↔ a < tl.length + 1 := by omega
-  --                        simp_rw [this, dif_pos ha₁]
-  --                        rcases a with _ | a; simp at ha₂
-  --                        simp
-  --                        rw [Finset.mem_range]; omega
-  --                      simp [eq₁]
-  --                      rw [add_sub, add_comm]
-  --                      rw [←add_sub]
-  --                      nth_rw 2 [sub_eq_add_neg]
-  --                      simp [w₁, w₂]
-  --                      simp [Finset.sum_fin_eq_sum_range]
-  --                      nth_rw 3 [Finset.sum_eq_sum_diff_singleton_add (i := 0)]
-  --                      rw [dif_pos (show 0 < tl.length + 1 by omega)]
-  --                      rw [dif_pos (by aesop)]
-  --                      simp_rw [List.getElem_cons_zero]
-  --                      conv_rhs => congr
-  --                                  arg 2
-  --                                  simp [heq]
-  --                                  simp [Block.getWithdrawal] -- LEMMA
-  --                      rw [neg_add]
-  --                      rw [add_comm]
-  --                      rw [sub_eq_add_neg]
-  --                      apply congr_arg
-  --                      -- shuffle
-  --                      let F : ℕ → V := λ i ↦
-  --                        if h : i < tl.length then
-  --                        if h_1 : tl[i].isWithdrawalBlock = true
-  --                        then ∑ x_1 : K₁, tl[i].getWithdrawal h_1 x_1 else 0
-  --                        else 0
-  --                      let F' : (a : ℕ) → a ∈ Finset.range (tl.length + 1) \ {0} → ℕ :=
-  --                        λ a ha ↦ a.pred
-  --                      nth_rw 2 [Finset.sum_bij (t := Finset.range tl.length) (g := F)]
-  --                      exact F'
-  --                      simp [F']
-  --                      intros a ha₁ ha₂
-  --                      omega
-  --                      simp [F']; intros a ha₁ ha₂ b hb₁ hb₂ h₃
-  --                      omega
-  --                      simp [F']
-  --                      intros b hb
-  --                      use b.succ
-  --                      simpa
-  --                      simp [F', F]
-  --                      intros a ha₁ ha₂
-  --                      rw [dif_pos ha₁]
-  --                      have : a - 1 < tl.length ↔ a < tl.length + 1 := by omega
-  --                      simp_rw [this, dif_pos ha₁]
-  --                      rcases a with _ | a; simp at ha₂
-  --                      simp
-  --                      rw [Finset.mem_range]; omega
+  induction' σ with hd tl ih generalizing v
+  · simp [computeBalanceErik, aggregateWithdrawals, aggregateDeposits]
+  · rw [computeBalance'_eq_zero]; simp; rw [ih]
+    unfold computeBalanceErik aggregateWithdrawals aggregateDeposits
+    lift_lets
+    intros d₁ w₁ d₂ w₂
+    have eq₁ : 0 ∈ Finset.range (tl.length + 1) := by rw [Finset.mem_range]; omega
+    have eqd (h : ¬ hd matches .deposit ..) : d₁ = d₂ := by
+      simp [d₁, d₂]
+      let F : ℕ → V := λ i ↦
+        if h : i < tl.length then
+          if h_1 : tl[i].isDepositBlock
+          then (tl[i].getDeposit h_1).2
+          else 0
+        else 0
+      blast_sum with F
+    have eqw (h : ¬ hd matches .withdrawal ..) : w₁ = w₂ := by
+      simp [w₁, w₂]
+      let F : ℕ → V := λ i ↦
+        if h : i < tl.length then
+          if h' : tl[i].isWithdrawalBlock
+          then ∑ x : K₁, tl[i].getWithdrawal h' x
+          else 0
+        else 0
+      blast_sum with F
+    rcases heq : hd
+    · have : w₁ = w₂ := eqw (by aesop)
+      simp [this, d₁, d₂, add_sub, Finset.sum_fin_eq_sum_range]
+      rw [
+        Finset.sum_eq_sum_diff_singleton_add (s := Finset.range (tl.length + 1)) (i := 0) eq₁,
+        dif_pos (show 0 < tl.length + 1 by omega),
+        dif_pos (by aesop)
+      ]
+      simp_rw [List.getElem_cons_zero, heq]; nth_rw 2 [add_comm]
+      refine' congr_arg _ (Eq.symm (Finset.sum_bij (i := reindex)
+                                                   (t := Finset.range tl.length)
+                                                   (hi := reindex_mem)
+                                                   (i_inj := reindex_inj)
+                                                   (i_surj := λ b hb ↦ by use b.succ; simp; exact Finset.mem_range.1 hb)
+                                                   _))
+      simp; rintro a ⟨ha₁, ha₂⟩
+      rw [dif_pos ha₁]
+      have : a - 1 < tl.length ↔ a < tl.length + 1 := by omega
+      simp_rw [this, dif_pos ha₁]
+      rcases a with _ | a; simp at ha₂
+      simp
+    · have eq₁ : d₁ = d₂ := eqd (by aesop)
+      have eq₂ : w₁ = w₂ := eqw (by aesop)
+      simp [eq₁, eq₂]
+    · have eq : d₁ = d₂ := eqd (by aesop)
+      rw [add_sub, add_comm, ←add_sub, sub_eq_add_neg (b := w₂)]
+      simp [eq, w₁, w₂, Finset.sum_fin_eq_sum_range]
+      rw [
+        Finset.sum_eq_sum_diff_singleton_add (s := Finset.range (tl.length + 1)) (i := 0) eq₁,
+        dif_pos (show 0 < tl.length + 1 by omega),
+        dif_pos (by aesop)
+      ]
+      simp_rw [List.getElem_cons_zero]
+      conv_rhs => congr; arg 2; simp [heq]; simp [Block.getWithdrawal]
+      rw [neg_add, add_comm, sub_eq_add_neg]
+      apply congr_arg
+      let F : ℕ → V := λ i ↦
+        if h : i < tl.length then
+          if h₁ : tl[i].isWithdrawalBlock
+          then ∑ x : K₁, tl[i].getWithdrawal h₁ x else 0
+        else 0
+      rw [Finset.sum_bij (s := _ \ _)
+                         (i := reindex)
+                         (t := Finset.range tl.length)
+                         (g := F)
+                         (hi := reindex_mem)
+                         (i_inj := reindex_inj)
+                         (i_surj := λ b hb ↦ by use b.succ; simp; exact Finset.mem_range.1 hb)]
+      simp [F]; intros a ha₁ ha₂
+      simp_rw [dif_pos ha₁, show a - 1 < tl.length ↔ a < tl.length + 1 by omega, dif_pos ha₁]
+      rcases a with _ | a; simp at ha₂
+      simp
 
 lemma computeBalance_eq_sum : computeBalance σ = computeBalanceErik σ := by
   simp [computeBalance, computeBalance'_eq_Erik_aux]
@@ -1560,16 +554,7 @@ lemma attackGameRGo_isWithdrawal_iff (σ σ' : RollupState K₁ K₂ V C Sigma)
     · simp; unfold Request.toBlock!; aesop
     · aesop
 
-/-
-I'll clean up later.
--/
-section UgliestProofIveEverWritten
-
 set_option maxHeartbeats 400000 in
-/-
-Sketch. This can be cleaned up both Lean wise and maybe ven math wise, but it goes through
-and Lean is happy so I'll move on for now.
--/
 private lemma isWithdrawalRequest_of_isWithdrawalBlock_aux
   {σ : RollupState K₁ K₂ V C Sigma}
   {requests : List (Request K₁ K₂ C Sigma Pi V)}
@@ -1583,101 +568,39 @@ private lemma isWithdrawalRequest_of_isWithdrawalBlock_aux
                               · simp
                               · simp at hi₂; omega
                               · simp at hi₂ ⊢; omega)) matches .withdrawal .. := by
-  sorry
-  -- simp [attackGameR] at h₁
-  -- /-
-  --   Ideally, we want to show that `(attackGameR requests []).isWithdrawal → requests[i].isWithdrawal`,
-  --   but we'll prove it as a corollary of this one for an arbitrary state σ rather than [].
-  -- -/
-
-  -- /-
-  --   By induction on requests for an arbitrary `i`.
-  -- -/
-  -- induction' requests with hd tl ih generalizing i
-  -- /-
-  --   The base case is trivial.
-  -- -/
-  -- · simp at hi₂ h₁; omega
-  -- /-
-  --   Suppose the requests are `hd :: tl`. (I.e. a single element followed by some tail.)
-  -- -/
-  -- · rcases i with _ | i
-  --   /-
-  --     Suppose first that i = 0.
-
-  --     Then we know we are accessing the very first request and as such, one only needs to consult
-  --     the function `Request.toBlock!` to establish this holds.
-  --   -/
-  --   · simp at hi₁
-  --     subst hi₁
-  --     simp [Request.toBlock!] at h₁ ⊢
-  --     rcases hd <;> simp_all
-  --   /-
-  --     Suppose next that i = i + 1.
-  --   -/
-  --   · rcases σ with _ | ⟨hd', tl'⟩
-  --     /-
-  --       Suppose further that `σ` is empty.
-
-  --       We can immediately conclude this holds by the inductive hypothesis and the fact that
-  --       the shape of blocks is invariant with respect to state and is dependent only on the shape
-  --       of the initial requests (as witnessed by `attackGameRGo_isWithdrawal_iff`).
-  --     -/
-  --     · simp at hi₁ hi₂ h₁ ih ⊢
-  --       apply ih (by aesop)
-  --       rw [attackGameRGo_isWithdrawal_iff (σ' := RollupState.appendBlock! [] hd)]
-  --       exact h₁
-  --       exact hi₂
-  --     /-
-  --       Suppose now that `σ` is _not_ empty, but `hd' :: tl'`.
-
-  --       Note we have that `tl'.length ≤ i`.
-  --     -/
-  --     · simp at hi₁ ⊢
-  --       rw [le_iff_eq_or_lt] at hi₁
-  --       rcases hi₁ with hi₁ | hi₁
-  --       /-
-  --         For the case where `tl'.length = i`, we know we are accessing `hd` and the rest is trivial.
-  --       -/
-  --       · simp_rw [hi₁]; simp
-  --         simp [Request.toBlock!] at h₁ ⊢
-  --         simp_rw [←hi₁] at h₁
-  --         rw [List.getElem_append_right] at h₁
-  --         simp [Request.toBlock!] at h₁ ⊢
-  --         rcases hd <;> simp_all
-  --         simp
-  --       /-
-  --         For when `tl'.length < i`, we know that accessing `(hd :: tl)[i - tl'.length]`
-  --         always reaches the tail as `i - tl'.length > 0`. Thus, we can invoke the inductive hypothesis
-  --         together with lemma `attackGameRGo_isWithdrawal_iff` to establish this holds.
-  --       -/
-  --       · rw [lt_iff_exists_add] at hi₁
-  --         rcases hi₁ with ⟨c, ⟨hc₁, hc₂⟩⟩
-  --         simp_rw [hc₂]
-  --         rcases c with _ | c <;> [simp at hc₁; skip]
-  --         simp
-  --         specialize ih (by aesop) (c + (hd' :: tl').length)
-  --         simp at ih
-  --         apply ih
-  --         swap
-  --         simp at hi₂
-  --         omega
-  --         simp_rw [←Nat.add_assoc]
-  --         simp
-  --         simp at h₁
-  --         simp_rw [hc₂] at h₁
-  --         simp_rw [←Nat.add_assoc] at h₁
-  --         simp_rw [List.append_cons (as := tl') (b := Request.toBlock! (hd' :: tl') hd) (bs := attackGameRGo tl (RollupState.appendBlock! (hd' :: tl') hd))] at h₁
-  --         rw [List.getElem_append_right (as := tl' ++ [Request.toBlock! (hd' :: tl') hd]) (bs :=
-  --             attackGameRGo tl (RollupState.appendBlock! (hd' :: tl') hd))] at h₁
-  --         rw [List.getElem_append_right]
-  --         simp at h₁ ⊢
-  --         rw [attackGameRGo_isWithdrawal_iff (σ' := (hd' :: tl'))] at h₁
-  --         exact h₁
-  --         simp
-  --         simp at hc₂ hi₂ ⊢
-
-end UgliestProofIveEverWritten
+  simp [attackGameR] at h₁
+  induction' requests with hd tl ih generalizing i
+  · simp at hi₂ h₁; omega
+  · rcases i with _ | i
+    · simp at hi₁; subst hi₁
+      simp at h₁
+      simp [Request.toBlock!] at h₁ ⊢; rcases hd <;> simp_all
+    · rcases σ with _ | ⟨hd', tl'⟩
+      · simp at hi₁ hi₂ h₁ ih ⊢
+        apply ih (by aesop) _ hi₂
+        rw [attackGameRGo_isWithdrawal_iff (σ' := RollupState.appendBlock! [] hd)]
+        exact h₁
+      · simp at hi₁ ⊢
+        rw [le_iff_eq_or_lt] at hi₁
+        rcases hi₁ with hi₁ | hi₁
+        · simp_rw [hi₁];
+          simp [Request.toBlock!] at h₁ ⊢
+          simp_rw [←hi₁] at h₁
+          rw [List.getElem_append_right (le_refl _)] at h₁
+          rcases hd <;> simp_all
+        · rw [lt_iff_exists_add] at hi₁
+          rcases hi₁ with ⟨c, ⟨hc₁, hc₂⟩⟩
+          simp_rw [hc₂]
+          rcases c with _ | c <;> [simp at hc₁; simp]
+          specialize ih (by aesop) (c + (hd' :: tl').length); simp at ih
+          refine' ih (by simp at hi₂; omega) _
+          simp_rw [←Nat.add_assoc]; simp at h₁ ⊢
+          simp_rw [
+            hc₂, ←Nat.add_assoc,
+            List.append_cons (as := tl') (b := Request.toBlock! _ _) (bs := attackGameRGo _ _)
+          ] at h₁
+          rw [List.getElem_append_right] at h₁ ⊢ <;> simp at h₁ ⊢
+          rwa [←attackGameRGo_isWithdrawal_iff]
 
 lemma isWithdrawalRequest_of_isWithdrawalBlock
   {requests : List (Request K₁ K₂ C Sigma Pi V)}
@@ -1722,6 +645,149 @@ def isπ (requests : List (Request K₁ K₂ C Sigma Pi V)) :=
 
 end AttackGameLemmas
 
+set_option maxHeartbeats 1000000 in
+private lemma lemma5_aux {len : ℕ} {σ : RollupState K₁ K₂ V C Sigma}
+  (hlen : len = σ.length) :
+  (Bal π σ) Kbar.Source =
+  (∑ x ∈ (Finset.univ : Finset (Fin σ.length)) ×ˢ Finset.univ,
+      if h : σ[x.1].isWithdrawalBlock then
+        (σ[x.1].getWithdrawal h x.2).1 ⊓ ((Bal π (List.take (x.1.1) σ)) x.2)
+      else 0) -
+  ∑ i : Fin (List.length σ), if h : σ[i].isDepositBlock then (σ[↑i].getDeposit h).2 else 0 := by
+  induction' len with k ih generalizing σ
+  · rcases σ <;> aesop
+  · obtain ((_ | _) | ⟨bs, b, ⟨⟩⟩) := List.eq_nil_or_concat' σ <;> [simp at hlen; skip]
+    unfold Bal fStar
+    simp only [
+      transactionsInBlocks_append_singleton, List.foldl_append, Finset.univ_product_univ, Fin.getElem_fin,
+      Fintype.sum_prod_type, Finset.sum_fin_eq_sum_range, Finset.sum_fin_eq_sum_range,
+      List.length_append, List.length_singleton
+    ]
+    simp_rw [
+      Finset.sum_eq_sum_diff_singleton_add
+        (show bs.length ∈ Finset.range (bs.length + 1) by rw [Finset.mem_range]; omega),
+      dif_pos (show bs.length < bs.length + 1 by omega),
+      show Finset.range (bs.length + 1) \ {bs.length} = Finset.range bs.length by
+              rw [Finset.range_succ, Finset.insert_eq, Finset.union_sdiff_cancel_left (by simp)
+    ]]
+    rcases hb : b with ⟨r, v⟩ | ⟨x₁, x₂, x₃, x₄, x₅⟩ | ⟨B⟩
+    · erw [
+        f_deposit_source'' (b := b) (h := by aesop) (π := π) (h₁ := by aesop),
+        ih (show k = bs.length by simp at hlen; exact hlen)
+      ]
+      simp only [Finset.univ_eq_attach, id_eq, Int.reduceNeg, Int.Nat.cast_ofNat_Int,
+        eq_mpr_eq_cast, List.getElem_concat_length, Block.deposit_ne_widthdrawal, ↓reduceDIte,
+        Finset.sum_const_zero, add_zero]
+      rw [sub_add]
+      congr 1
+      /-
+        IH matches rhs.
+      -/
+      · simp only [Finset.univ_product_univ, Fin.getElem_fin, Finset.univ_eq_attach, id_eq,
+          Int.reduceNeg, Int.Nat.cast_ofNat_Int, eq_mpr_eq_cast, Fintype.sum_prod_type,
+          Finset.sum_fin_eq_sum_range]
+        refine' Finset.sum_congr rfl (λ idx hidx ↦ _)
+        have hlen : idx < bs.length := Finset.mem_range.1 hidx
+        simp_rw [dif_pos hlen, dif_pos (Nat.lt_add_one_of_lt hlen)]
+        refine' Finset.sum_congr rfl (λ k hk ↦
+                  dite_congr (by rw [List.getElem_append_left hlen]) (λ h ↦ _) (by simp))
+        congr 2
+        · have : bs[idx] = (bs ++ [Block.deposit r v])[idx]'(by simp; omega) := by
+            rw [List.getElem_append_left hlen]
+          simp_rw [this]
+        · have : List.take idx (bs ++ [Block.deposit r v]) = List.take idx bs := by
+            rw [List.take_append_of_le_length (by omega)]
+          simp_rw [this]
+          rfl
+      /-
+        Rest matches rhs.
+      -/
+      · rw [Finset.sum_fin_eq_sum_range]
+        simp only [Fin.getElem_fin, Block.getDeposit, Τ.value, Option.get_some, sub_neg_eq_add,
+          List.length_singleton, add_left_inj]
+        refine' (Finset.sum_congr rfl (λ idx hidx ↦ _))
+        have hlen : idx < bs.length := Finset.mem_range.1 hidx
+        have : (bs ++ [Block.deposit r v])[idx]'(by simp; omega) = bs[idx] := by
+          rw [List.getElem_append_left hlen]
+        
+        refine' dite_congr (by simp [hlen]; omega) (λ h ↦ (dite_congr (by simp [this]) (λ h ↦ _) (by simp))) (by simp)
+        split; split; aesop
+    · rw [f_transfer_block_source' (by simp)]
+      erw [ih (show k = bs.length by simp at hlen; exact hlen)]
+      congr 1
+      /-
+        IH matches rhs
+      -/
+      · simp only [
+          Finset.univ_product_univ, Fin.getElem_fin, Fintype.sum_prod_type, Finset.sum_fin_eq_sum_range,
+          List.length_append, List.length_singleton
+        ]
+        nth_rw 3 [Finset.sum_dite_of_false (by simp)]
+        simp only [Finset.sum_dite_irrel, Finset.sum_const_zero, add_zero]
+        refine' Finset.sum_congr rfl (λ idx hidx ↦ _)
+        have hlen : idx < bs.length := Finset.mem_range.1 hidx
+        refine' dite_congr
+                  (by simp [hidx]; omega)
+                  (λ _ ↦ dite_congr (by rw [List.getElem_append_left hlen])
+                                    (λ _ ↦ Finset.sum_congr rfl λ _ _ ↦ _)
+                                    (by simp))
+                  (by simp)
+        congr 2
+        · have : bs[idx] = (bs ++ [Block.transfer x₁ x₂ x₃ x₄ x₅])[idx]'(by simp; omega) := by
+            rw [List.getElem_append_left hlen]
+          simp_rw [List.getElem_append_left hlen]
+        · have : List.take idx (bs ++ [Block.transfer x₁ x₂ x₃ x₄ x₅]) = List.take idx bs := by
+            rw [List.take_append_of_le_length (by omega)]
+          simp_rw [this]
+          rfl
+      /-
+        Rest matches rhs.
+      -/
+      · simp only [Fin.getElem_fin, Finset.sum_fin_eq_sum_range, List.length_append, List.length_singleton]
+        simp only [List.getElem_concat_length, Block.transfer_ne_deposit, ↓reduceDIte, add_zero]
+        refine' (Finset.sum_congr rfl (λ idx hidx ↦ _))
+        have hlen : idx < bs.length := Finset.mem_range.1 hidx
+        have : (bs ++ [Block.transfer x₁ x₂ x₃ x₄ x₅])[idx]'(by simp; omega) = bs[idx] := by
+          rw [List.getElem_append_left hlen]
+        exact dite_congr (by simp [hlen]; omega)
+                         (λ _ ↦ (dite_congr (by simp [this]) (λ _ ↦ by simp_rw [this]) (by simp)))
+                         (by simp)
+    · rw [f_withdrawal_block_source' (by simp)]
+      erw [ih (show k = bs.length by simp at hlen; exact hlen)]
+      simp only [
+        Finset.univ_product_univ, Fin.getElem_fin, Finset.sum_fin_eq_sum_range, Fintype.sum_prod_type,
+        List.length_append, List.length_singleton, Finset.sum_dite_irrel, Finset.sum_const_zero]
+      nth_rw 2 [dif_neg (by simp)]
+      simp only [List.getElem_concat_length, ↓reduceDIte, List.take_left', add_zero]
+      rw [sub_add, ←add_sub, sub_eq_add_neg]
+      congr 1
+      /-
+        IH matches rhs.
+      -/
+      · refine' Finset.sum_congr rfl (λ idx hidx ↦ _)
+        have hlen : idx < bs.length := Finset.mem_range.1 hidx
+        simp_rw [dif_pos hlen, dif_pos (Nat.lt_add_one_of_lt hlen)]
+        have : (bs ++ [Block.withdrawal B])[idx]'(by simp; omega) = bs[idx] := by
+          rw [List.getElem_append_left hlen]
+        simp_rw [this]
+        refine' dite_congr rfl (λ h₁ ↦ Finset.sum_congr rfl (λ i hi ↦ _)) (by simp)
+        have : List.take idx (bs ++ [Block.withdrawal B]) = List.take idx bs := by
+          rw [List.take_append_of_le_length (by omega)]
+        simp_rw [this]
+        rfl
+      /-
+        Rest matches rhs.
+      -/
+      · simp only [neg_sub, sub_right_inj]
+        refine' Finset.sum_congr rfl (λ idx hidx ↦ _)
+        have hlen : idx < bs.length := Finset.mem_range.1 hidx
+        exact dite_congr
+                (by simp [hidx]; omega)
+                (λ h ↦ dite_congr (by rw [List.getElem_append_left hlen])
+                                  (λ h₁ ↦ by simp_rw [List.getElem_append_left hlen])
+                                  (by simp))
+                (by simp)
+
 lemma lemma5 (π : BalanceProof K₁ K₂ C Pi V) :
   Bal π σ .Source =
   (∑ (i : Fin σ.length) (k : K₁),
@@ -1730,20 +796,22 @@ lemma lemma5 (π : BalanceProof K₁ K₂ C Pi V) :
           w k ⊓ Bal π (σ.take i.1) k
      else 0)
   -
-  aggregateDeposits σ := by sorry
-  -- unfold Bal
-  -- rcases σ with _ | ⟨σ, σs⟩
-  -- · simp [Bal]
-  -- · simp only
-  --   apply lemma5_aux <;> simp
-
--- #exit
+  aggregateDeposits σ := lemma5_aux (len := σ.length) rfl
 
 variable -- [ADScheme K₂ (C × K₁ × ExtraDataT) C Pi]
          [Hinj : CryptoAssumptions.Injective (H (α := TransactionBatch K₁ K₂ V × ExtraDataT) (ω := (C × K₁ × ExtraDataT)))]
          (isπ : isπ (normalise requests))
 
 def BalanceProof.initial : BalanceProof K₁ K₂ C Pi V := λ _ ↦ .none
+
+@[simp]
+lemma Merge_initial {π : BalanceProof K₁ K₂ C Pi V} :
+  BalanceProof.initial.Merge π = π := by
+  rw [Dict.keys_Merge_right']
+  intros x contra
+  unfold BalanceProof.initial at contra
+  rw [Dict.mem_iff_isSome] at contra
+  simp at contra
 
 @[simp]
 lemma BalanceProof.valid_initial :
@@ -1761,51 +829,10 @@ lemma BalanceProof.le_initial {k} {π : BalanceProof K₁ K₂ C Pi V} :
 lemma BalanceProof.IsBot_initial : IsBot (BalanceProof.initial : BalanceProof K₁ K₂ C Pi V) := by
   unfold initial; simp [IsBot, (·≤·)]; intros a b; aesop
 
-
-
-section Ordering
-
-lemma w₁ {x y : Option ((Pi × ExtraDataT) × TransactionBatch K₁ K₂ V)} :
-  x ≠ .none → y ≠ .none → x ≤ y → x ≤ (Dict.First x y) :=
-  λ h₁ h₂ h₃ ↦ by simp [Dict.First]; aesop
-
-lemma w₂ {x y : Option ((Pi × ExtraDataT) × TransactionBatch K₁ K₂ V)} :
-  x ≠ .none → y ≠ .none → x ≤ y → y ≤ (Dict.First x y) :=
-  λ h₁ h₂ h₃ ↦ by
-    simp [Dict.First]
-    unfold LE.le Preorder.toLE maybeInduced at *
-    simp [LE.le, Preorder.toLE, instPreorderTransactionBatch, discretePreorder] at h₃
-    rcases x with _ | x <;> rcases y with _ | y <;> aesop
-
-lemma w₃ {x y : BalanceProof K₁ K₂ C Pi V} :
-  ∀ k, x k ≠ .none → y k ≠ .none → x k ≤ y k → x ≤ Dict.Merge x y :=
-  λ k h₁ h₂ h₃ ↦ by
-    simp [Dict.Merge]; unfold Dict.Merge.D; rw [_root_.Pi.le_def]; simp [Dict.First]
-    unfold LE.le Preorder.toLE maybeInduced at h₃
-    simp [LE.le, Preorder.toLE, instPreorderTransactionBatch, discretePreorder] at h₃
-    aesop (config := {warnOnNonterminal := false})
-    simp [(·≤·)]
-
-lemma w₃' {x y : BalanceProof K₁ K₂ C Pi V} :
-  ∀ k, x k ≠ .none → y k ≠ .none → x k ≤ y k → x k ≤ Dict.Merge x y k :=
-  λ k h₁ h₂ h₃ ↦ by
-    simp [Dict.Merge]; unfold Dict.Merge.D LE.le Preorder.toLE maybeInduced; simp [Dict.First]
-    unfold LE.le Preorder.toLE maybeInduced at h₃
-    simp [LE.le, Preorder.toLE, instPreorderTransactionBatch, discretePreorder] at h₃
-    aesop
-
-lemma w₄ {x y : BalanceProof K₁ K₂ C Pi V} :
-  ∀ k, x k ≠ .none → y k ≠ .none → x k ≤ y k → y k ≤ Dict.Merge x y k :=
-  λ k h₁ h₂ h₃ ↦ by
-    simp [Dict.Merge]; unfold Dict.Merge.D LE.le Preorder.toLE maybeInduced; simp [Dict.First]
-    unfold LE.le Preorder.toLE maybeInduced at h₃
-    simp [LE.le, Preorder.toLE, instPreorderTransactionBatch, discretePreorder] at h₃
-    aesop
-
 lemma proposition4W {x y : Option ((Pi × ExtraDataT) × TransactionBatch K₁ K₂ V)}
   (h : x.isSome ∧ y.isSome → x = y) : IsLUB {x, y} (Dict.First x y) := by
   simp [IsLUB, IsLeast, lowerBounds, Dict.First]
-  aesop (config := {warnOnNonterminal := false}) <;> simp [(·≤·)]
+  aesop
 
 @[simp]
 lemma BalanceProof.snd_discrete {x y : TransactionBatch K₁ K₂ V} :
@@ -1813,653 +840,12 @@ lemma BalanceProof.snd_discrete {x y : TransactionBatch K₁ K₂ V} :
   unfold LE.le Preorder.toLE instPreorderTransactionBatch
   aesop
 
--- lemma proposition2 {x y π : BalanceProof K₁ K₂ C Pi V} :
---   IsLUB {x, y} π ↔ x = y := by
---   unfold IsLUB IsLeast upperBounds lowerBounds
---   apply Iff.intro <;> intros h
---   · rcases h with ⟨h₁, h₂⟩
---     simp at h₁ h₂
---     rcases h₁ with ⟨h₃, h₄⟩
---     simp [-Prod.forall, (·≤·)] at h₃ h₄
---     apply funext; intros K
---     set X := x K with eqX
---     set Y := y K with eqY
---     set PI := π K with eqPI
---     rcases X with _ | X <;>
---     rcases Y with _ | Y <;>
---     rcases PI with _ | PI
---     · rfl
---     · rfl
---     · specialize h₄ K
-
---     · simp at h₄
---       exfalso
---       clear h₃
---       specialize @h₂ y
---       simp [-Prod.forall, (·≤·)] at h₂
-
-
-
-
-
-
-
---   done
-
--- lemma proposition6 {x y : BalanceProof K₁ K₂ C Pi V}
---   (h : ∀ k, k ∈ x ∧ k ∈ y → x = y) : IsLUB {x, y} (Dict.Merge x y) := by
---   sorry
---   -- unfold Dict.Merge Dict.Merge.D Dict.First
---   -- simp [IsLUB, IsLeast, lowerBounds]
---   -- split_ands
---   -- · intros i; simp
---   --   aesop (config := {warnOnNonterminal := false}); simp [(·≤·)]
---   -- · intros i; simp
---   --   set X := x i with eqX
---   --   set Y := y i with eqY
---   --   rcases X with _ | X <;> rcases Y with _ | Y
---   --   · simp [(·≤·)]
---   --   · simp [(·≤·)]
---   --   · simp [(·≤·)]
---   --   · have eq₁ : (x i).isSome := by rw [←eqX]; simp
---   --     have eq₂ : (y i).isSome := by rw [←eqY]; simp
---   --     simp [←Dict.mem_iff_isSome] at h
---   --     have eq₃ : i ∈ x := Dict.mem_iff_isSome.2 eq₁
---   --     have eq₄ : i ∈ y := Dict.mem_iff_isSome.2 eq₂
---   --     have : x = y := by aesop
---   --     subst this
---   --     rw [eqX, eqY]
---   --     aesop
---   -- · intros π hπ₁ hπ₂ i; simp
---   --   have hπ₁' : ∀ k, x k ≤ π k := by aesop
---   --   have hπ₂' : ∀ k, y k ≤ π k := by aesop
---   --   set X := x i with eqX
---   --   set Y := y i with eqY
---   --   set PI := π i with eqPI
---   --   rcases X with _ | X <;> rcases Y with _ | Y <;> rcases PI with _ | PI
---   --   · simp [(·≤·)]
---   --   · simp [(·≤·)]
---   --   · specialize hπ₂' i
---   --     rw [←eqPI, ←eqY] at hπ₂'
---   --     simp [(·≤·)] at hπ₂'
---   --   · aesop
---   --   · specialize hπ₂' i
---   --     rw [←eqPI] at hπ₂'
---   --     specialize hπ₁' i
---   --     rw [←eqPI] at hπ₁'
---   --     simp
---   --     rw [eqX]
---   --     assumption
---   --   · specialize hπ₂' i
---   --     specialize hπ₁' i
---   --     aesop
---   --   · specialize hπ₂' i
---   --     specialize hπ₁' i
---   --     aesop
---   --   · specialize hπ₂' i
---   --     specialize hπ₁' i
---   --     aesop
-
--- lemma proposition6' {x y : BalanceProof K₁ K₂ C Pi V}
---   (h : ∀ k, k ∈ x ∧ k ∈ y → x ≤ y ∧ y ≤ x) : IsLUB {x, y} (Dict.Merge x y) := by
---   unfold Dict.Merge Dict.Merge.D Dict.First
---   simp [IsLUB, IsLeast, lowerBounds]
---   split_ands
---   · intros i; simp
---     aesop (config := {warnOnNonterminal := false}); simp [(·≤·)]
---   · intros i; simp
---     set X := x i with eqX
---     set Y := y i with eqY
---     rcases X with _ | X <;> rcases Y with _ | Y
---     · simp [(·≤·)]
---     · simp [(·≤·)]
---     · simp [(·≤·)]
---     · have eq₁ : (x i).isSome := by rw [←eqX]; simp
---       have eq₂ : (y i).isSome := by rw [←eqY]; simp
---       simp [←Dict.mem_iff_isSome, -Prod.forall] at h
---       have eq₃ : i ∈ x := Dict.mem_iff_isSome.2 eq₁
---       have eq₄ : i ∈ y := Dict.mem_iff_isSome.2 eq₂
---       have : x ≤ y ∧ y ≤ x := h _ eq₃ eq₄
---       rw [eqX, eqY]
---       rw [Dict.mem_iff_isSome] at eq₃
---       rw [Dict.mem_iff_isSome] at eq₄
---       apply w₄ <;> aesop
---   · intros π hπ₁ hπ₂ i; simp
---     have hπ₁' : ∀ k, x k ≤ π k := by aesop
---     have hπ₂' : ∀ k, y k ≤ π k := by aesop
---     set X := x i with eqX
---     set Y := y i with eqY
---     set PI := π i with eqPI
---     rcases X with _ | X <;> rcases Y with _ | Y <;> rcases PI with _ | PI
---     · simp [(·≤·)]
---     · simp [(·≤·)]
---     · specialize hπ₂' i
---       rw [←eqPI, ←eqY] at hπ₂'
---       simp [(·≤·)] at hπ₂'
---     · aesop
---     · specialize hπ₂' i
---       rw [←eqPI] at hπ₂'
---       specialize hπ₁' i
---       rw [←eqPI] at hπ₁'
---       simp
---       rw [eqX]
---       assumption
---     · specialize hπ₂' i
---       specialize hπ₁' i
---       aesop
---     · specialize hπ₂' i
---       specialize hπ₁' i
---       aesop
---     · specialize hπ₂' i
---       specialize hπ₁' i
---       aesop
-
-def iso {X : Type} [Preorder X] (a b : X) := a ≤ b ∧ b ≤ a
-
-notation (priority := high) a " ≅ " b => iso a b
-
-section iso
-
-variable {X : Type} [Preorder X]
-         {a b c : X}
-
-@[simp, refl]
-lemma iso_rfl : a ≅ a := by unfold iso; aesop
-
-lemma iso_symm : (a ≅ b) ↔ b ≅ a := by unfold iso; aesop
-
-lemma iso_trans : (a ≅ b) → (b ≅ c) → a ≅ c := by unfold iso; aesop (add unsafe forward le_trans)
-
-end iso
-
-def IsEquivRel {X : Type} [Preorder X] := ∀ a b : X, a ≤ b ↔ a ≅ b
-
-class Setoid' (X : Type) extends Preorder X where
-  isEquiv : IsEquivRel (X := X)
-
-@[simp]
-lemma le_eq_iso [φ : Setoid' X] {a b : X} : a ≤ b ↔ a ≅ b := by
-  rcases φ with ⟨equiv⟩; unfold IsEquivRel at equiv
-  aesop
-
-@[simp]
-lemma none_le {α : Type} [Preorder α] {x : α} : Option.none ≤ .some x := by simp [(·≤·)]
-
-@[simp]
-lemma some_le_none_eq_False {α : Type} [Preorder α] {x : α} : Option.some x ≤ none ↔ False := by
-  simp [(·≤·)]
-
-@[simp]
-lemma some_le_some {α : Type} [Preorder α] {x y : α} :
-  Option.some x ≤ .some y ↔ x ≤ y := by simp [(·≤·)]
-
-@[simp]
-lemma some_iso_some {α : Type} [Preorder α] {x y : α} :
-  (Option.some x ≅ .some y) ↔ x ≅ y := by
-  simp [iso]
-
-@[simp]
-lemma none_iso_some {α : Type} [Preorder α] {x : α} : (.none ≅ some x) ↔ False := by
-  simp [iso]
-
-lemma proposition1 {X : Type} [Preorder X] {x y : X} {s : Set X}
-  (h₁ : IsLUB s x) (h₂ : IsLUB s y) : x ≅ y := by
-  simp [IsLUB, IsLeast, lowerBounds, upperBounds] at h₁ h₂
-  unfold iso
-  aesop
-
-lemma proposition2 {X : Type} [Setoid' X] {x y : X} :
-  (∃ join : X, (IsLUB {x, y} join)) ↔ x ≅ y := by
-  refine' Iff.intro (λ h ↦ _) (λ h ↦ _)
-  · rcases h with ⟨join, ⟨h₁, -⟩⟩
-    simp [mem_upperBounds] at h₁
-    exact iso_trans h₁.1 h₁.2.symm
-  · simp [IsLUB, IsLeast, lowerBounds, upperBounds]
-    by_contra contra; simp at contra
-    have : ∃ x', (x ≅ x') ∧ (y ≅ x') ∧ ¬y ≅ x' := contra _ h iso_rfl
-    rcases this; aesop
-
-lemma proposition2' {X : Type} [Setoid' X] {join x y : X} (h : IsLUB {x, y} join) :
-  (x ≅ join) ∧ y ≅ join := by
-  simp [IsLUB, IsLeast, upperBounds, lowerBounds] at h
-  aesop
-
-lemma proposition3 {X : Type} [Preorder X] {x join : Option X} (h : IsLUB {x, .none} join) :
-  join ≅ x := by
-  simp [IsLUB, IsLeast, upperBounds, lowerBounds] at h
-  rcases h with ⟨⟨h₁, h₂⟩, h₃⟩
-  unfold LE.le Preorder.toLE maybeInduced at h₁; simp at h₁
-  rcases x with _ | x <;> rcases join with _ | join
-  · simp
-  · specialize @h₃ .none
-    simp [(·≤·)] at h₃
-  · simp at h₁
-  · specialize @h₃ x (by simp) (by simp [(·≤·)])
-    simp at h₁
-    have : some x ≤ some join := by aesop
-    simp [iso]; tauto
-
-lemma proposition4 {X : Type} [Setoid' X] {x y : Option X} :
-  (∃ join : Option X, IsLUB {x, y} join) ↔ (x ≠ .none ∧ y ≠ .none → x ≅ y) := by
-  refine' Iff.intro (λ h ↦ _) (λ h ↦ _)
-  · simp [IsLUB, IsLeast, lowerBounds, upperBounds] at h
-    rcases h with ⟨join, ⟨⟨h₁, h₂⟩, h₃⟩⟩
-    intros h₄
-    rcases x with _ | x <;> rcases y with _ | y <;> rcases join with _ | join
-    · simp
-    · simp
-    · simp at h₄
-    · simp at h₄
-    · simp at h₁
-    · simp at h₄
-    · simp at h₁
-    · simp at h₁ h₂
-      have : x ≅ y := iso_trans h₁ h₂.symm
-      aesop
-  · simp [IsLUB, IsLeast, lowerBounds, upperBounds]
-    rcases x with _ | x <;> rcases y with _ | y
-    · use none; simp
-    · use .some y; simp
-    · use .some x; simp
-      intros y h₁; exact λ _ ↦ h₁
-    · simp at h
-      by_contra contra
-      simp at contra
-      have eq₁ : ∃ x', some x ≤ x' ∧ some y ≤ x' ∧ ¬x ≤ x' := contra x (by simp) h.2
-      have eq₂ : ∃ x', some x ≤ x' ∧ some y ≤ x' ∧ ¬y ≤ x' := contra y h.1 (by simp)
-      tauto
-
-lemma proposition4W' {X : Type} [Setoid' X] {x y : Option X} :
-  (∃ join : Option X, IsLUB {x, y} join) ↔ (x ≠ .none ∧ y ≠ .none → x ≅ y) := by
-  refine' Iff.intro (λ h ↦ _) (λ h ↦ _)
-  · simp [IsLUB, IsLeast, lowerBounds, upperBounds] at h
-    rcases h with ⟨join, ⟨⟨h₁, h₂⟩, h₃⟩⟩
-    intros h₄
-    rcases x with _ | x <;> rcases y with _ | y <;> rcases join with _ | join
-    · simp
-    · simp
-    · simp at h₄
-    · simp at h₄
-    · simp at h₁
-    · simp at h₄
-    · simp at h₁
-    · simp at h₁ h₂
-      have : x ≅ y := iso_trans h₁ h₂.symm
-      aesop
-  · simp [IsLUB, IsLeast, lowerBounds, upperBounds]
-    rcases x with _ | x <;> rcases y with _ | y
-    · use none; simp
-    · use .some y; simp
-    · use .some x; simp
-      intros y h₁; exact λ _ ↦ h₁
-    · simp at h
-      by_contra contra
-      simp at contra
-      have eq₁ : ∃ x', some x ≤ x' ∧ some y ≤ x' ∧ ¬x ≤ x' := contra x (by simp) h.2
-      have eq₂ : ∃ x', some x ≤ x' ∧ some y ≤ x' ∧ ¬y ≤ x' := contra y h.1 (by simp)
-      tauto
-
-lemma proposition4' {X : Type} [Setoid' X] {join x y : Option X} (h : IsLUB {x, y} join) :
-  join ≅ Dict.First x y := by
-  have eq : ∃ join, IsLUB {x, y} join := (by aesop); rw [proposition4] at eq
-  rcases x with _ | x <;> rcases y with _ | y <;> rcases join with _ | join
-  · simp
-  · simp
-    simp [IsLUB, IsLeast, lowerBounds, upperBounds] at h
-    specialize @h .none
-    simp at h
-  · simp [IsLUB, IsLeast, lowerBounds, upperBounds] at h
-  · simp [IsLUB, IsLeast, lowerBounds, upperBounds] at h
-    simp
-    rcases h with ⟨h, -⟩
-    rw [iso_symm] at h
-    aesop
-  · simp [IsLUB, IsLeast, lowerBounds, upperBounds] at h
-  · simp [IsLUB, IsLeast, lowerBounds, upperBounds] at h
-    simp
-    rcases h with ⟨h, -⟩
-    rw [iso_symm] at h
-    aesop
-  · simp [IsLUB, IsLeast, lowerBounds, upperBounds] at h
-  · simp at eq ⊢
-    simp [IsLUB, IsLeast, lowerBounds, upperBounds] at h
-    rw [iso_symm] at h
-    aesop
-
-lemma proposition4'WW {X : Type} [Setoid' X] {join x y : Option X} (h : IsLUB {x, y} join) :
-  join ≅ Dict.First x y := by
-  have eq : ∃ join, IsLUB {x, y} join := (by aesop); rw [proposition4] at eq
-  rcases x with _ | x <;> rcases y with _ | y <;> rcases join with _ | join
-  · simp
-  · simp
-    simp [IsLUB, IsLeast, lowerBounds, upperBounds] at h
-    specialize @h .none
-    simp at h
-  · simp [IsLUB, IsLeast, lowerBounds, upperBounds] at h
-  · simp [IsLUB, IsLeast, lowerBounds, upperBounds] at h
-    simp
-    rcases h with ⟨h, -⟩
-    rw [iso_symm] at h
-    aesop
-  · simp [IsLUB, IsLeast, lowerBounds, upperBounds] at h
-  · simp [IsLUB, IsLeast, lowerBounds, upperBounds] at h
-    simp
-    rcases h with ⟨h, -⟩
-    rw [iso_symm] at h
-    aesop
-  · simp [IsLUB, IsLeast, lowerBounds, upperBounds] at h
-  · simp at eq ⊢
-    simp [IsLUB, IsLeast, lowerBounds, upperBounds] at h
-    rw [iso_symm] at h
-    aesop
-
-lemma proposition5 {X Y : Type} [Preorder Y] {f g : X → Y} {join : X → Y} :
-  IsLUB {f, g} join ↔ ∀ x : X, IsLUB {f x, g x} (join x) := by
-  simp_rw [isLUB_pi]; simp [Function.eval, Set.image]
-  have : ∀ x, {x_1 | f x = x_1 ∨ g x = x_1} = {f x, g x} := by aesop
-  simp_rw [this]
-
-lemma proposition5' {X Y : Type} [Preorder Y] {f g : X → Y} {h : X → Y} {join : Y} {join' : X → Y}
-  (hjoin : IsLUB {f, g} join')
-  (h₀ : ∀ x, IsLUB {f x, g x} join)
-  (h₁ : ∀ x, h x ≅ join' x) :
-  join' ≅ h := by
-    rw [←proposition5] at h₀
-    simp [(·≅·)] at h₁ ⊢
-    simp [IsLUB, IsLeast, Set.Ici, lowerBounds, upperBounds] at hjoin h₀
-    aesop (config := {warnOnNonterminal := false})
-    simp [(·≤·)]
-    aesop
-    simp [(·≤·)]
-    aesop
-
-lemma proposition6W {X Y : Type} [Setoid' Y] {D₁ D₂ join : Dict X Y} (h : IsLUB {D₁, D₂} join) :
-  join ≅ Dict.Merge D₁ D₂ := by
-  simp [isLUB_pi, Set.image] at h
-  have : ∀ a, {x | D₁ a = x ∨ D₂ a = x} = {D₁ a, D₂ a} := by aesop
-  simp_rw [this] at h
-  unfold Dict.Merge Dict.Merge.D
-  have : join ≅ λ x ↦ join x := iso_rfl
-  apply iso_trans this
-  simp [iso]
-  split_ands
-  · simp [(·≤·)]
-    intros x
-    set J := join x with eqX
-    set D := D₁ x with eqD₁
-    set D' := D₂ x with eqD₂
-    rcases J with _ | J <;> rcases D with _ | D <;> rcases D' with _ | D'
-    · simp
-    · simp
-    · simp
-    · simp
-    · simp
-      specialize h x
-      simp_rw [←eqD₁, ←eqD₂] at h
-      apply proposition4' at h
-      simp at h
-      simp [iso] at h
-      simp [(·≤·)] at h
-      rw [←eqX] at h
-      simp at h
-    · simp
-      specialize h x
-      simp_rw [←eqD₁, ←eqD₂] at h
-      apply proposition4' at h
-      simp at h
-      rw [←eqX] at h
-      simp at h
-      exact h
-    · simp
-      rw [←some_iso_some]
-      specialize h x
-      simp_rw [←eqD₁, ←eqD₂] at h
-      apply proposition4' at h
-      simp at h
-      aesop
-    · simp
-      specialize h x
-      simp_rw [←eqD₁, ←eqD₂] at h
-      apply proposition4' at h
-      simp at h
-      rw [←some_iso_some]
-      aesop
-  · simp [(·≤·)]
-    intros x
-    set J := join x with eqX
-    set D := D₁ x with eqD₁
-    set D' := D₂ x with eqD₂
-    rcases J with _ | J <;> rcases D with _ | D <;> rcases D' with _ | D'
-    · simp
-    · specialize h x
-      simp_rw [←eqD₁, ←eqD₂] at h
-      apply proposition4' at h
-      simp at h
-      rw [←eqX] at h
-      simp at h
-    · specialize h x
-      simp_rw [←eqD₁, ←eqD₂] at h
-      apply proposition4' at h
-      simp at h
-      rw [←eqX] at h
-      simp at h
-    · specialize h x
-      simp_rw [←eqD₁, ←eqD₂] at h
-      apply proposition4' at h
-      simp at h
-      rw [←eqX] at h
-      simp at h
-    · simp
-    · simp
-      specialize h x
-      simp_rw [←eqD₁, ←eqD₂] at h
-      apply proposition4' at h
-      simp at h
-      rw [←some_iso_some]
-      rw [←eqX] at h
-      rw [iso_symm]
-      exact h
-    · simp
-      specialize h x
-      simp_rw [←eqD₁, ←eqD₂] at h
-      apply proposition4' at h
-      simp at h
-      rw [←eqX] at h
-      rw [iso_symm]
-      exact h
-    · simp
-      specialize h x
-      simp_rw [←eqD₁, ←eqD₂] at h
-      apply proposition4' at h
-      simp at h
-      rw [←some_iso_some]
-      rw [iso_symm]
-      aesop
-
 instance : Setoid' ((Pi × ExtraDataT) × TransactionBatch K₁ K₂ V) where
   isEquiv := by unfold IsEquivRel
                 intros a b
                 unfold iso
                 simp [(·≤·)]
                 aesop
-
-lemma proposition6' {x y : BalanceProof K₁ K₂ C Pi V}
-  (h : ∀ k, k ∈ x ∧ k ∈ y → x k ≅ y k) : IsLUB {x, y} (Dict.Merge x y) := by
-  unfold Dict.Merge Dict.Merge.D Dict.First
-  simp [IsLUB, IsLeast, lowerBounds]
-  split_ands
-  · intros i; simp
-    aesop
-  · intros i; simp
-    set X := x i with eqX
-    set Y := y i with eqY
-    rcases X with _ | X <;> rcases Y with _ | Y
-    · simp [(·≤·)]
-    · simp [(·≤·)]
-    · simp [(·≤·)]
-    · have eq₁ : (x i).isSome := by rw [←eqX]; simp
-      have eq₂ : (y i).isSome := by rw [←eqY]; simp
-      simp [←Dict.mem_iff_isSome, -Prod.forall] at h
-      have eq₃ : i ∈ x := Dict.mem_iff_isSome.2 eq₁
-      have eq₄ : i ∈ y := Dict.mem_iff_isSome.2 eq₂
-      have : x i ≤ y i ∧ y i ≤ x i := h _ eq₃ eq₄
-      rw [eqX, eqY]
-      rw [Dict.mem_iff_isSome] at eq₃
-      rw [Dict.mem_iff_isSome] at eq₄
-      apply w₄ <;> aesop
-  · intros π hπ₁ hπ₂ i; simp
-    have hπ₁' : ∀ k, x k ≤ π k := by aesop
-    have hπ₂' : ∀ k, y k ≤ π k := by aesop
-    set X := x i with eqX
-    set Y := y i with eqY
-    set PI := π i with eqPI
-    rcases X with _ | X <;> rcases Y with _ | Y <;> rcases PI with _ | PI
-    · simp [(·≤·)]
-    · simp [(·≤·)]
-    · specialize hπ₂' i
-      rw [←eqPI, ←eqY] at hπ₂'
-      simp [(·≤·)] at hπ₂'
-    · aesop
-    · specialize hπ₂' i
-      rw [←eqPI] at hπ₂'
-      specialize hπ₁' i
-      rw [←eqPI] at hπ₁'
-      simp
-      rw [←eqX] at hπ₁'
-      assumption
-    · specialize hπ₂' i
-      specialize hπ₁' i
-      aesop
-    · specialize hπ₂' i
-      specialize hπ₁' i
-      aesop
-    · specialize hπ₂' i
-      specialize hπ₁' i
-      aesop
-
-lemma proposition6'any {X Y : Type} [Setoid' Y] {D₁ D₂ : Dict X Y}
-  (h : ∀ k, D₁ k ≠ .none ∧ D₂ k ≠ .none → D₁ k ≅ D₂ k) : IsLUB {D₁, D₂} (Dict.Merge D₁ D₂) := by
-  unfold Dict.Merge Dict.Merge.D Dict.First
-  simp [IsLUB, IsLeast, lowerBounds]
-  split_ands
-  · intros i; simp
-    aesop
-  · intros i; simp
-    set X := D₁ i with eqX
-    set Y := D₂ i with eqY
-    rcases X with _ | X <;> rcases Y with _ | Y
-    · simp [(·≤·)]
-    · simp [(·≤·)]
-    · simp [(·≤·)]
-    · have eq₁ : (D₁ i).isSome := by rw [←eqX]; simp
-      have eq₂ : (D₂ i).isSome := by rw [←eqY]; simp
-      simp [←Dict.mem_iff_isSome, -Prod.forall] at h
-      have : D₁ i ≤ D₂ i ∧ D₂ i ≤ D₁ i := h _ (by aesop) (by aesop)
-      rw [eqX, eqY]
-      aesop
-  · intros π hπ₁ hπ₂ i; simp
-    have hπ₁' : ∀ k, D₁ k ≤ π k := by aesop
-    have hπ₂' : ∀ k, D₂ k ≤ π k := by aesop
-    set X := D₁ i with eqX
-    set Y := D₂ i with eqY
-    set PI := π i with eqPI
-    rcases X with _ | X <;> rcases Y with _ | Y <;> rcases PI with _ | PI
-    · simp [(·≤·)]
-    · simp [(·≤·)]
-    · specialize hπ₂' i
-      rw [←eqPI, ←eqY] at hπ₂'
-      simp [(·≤·)] at hπ₂'
-    · aesop
-    · specialize hπ₂' i
-      rw [←eqPI] at hπ₂'
-      specialize hπ₁' i
-      rw [←eqPI] at hπ₁'
-      simp
-      rw [←eqX] at hπ₁'
-      assumption
-    · specialize hπ₂' i
-      specialize hπ₁' i
-      aesop
-    · specialize hπ₂' i
-      specialize hπ₁' i
-      aesop
-    · specialize hπ₂' i
-      specialize hπ₁' i
-      aesop
-
-lemma proposition6?! {X Y : Type} [Setoid' Y] {D₁ D₂ : Dict X Y} :
-  (∃ join, IsLUB {D₁, D₂} join) ↔ ∀ x, D₁ x ≠ .none ∧ D₂ x ≠ .none → D₁ x ≅ D₂ x := by
-  refine' ⟨λ h ↦ _, λ h ↦ _⟩
-  simp_rw [proposition5] at h
-  simp_rw [←proposition4]
-  aesop
-  use D₁.Merge D₂
-  exact proposition6'any h
-  
-
-
-  
-  
-  
-  
-  -- refine' ⟨λ h x ↦ _, λ h x ↦ _⟩
-  
-
-
-
--- lemma proposition6XK {x y : BalanceProof K₁ K₂ C Pi V}
---   (h : ∀ k, k ∈ x ∧ k ∈ y → x k ≅ y k) : IsLUB {x, y} (Dict.Merge x y) := by
---   unfold Dict.Merge Dict.Merge.D Dict.First
---   simp [IsLUB, IsLeast, lowerBounds]
---   split_ands
---   · intros i; simp
---     aesop
---   · intros i; simp
---     set X := x i with eqX
---     set Y := y i with eqY
---     rcases X with _ | X <;> rcases Y with _ | Y
---     · simp [(·≤·)]
---     · simp [(·≤·)]
---     · simp [(·≤·)]
---     · have eq₁ : (x i).isSome := by rw [←eqX]; simp
---       have eq₂ : (y i).isSome := by rw [←eqY]; simp
---       simp [←Dict.mem_iff_isSome, -Prod.forall] at h
---       have eq₃ : i ∈ x := Dict.mem_iff_isSome.2 eq₁
---       have eq₄ : i ∈ y := Dict.mem_iff_isSome.2 eq₂
---       have : x ≤ y ∧ y ≤ x := h _ eq₃ eq₄
---       rw [eqX, eqY]
---       rw [Dict.mem_iff_isSome] at eq₃
---       rw [Dict.mem_iff_isSome] at eq₄
---       apply w₄ <;> aesop
---   · intros π hπ₁ hπ₂ i; simp
---     have hπ₁' : ∀ k, x k ≤ π k := by aesop
---     have hπ₂' : ∀ k, y k ≤ π k := by aesop
---     set X := x i with eqX
---     set Y := y i with eqY
---     set PI := π i with eqPI
---     rcases X with _ | X <;> rcases Y with _ | Y <;> rcases PI with _ | PI
---     · simp [(·≤·)]
---     · simp [(·≤·)]
---     · specialize hπ₂' i
---       rw [←eqPI, ←eqY] at hπ₂'
---       simp [(·≤·)] at hπ₂'
---     · aesop
---     · specialize hπ₂' i
---       rw [←eqPI] at hπ₂'
---       specialize hπ₁' i
---       rw [←eqPI] at hπ₁'
---       simp
---       rw [←eqX] at hπ₁'
---       assumption
---     · specialize hπ₂' i
---       specialize hπ₁' i
---       aesop
---     · specialize hπ₂' i
---       specialize hπ₁' i
---       aesop
---     · specialize hπ₂' i
---       specialize hπ₁' i
---       aesop
 
 lemma setoid_rewrite_LUB {X : Type} {s : Set X} [Setoid' X] {x y : X} (h₁ : IsLUB s x) (h₂ : x ≅ y) :
   IsLUB s y := by
@@ -2473,352 +859,6 @@ lemma setoid_rewrite_LUB {X : Type} {s : Set X} [Setoid' X] {x y : X} (h₁ : Is
     specialize @h₄ x' hx
     rw [iso_symm] at h₂
     apply iso_trans <;> assumption
-
-lemma proposition6W_l {X Y : Type} [Setoid' Y] {D₁ D₂ join : Dict X Y}
-  (h : join ≅ Dict.Merge D₁ D₂) (h₀ : ∀ k, D₁ k ≠ .none ∧ D₂ k ≠ .none → D₁ k ≅  D₂ k) : IsLUB {D₁, D₂} join := by
-  simp [isLUB_pi, Set.image]
-  intros a
-  have : {x | D₁ a = x ∨ D₂ a = x} = {D₁ a, D₂ a} := by aesop
-  simp_rw [this]; clear this
-  set A := D₁ a with eqA
-  set B := D₂ a with eqB
-  set C := join a with eqC
-  unfold iso at h
-  simp [(·≤·)] at h
-  rcases h with ⟨h₁, h₂⟩
-  simp [Dict.Merge] at h₁ h₂
-  unfold Dict.Merge.D at h₁ h₂
-  specialize h₁ a
-  specialize h₂ a
-  rcases A with _ | A <;> rcases B with _ | B <;> rcases C with _ | C
-  · simp
-  · rw [←eqC, ←eqA, ←eqB] at h₁ h₂
-    simp at h₁ h₂
-  · rw [←eqC, ←eqA, ←eqB] at h₁ h₂
-    simp at h₁ h₂
-  · rw [←eqC, ←eqA, ←eqB] at h₁ h₂
-    simp at h₁ h₂
-    simp [IsLUB, IsLeast, lowerBounds, upperBounds]
-    refine' ⟨by assumption, _⟩
-    intros X y z
-    rcases X with _ | X
-    simp at z
-    apply le_trans h₁.1
-    simp at z
-    exact z.1
-  · rw [←eqC, ←eqA, ←eqB] at h₁ h₂
-    simp at h₁ h₂
-  · rw [←eqC, ←eqA, ←eqB] at h₁ h₂
-    simp at h₁ h₂
-    simp [IsLUB, IsLeast, lowerBounds, upperBounds]
-    refine' ⟨by assumption, _⟩
-    intros X y z
-    rcases X with _ | X
-    simp at y
-    apply le_trans h₁.1
-    simp at y
-    exact y.1
-  · rw [←eqC, ←eqA, ←eqB] at h₁ h₂
-    simp at h₁ h₂
-  · rw [←eqC, ←eqA, ←eqB] at h₁ h₂
-    specialize h₀ a
-    simp at h₁ h₂ h₀
-    have : D₁ a ≅ D₂ a := by aesop
-    rw [←eqA, ←eqB] at this
-    simp [IsLUB, IsLeast, lowerBounds, upperBounds]
-    split_ands
-    · exact h₂.1
-    · exact h₂.2
-    · simp at this
-      have eq : B ≅ C := iso_trans (iso_symm.1 this) h₂
-      exact eq.1
-    · intros
-      have eq : B ≅ C := iso_trans (iso_symm.1 this) h₂
-      exact eq.2
-    · intros H h₃ h₄
-      simp at this
-      have eq : B ≅ C := iso_trans (iso_symm.1 this) h₂
-      rw [iso_symm] at eq
-      rcases H with _ | H
-      · simp at h₃
-      · simp at h₃ h₄ ⊢
-        apply iso_trans eq h₄
-
-
-  -- done
-
-
-  -- simp [IsLUB, IsLeast, lowerBounds]
-  -- split_ands
-  -- · intros i; simp
-  --   aesop
-  -- · intros i; simp
-  --   set X := D₁ i with eqX
-  --   set Y := D₂ i with eqY
-  --   rcases X with _ | X <;> rcases Y with _ | Y
-  --   · simp
-  --   · simp
-  --   · simp
-  --   · simp
-  --     specialize h i
-  --     rw [←eqX, ←eqY] at h
-  --     simp at h
-  --     rw [iso_symm]
-  --     exact h
-  -- · intros π hπ₁ hπ₂ i; simp
-  --   specialize h i
-  --   set X := D₁ i with eqX
-  --   set Y := D₂ i with eqY
-  --   set PI := π i with eqPI
-  --   rcases X with _ | X <;> rcases Y with _ | Y <;> rcases PI with _ | PI
-  --   · simp
-  --   · simp
-  --   · simp
-
-    -- set PI := π i with eqPI
-    -- rcases X with _ | X <;> rcases Y with _ | Y <;> rcases PI with _ | PI
-    -- · simp [(·≤·)]
-    -- · simp [(·≤·)]
-    -- · specialize hπ₂' i
-    --   rw [←eqPI, ←eqY] at hπ₂'
-    --   simp [(·≤·)] at hπ₂'
-    -- · aesop
-    -- · specialize hπ₂' i
-    --   rw [←eqPI] at hπ₂'
-    --   specialize hπ₁' i
-    --   rw [←eqPI] at hπ₁'
-    --   simp
-    --   rw [←eqX] at hπ₁'
-    --   assumption
-    -- · specialize hπ₂' i
-    --   specialize hπ₁' i
-    --   aesop
-    -- · specialize hπ₂' i
-    --   specialize hπ₁' i
-    --   aesop
-    -- · specialize hπ₂' i
-    --   specialize hπ₁' i
-    --   aesop
-
-
--- lemma xx {X Y : Type} {s : Set (Dict X Y)} [Setoid' Y] {D₁ D₂ : Dict X Y}
---   (h : IsLUB s D₂) : IsLUB (s.insert D₁) (Dict.Merge D₁ D₂) := by
-
-  -- simp [IsLUB, IsLeast, upperBounds, lowerBounds] at *
-
--- #exit
-
--- lemma prop6W {X Y : Type} [Setoid' Y] {D₁ D₂ : Dict X Y} :
---   (∃ join, IsLUB {D₁, D₂} join) ↔ (∀ x, D₁ x ≠ .none ∧ D₂ x ≠ .none → D₁ x ≅ D₂ x) := by
---   have : ∀ a, {x | D₁ a = x ∨ D₂ a = x} = {D₁ a, D₂ a} := by aesop
---   simp_rw [←proposition4]
---   refine' ⟨λ h ↦ _, λ h ↦ _⟩
---   simp [isLUB_pi, Set.image] at h
---   simp_rw [this] at h
---   tauto
---   simp [isLUB_pi, Set.image]
---   simp_rw [this]
---   intros a
---   intros x
---   specialize h x
---   rcases h with ⟨h₁, h₂⟩
-
-
-
-
---   by_contra contra
---   simp at contra
---   specialize contra D₁
---   rcases contra with ⟨x, h₁⟩
---   specialize h x
---   rcases h with ⟨x', h₁'⟩
-
-
---   rcases h with ⟨join, hjoin⟩
-
--- lemma prop6 {X Y : Type} [Setoid' Y] {D₁ D₂ : Dict X Y} {join} :
---   (IsLUB {D₁, D₂} join) ↔ (D₁ x ≠ .none ∧ D₂ x ≠ .none → D₁ x ≅ D₂ x) := by
---   have : ∀ a, {x | D₁ a = x ∨ D₂ a = x} = {D₁ a, D₂ a} := by aesop
---   simp_rw [←proposition4]
---   simp [isLUB_pi, Set.image]
---   simp_rw [this]
---   refine' ⟨λ h ↦ _, λ h ↦ _⟩
---   tauto
-
---   intros a
---   rcases h with ⟨join, hjoin⟩
-
-
-
-
-
-
---   -- have : ∀ a, {x | D₁ a = x ∨ D₂ a = x} = {D₁ a, D₂ a} := by aesop
---   -- refine' ⟨λ h ↦ _, λ h ↦ _⟩
---   -- · rcases h with ⟨join, h⟩
---   --   simp [isLUB_pi, Set.image] at h
---   --   simp_rw [this] at h
---   --   rw [←proposition4]; aesop
---   -- · simp [isLUB_pi, Set.image]; simp_rw [this]; clear this
---   --   simp_rw [←proposition4] at h
---   --   rcases h with ⟨join, hjoin⟩
-
-
-
-
-
-
-
-
--- -- lemma proposition5 {X Y : Type} [Preorder Y] {f g join : X → Y} :
--- --   IsLUB {f, g} join ↔ ∀ x : X, IsLUB {f x, g x} (join x) := by
--- --   rw [isLUB_pi]
--- --   simp [Function.eval, Set.image]
-
-
--- --   refine' ⟨λ h ↦ _, λ h ↦ _⟩
--- --   · rcases h with ⟨join, hjoin⟩
--- --     rw [isLUB_pi] at hjoin
--- --     simp [Function.eval, Set.image] at hjoin
--- --     simp at hjoin
-
-
---   -- simp [IsLUB, IsLeast, lowerBounds, upperBounds]
---   -- simp [(·≤·)]
-
-
---   -- refine' ⟨λ h ↦ _, λ h ↦ _⟩
-
---   -- sorry
---   -- . rcases h with ⟨join, h₁⟩
---   --   simp [IsLUB, IsLeast, lowerBounds, upperBounds] at h₁
-
---   --   by_contra contra
---   --   simp at contra
---   --   simp [IsLUB, IsLeast, lowerBounds, upperBounds] at contra
---   --   simp [(·≤·)] at contra
-
-
-
-
-
-
--- lemma proposition5 {X Y : Type} [Preorder Y] (f g : X → Y) :
---   (∃ join : X → Y, IsLUB {f, g} join) ↔ (∀ x : X, ∃ join' : Y, IsLUB {f x, g x} join') := by
---   refine' ⟨λ h ↦ _, λ h ↦ _⟩
---   · rcases h with ⟨join, hjoin⟩
---     simp [IsLUB, IsLeast, lowerBounds, upperBounds] at hjoin ⊢
---     rcases hjoin with ⟨⟨h₁, h₂⟩, h₃⟩
---     intros x
---     simp [(·≤·)] at h₁ h₂
---     by_contra contra
---     simp at contra
---     have : ∃ x_2, f x ≤ x_2 ∧ g x ≤ x_2 ∧ ¬(join x) ≤ x_2 := contra _ (h₁ _) (h₂ _)
---     rcases this with ⟨y₁, ⟨h₅, ⟨h₆, h₇⟩⟩⟩
---     specialize @h₃ (λ _ ↦ y₁)
---     simp [(·≤·)] at h₃
---     have : join x ≤ y₁ := by
---       apply h₃
-
---     -- simp [h₁, h₂]
---     -- intros y h₄ h₅
---     -- simp [(·≤·)] at h₃
---     -- apply h₃
---     -- intros x₁
---     -- have : join x₁ ≤ y := by
---     --   apply h₃
---     --   intros x₂
-
---     --   done
---     -- -- have : join
---     -- -- specialize h₁ x₁
---     -- -- specialize h₂ x₁
---     -- apply le_trans (h₁ x₁)
---     -- apply h₃
---     -- intros x₂
-
-
-
-
-
---   ·
-
--- -- lemma proposition5 {X Y : Type} [Nonempty X] [Preorder Y] (f g : X → Y) :
--- --   (∃ join : X → Y, IsLUB {f, g} join) ↔ (∃ join' : Y, ∀ x : X, IsLUB {f x, g x} join') := by
--- --   refine' ⟨λ h ↦ _, λ h ↦ _⟩
--- --   · rcases h with ⟨join, hjoin⟩
--- --     simp [IsLUB, IsLeast, lowerBounds, upperBounds] at hjoin ⊢
--- --     by_contra contra
--- --     simp at contra
--- --     specialize contra (join (Classical.arbitrary _))
--- --     rcases contra with ⟨contra, h₁⟩
--- --     simp [(·≤·)] at hjoin
--- --     rcases hjoin with ⟨⟨h₂, h₃⟩, h₄⟩
--- --     specialize h₁ (h₂ _)
-
-
---   ·
-
-
-
-
---     -- rcases hjoin with ⟨⟨h₁, h₂⟩, h₃⟩
---     -- by_contra contra
---     -- simp at contra
---     -- simp [IsLUB, IsLeast, lowerBounds, upperBounds] at contra
---     -- simp [(·≤·)] at h₁ h₂ h₃ contra
-
-
-
---     -- specialize @contra (join x) (h₁ _) (h₂ _)
---     -- rcases contra with ⟨x', hx₁⟩
---     -- simp [(·≤·)] at h₃
-
-
---     -- use join x
---     -- simp [IsLUB, IsLeast, lowerBounds, upperBounds]
---     -- simp [(·≤·)] at hjoin
---     -- rcases hjoin with ⟨⟨h₁, h₂⟩, h₃⟩
---     -- refine' ⟨⟨h₁ _, h₂ _⟩, λ y h₅ h₆ ↦ _⟩
---     -- specialize @h₃ join h₁ h₂
-
-
-
-
-
-
-
--- -- lemma merge_iso {s} {x₁ x₂ : Option ((Pi × ExtraDataT) × TransactionBatch K₁ K₂ V)}
--- --   (h : IsLUB s (Dict.First x₁ x₂)) : x₁ ≤ x₂ ∧ x₂ ≤ x₁ := by
--- --   simp [IsLUB, IsLeast, upperBounds, lowerBounds] at h
--- --   rcases x₁ with _ | x₁ <;> rcases x₂ with _ | x₂
--- --   · simp
--- --   · simp [Dict.First] at h
--- --     refine' ⟨by simp [(·≤·)], _⟩
--- --     simp at h
-
-
-
---   done
-
-
--- -- lemma eq {π : BalanceProof K₁ K₂ C Pi V} {s : Set (BalanceProof K₁ K₂ C Pi V)}
--- --   (h : IsLUB s π) : ∀ k, k ∈ { Dict.keys π' | π' ∈ s }.sUnion → k ∈ π := by
--- --   intros k h'
--- --   simp at h'
--- --   rcases h' with ⟨h', ⟨h₁, h₂⟩⟩
--- --   obtain ⟨h₃, h₄⟩ := h
--- --   simp [upperBounds, lowerBounds] at h₃ h₄
--- --   rw [Dict.mem_iff_isSome]
-
-
-
-
--- --   done
-
-
-
-end Ordering
 
 def mergeR (πs : List (BalanceProof K₁ K₂ C Pi V)) (n : ℕ) : BalanceProof K₁ K₂ C Pi V :=
   if _ : n < πs.length.succ
@@ -2863,6 +903,279 @@ lemma mergeR''_eq_foldl {πs : List (BalanceProof K₁ K₂ C Pi V)} {acc} :
 lemma mergeR''_cons {π} {πs : List (BalanceProof K₁ K₂ C Pi V)} {acc} :
   mergeR'' (π :: πs) acc =  Dict.Merge acc (mergeR'' πs π) := rfl
 
+def P : BalanceProof K₁ K₂ C Pi V → Prop :=
+  λ π ↦ True
+
+lemma P_initial : P (.initial : BalanceProof K₁ K₂ C Pi V) := by trivial
+
+@[simp]
+lemma mem_list_singleton_iff {π} : π ∈ ({acc} : List (BalanceProof K₁ K₂ C Pi V)) ↔ π = acc := by
+  simp [singleton]
+
+def BalanceProof.compat (π₁ π₂ : BalanceProof K₁ K₂ C Pi V) : Prop :=
+  ∀ k, π₁ k ≠ none ∧ π₂ k ≠ none → π₁ k ≅ π₂ k
+
+notation:51 π₁:52 " <≅> " π₂:52 => BalanceProof.compat π₁ π₂
+
+notation:65 π₁:65 " <+> " π₂:66 => Dict.Merge π₁ π₂
+
+section compat
+
+@[symm]
+lemma BalanceProof.compat_comm {π₁ π₂ : BalanceProof K₁ K₂ C Pi V} :
+  π₁ <≅> π₂ ↔ π₂ <≅> π₁ := by unfold BalanceProof.compat; simp_rw [iso_symm]; tauto
+
+lemma Merge_comm_of_compat {π₁ π₂ : BalanceProof K₁ K₂ C Pi V}
+  (h : π₁ <≅> π₂) : π₁ <+> π₂ ≅ π₂ <+> π₁ := by
+  apply proposition5'
+  have := proposition6_aux h
+  exact this
+  unfold Dict.Merge Dict.Merge.D Dict.First
+  have h₁ := BalanceProof.compat_comm.1 h
+  intros x; specialize h x; specialize h₁ x
+  aesop
+
+lemma Merge_iso_of_iso {π₁ π₂ π₃ : BalanceProof K₁ K₂ C Pi V} (h : π₁ ≅ π₂) :
+  π₁ <+> π₃ ≅ π₂ <+> π₃ := by
+  simp [iso] at *
+  unfold LE.le Preorder.toLE instPreorderBalanceProof id inferInstance _root_.Pi.preorder at *
+  simp [inferInstanceAs, id, _root_.Pi.hasLe, -Prod.forall] at *
+  rcases h with ⟨h₁, h₂⟩
+  unfold Dict.Merge Dict.Merge.D Dict.First
+  split_ands <;> intros x <;> specialize h₁ x <;> specialize h₂ x <;> aesop
+
+lemma Merge_mergeR''_comm {πs : List (BalanceProof K₁ K₂ C Pi V)} (h : π <≅> acc) :
+  acc <+> (mergeR'' πs π) ≅ π <+> (mergeR'' πs acc) := by
+  induction' πs with hd tl ih generalizing acc
+  · simp; exact Merge_comm_of_compat (BalanceProof.compat_comm.1 h)
+  · simp
+    rw [←Dict.Merge_assoc]
+    rw [←Dict.Merge_assoc]
+    exact Merge_iso_of_iso (Merge_comm_of_compat (BalanceProof.compat_comm.1 h))
+
+lemma existsLUB_iff_compat {π₁ π₂ : BalanceProof K₁ K₂ C Pi V} :
+  (∃ join, IsLUB {π₁, π₂} join) ↔ π₁ <≅> π₂ := proposition6
+
+lemma le_of_iso {π₁ π₂ π₃ : BalanceProof K₁ K₂ C Pi V} (h : π₂ ≅ π₃) (h₁ : π₁ ≤ π₂) : π₁ ≤ π₃ :=
+  le_trans h₁ h.1
+
+lemma le_of_iso' {π₁ π₂ π₃ : BalanceProof K₁ K₂ C Pi V} (h : π₁ ≅ π₂) (h₁ : π₂ ≤ π₃) : π₁ ≤ π₃ :=
+  le_trans h.1 h₁
+
+@[simp]
+lemma snd_eq_of_iso {d₁ d₂ : (Pi × ExtraDataT) × TransactionBatch K₁ K₂ V} :
+  d₁.2 = d₂.2 ↔ (d₁ ≅ d₂) := by
+  unfold iso
+  simp [(·≤·)]
+  tauto
+
+lemma compat_of_iso {π π' : BalanceProof K₁ K₂ C Pi V}
+  (h : π ≅ π') : π <≅> π' := by
+  intros x y
+  simp [iso] at h
+  unfold LE.le Preorder.toLE instPreorderBalanceProof id inferInstance _root_.Pi.preorder at h
+  simp [-Prod.forall, inferInstanceAs, _root_.Pi.hasLe] at h
+  rcases h with ⟨h₁, h₂⟩
+  specialize h₁ x
+  specialize h₂ x
+  unfold iso
+  tauto
+
+lemma isLUB_of_isLUB_iso {π π' : BalanceProof K₁ K₂ C Pi V}
+  (h : IsLUB A π) (h₁ : π ≅ π') : IsLUB A π' := by
+  simp only [IsLUB, IsLeast, upperBounds, Set.mem_setOf_eq, lowerBounds] at *
+  rcases h with ⟨h₂, h₃⟩
+  split_ands
+  · intros X hX
+    have : X ≤ π := h₂ hX
+    exact le_trans this h₁.1
+  · intros X hX
+    specialize h₃ hX
+    exact le_trans h₁.2 h₃
+
+end compat
+
+lemma merge_le {π₁ π₂ π₃ : BalanceProof K₁ K₂ C Pi V}
+  (h₁ : π₁ ≤ π₃) (h₂ : π₂ ≤ π₃) : π₁ <+> π₂ ≤ π₃ := by
+  have h₃ : π₁ <≅> π₂ := by
+    intros k hk
+    simp [-Prod.forall, (·≤·)] at h₁ h₂
+    specialize h₁ k
+    specialize h₂ k
+    aesop (config := {warnOnNonterminal := false})
+    exact iso_trans h₁ h₂.symm
+  obtain ⟨π, hπ⟩ := existsLUB_iff_compat.2 h₃
+  have hπ' := hπ
+  apply proposition6' at hπ
+  have eq₁ : π₁ ≤ π := by unfold IsLUB IsLeast upperBounds lowerBounds at hπ'; aesop
+  have eq₂ : π₂ ≤ π := by unfold IsLUB IsLeast upperBounds lowerBounds at hπ'; aesop
+  transitivity π
+  exact hπ.symm.1
+  have eq₃ := hπ.2
+  unfold IsLUB IsLeast upperBounds lowerBounds at hπ'
+  rcases hπ' with ⟨hπ₁, hπ₂⟩
+  simp at hπ₂
+  apply hπ₂ <;> assumption
+
+lemma isLUB_union_Merge_of_isLUB_isLUB_compat {A B : Set (BalanceProof K₁ K₂ C Pi V)}
+  (h₁ : IsLUB A j₁) (h₂ : IsLUB B j₂) (h₃ : j₁ <≅> j₂) : IsLUB (A ∪ B) (j₁ <+> j₂) := by
+  have h₃'' := h₃
+  obtain ⟨j, h₃⟩ := existsLUB_iff_compat.2 h₃
+  split_ands
+  · simp only [IsLUB, IsLeast, upperBounds, Set.mem_insert_iff, Set.mem_singleton_iff,
+    forall_eq_or_imp, forall_eq, Set.mem_setOf_eq, lowerBounds, and_imp, Set.mem_union] at h₁ h₂ h₃ ⊢
+    rcases h₁ with ⟨h₁, h₁'⟩
+    rcases h₂ with ⟨h₂, h₂'⟩
+    rintro D₁ (hD₁ | hD₂)
+    · simp [-Prod.forall, (·≤·)]
+      intros x
+      unfold Dict.Merge Dict.Merge.D Dict.First
+      specialize h₁ hD₁
+      simp [-Prod.forall, (·≤·)] at h₁
+      specialize h₁ x
+      set d₁ := D₁ x with eqX
+      set d₂ := j₁ x with eqY
+      set d₃ := j₂ x with eqZ
+      rcases d₁ with _ | d₁ <;> rcases d₂ with _ | d₂ <;> rcases d₃ with _ | d₃ <;> simp
+      · simp at h₁
+      · simp at h₁
+      · simp at h₁
+        exact h₁
+      · simp at h₁
+        exact h₁
+    · simp only [LE.le, discretePreorder_eq_equality_Pi_Prod_ExtraDataT, BalanceProof.snd_discrete,]
+      intros x
+      unfold Dict.Merge Dict.Merge.D Dict.First
+      have eq₂ : D₁ ≤ j₂ := h₂ hD₂
+      simp [-Prod.forall, (·≤·)] at eq₂
+      specialize eq₂ x
+      set d₁ := D₁ x with eqX
+      set d₂ := j₁ x with eqY
+      set d₃ := j₂ x with eqZ
+      rcases d₁ with _ | d₁ <;> rcases d₂ with _ | d₂ <;> rcases d₃ with _ | d₃ <;> simp
+      · simp at eq₂
+      · simp at eq₂
+        exact eq₂
+      · simp at eq₂
+      · simp at eq₂
+        specialize h₃'' x
+        rw [←eqY, ←eqZ] at h₃''
+        simp at h₃''
+        exact iso_trans eq₂ h₃''.symm
+  · exact λ _ hπ ↦ merge_le (h₁.right λ _ hd ↦ hπ (by tauto))
+                            (h₂.right λ _ hd ↦ hπ (by tauto))
+
+@[simp]
+lemma merge_eq_none {π acc : BalanceProof K₁ K₂ C Pi V} :
+  (π <+> acc) K = none ↔ π K = none ∧ acc K = none := by
+  unfold Dict.Merge Dict.Merge.D Dict.First; aesop
+
+@[simp]
+lemma mergeR''_eq_none' {acc : BalanceProof K₁ K₂ C Pi V} {πs} :
+  (mergeR'' πs acc) K = none ↔ acc K = none ∧ ∀ π ∈ πs, π K = none := by
+  induction' πs with hd tl ih generalizing acc <;> aesop
+
+lemma merge_K {π acc : BalanceProof K₁ K₂ C Pi V} :
+  (π <+> acc) K = Dict.First (π K) (acc K) := rfl
+
+lemma iso_K_merge_left_of_ne_none {π acc : BalanceProof K₁ K₂ C Pi V} (h : π K ≠ none) : 
+  π K ≅ (π <+> acc) K := by
+  rw [merge_K]
+  unfold Dict.First
+  aesop
+
+lemma iso_K_merge_right_of_ne_none_compat {π acc : BalanceProof K₁ K₂ C Pi V} (h : π K ≠ none) (h : π <≅> acc) : 
+  π K ≅ (acc <+> π) K := by
+  unfold BalanceProof.compat at h
+  specialize h K
+  rw [merge_K]
+  unfold Dict.First
+  aesop
+
+lemma iso_K_of_iso {π acc : BalanceProof K₁ K₂ C Pi V} (h : π ≅ acc) : π K ≅ acc K := by
+  unfold iso LE.le Preorder.toLE instPreorderBalanceProof id inferInstance _root_.Pi.preorder inferInstanceAs _root_.Pi.hasLe at h
+  simp [-Prod.forall] at h
+  tauto
+
+lemma mergeR_eq_left {acc : BalanceProof K₁ K₂ C Pi V}
+  (h : ∀ k, acc k ≠ none) : mergeR'' πs acc = acc := by
+  unfold mergeR''
+  rcases πs with _ | ⟨π, πs⟩
+  · simp
+  · simp
+    rw [Dict.keys_Merge_left']
+    simp_rw [Dict.mem_iff_isSome, Option.isSome_iff_ne_none]
+    exact h
+
+-- IsLUB {π | π ∈ πs} (mergeR'' πs ⊥)
+
+lemma proposition6_pog {πs : List (BalanceProof K₁ K₂ C Pi V)}
+                       {acc : BalanceProof K₁ K₂ C Pi V}
+                       (h : ∀ {π₁ π₂ : BalanceProof K₁ K₂ C Pi V},
+                              π₁ ∈ {acc} ∪ πs  →
+                              π₂ ∈ {acc} ∪ πs →
+                              π₁ <≅> π₂) :
+  IsLUB {π | π ∈ {acc} ∪ πs} (mergeR'' πs acc) ∧
+  ∀ x, (mergeR'' πs acc x = .none ∧ ∀ π ∈ {acc} ∪ πs, π x = .none) ∨
+       (mergeR'' πs acc x ≠ .none ∧ ∀ π ∈ {acc} ∪ πs,
+                                      π x = .none ∨ π x ≅ mergeR'' πs acc x) := by
+  induction' πs with π πs ih generalizing acc
+  · sorry
+  · simp only [
+      List.mem_union_iff, List.mem_cons, mergeR''_cons, List.cons_union,
+      List.mem_insert_iff, forall_eq_or_imp, mem_list_singleton_iff]
+    have ih' := @ih
+    have ih'' := @ih
+    specialize @ih acc ?compat
+    case compat =>
+      intros π₁ π₂ h₁ h₂ k hk
+      specialize @h π₁ π₂ (by simp at h₁ ⊢; tauto) (by simp at h₂ ⊢; tauto)
+      exact h _ hk
+    
+    simp_rw [show {π_1 | π_1 ∈ {acc} ∪ πs} = {acc} ∪ {π | π ∈ πs} by simp; rfl] at ih
+    rcases ih with ⟨ih₁, ih₂⟩
+    refine' ⟨_, _⟩
+    · have : {π_1 | π_1 = acc ∨ π_1 = π ∨ π_1 ∈ πs} =
+             {π} ∪ ({acc} ∪ {π | π ∈ πs}) := (by simp; rw [Set.insert_comm]; ac_rfl); simp_rw [this]; clear this
+      have : acc <+> (mergeR'' πs π) ≅ π <+> (mergeR'' πs acc) := Merge_mergeR''_comm (h (by simp) (by simp))
+      apply isLUB_of_isLUB_iso _ this.symm
+      refine' isLUB_union_Merge_of_isLUB_isLUB_compat (by simp) ih₁ _
+      -- π <≅> mergeR'' πs acc
+      sorry
+    · intros K
+      by_cases eq : (acc <+> mergeR'' πs π) K = .none
+      · simp [eq]; simp at eq; exact eq
+      · simp [eq]; simp at eq
+        split_ands
+        · by_cases eq? : acc K = none
+          · simp [eq?]
+          · simp [eq?]
+            apply iso_K_merge_left_of_ne_none eq?
+        · by_cases eq? : π K = none
+          · simp [eq?]
+          · simp [eq?]
+            have t₁ : acc <+> (mergeR'' πs π) ≅ π <+> (mergeR'' πs acc) := Merge_mergeR''_comm (h (by simp) (by simp))
+            have t₂ := iso_K_merge_left_of_ne_none (acc := mergeR'' πs acc) eq?
+            apply iso_K_of_iso (K := K) at t₁
+            exact iso_trans t₂ t₁.symm
+        · intros π' hπ'
+          by_cases eq? : π' K = none
+          · tauto
+          · simp [eq?]
+            specialize @ih'' π' ?compat
+            case compat =>
+              intros π₁ π₂ h₁ h₂ k hk
+              specialize @h π₁ π₂ (by simp at h₁ ⊢; rcases h₁ with h₁ | h₁ <;> (try rw [h₁]) <;> tauto)
+                                  (by simp at h₂ ⊢; rcases h₂ with h₁ | h₁ <;> (try rw [h₁]) <;> tauto)
+              exact h _ hk
+            rcases ih'' with ⟨ih''₁, ih''₂⟩
+            specialize ih''₂ K
+            simp [eq?] at ih''₂
+            rcases ih''₂ with ⟨ih''₂, ih''₃⟩
+            apply iso_trans ih''₂
+            -- acc <≅> mergeR'' πs π
+            sorry
+
 lemma mergeR'_eq_mergeR_of_lt {πs : List (BalanceProof K₁ K₂ C Pi V)} {n : ℕ}
                               (h : n < πs.length.succ) :
   mergeR' πs ⟨n, h⟩ = mergeR πs n := by
@@ -2876,12 +1189,6 @@ lemma mergeR'_zero {πs : List (BalanceProof K₁ K₂ C Pi V)} (h : 0 < πs.len
 lemma mergeR'_succ {πs : List (BalanceProof K₁ K₂ C Pi V)} {n : ℕ} (h : n + 1 < πs.length.succ) :
   mergeR' πs ⟨n + 1, h⟩ = (mergeR' πs ⟨n, by omega⟩).Merge (πs[n]) := by
   conv_lhs => unfold mergeR'
-
--- lemma mergeR_cons_succ {π} {πs : List (BalanceProof K₁ K₂ C Pi V)} {n : ℕ} (h) :
---   mergeR (π :: πs) (n + 1) = (mergeR πs n).Merge (πs[n]) := by
---   conv_lhs => unfold mergeR
---   simp; rw [dif_pos (by omega)]
-
 
 lemma verify_merge_of_valid {π₁ π₂ : BalanceProof K₁ K₂ C Pi V}
                             (h₁ : π₁.Verify (M := (C × K₁ × ExtraDataT)))
@@ -2946,625 +1253,11 @@ lemma le_mergeR''_aux {π acc : BalanceProof K₁ K₂ C Pi V}
     apply le_Merge_of_le_le h₀
     aesop
 
--- lemma le_Merge_of_left {π π₁ π₂ : BalanceProof K₁ K₂ C Pi V} (h : π k ≤ π₁ k) :
---   π k ≤ Dict.Merge π₁ π₂ k := by
---   unfold Dict.Merge Dict.Merge.D Dict.First
---   simp [(·≤·)] at h
---   aesop (config := {warnOnNonterminal := false})
-
--- lemma le_mergeR''_self
---         {π acc : BalanceProof K₁ K₂ C Pi V}
---         {πs : List (BalanceProof K₁ K₂ C Pi V)}
---         {k : C × K₂}
---         (h : acc k ≤ π k) :
---         π k ≤ mergeR'' (π :: πs) acc k := by
---   simp
---   rcases πs with _ | ⟨π', πs'⟩
---   · simp [mergeR'']
---     by_cases eq : acc k = .none
---     · unfold Dict.Merge Dict.Merge.D Dict.First
---       aesop
---     · by_cases eq' : π k = .none
---       · unfold Dict.Merge Dict.Merge.D Dict.First
---         simp [(·≤·)]; aesop
---       · apply w₄ _ eq eq' h
---   · simp [mergeR'']
---     rw [←Dict.Merge_assoc]
---     apply le_Merge_of_left
---     by_cases eq : acc k = .none
---     · unfold Dict.Merge Dict.Merge.D Dict.First
---       aesop
---     · by_cases eq' : π k = .none
---       · unfold Dict.Merge Dict.Merge.D Dict.First
---         simp [(·≤·)]; aesop
---       · apply w₄ _ eq eq' h
-
--- -- lemma le_mergeR''_aux'R {acc : BalanceProof K₁ K₂ C Pi V}
--- --                         {πs : List (BalanceProof K₁ K₂ C Pi V)}
--- --                         (h : IsLUB πs.toFinset.toSet acc) :
--- --                         IsLUB πs.toFinset.toSet (Dict.Merge acc (mergeR'' πs acc)) := by
--- --   induction' πs with hd tl ih generalizing acc
--- --   · simp at h
--- --     simp [mergeR'']
--- --     -- have : IsLUB ∅ acc := by
--- --     --   rw [isLUB_empty_iff]
--- --     -- simp at this -- lemma IsBot .initial
--- --     -- simp [mergeR'']
--- --     -- exact this
-
--- --   · simp at h ih ⊢
--- --     have : IsLUB _ (Dict.Merge acc (mergeR'' tl hd)) := proposition6 sorry
--- --     specialize ih (acc := hd)
-
--- -- lemma oompf {n : ℕ} {πs : List (BalanceProof K₁ K₂ C Pi V)} (h : n < πs.length + 1) :
--- --   IsLUB (πs.take n).toFinset.toSet (mergeR πs n) := by
--- --   induction' n with n ih generalizing πs
--- --   · unfold mergeR; aesop
--- --   · simp at ih ⊢
--- --     unfold mergeR
--- --     simp [h]
--- --     set smol := Dict.Merge (mergeR πs n) πs[n] with eqsmol
--- --     have : IsLUB _ smol := proposition6 ?x
--- --     case x =>
--- --     skip
--- --     intros k hk
--- --     unfold mergeR
--- --     rw [dif_pos (by omega)]
--- --     rcases n with _ | n
--- --     · simp
--- --       unfold mergeR at hk
--- --       simp at hk
--- --       rcases hk with hk | hk
--- --     · simp
--- --       unfold mergeR at hk
--- --       simp at hk
--- --       -- rw [dif_pos (by omega)]
--- --       rw [dif_pos (by omega)] at hk
--- --       specialize ih (πs := πs) (by omega)
--- --       obtain ⟨h₁, h₂⟩ := ih
--- --       simp [upperBounds, lowerBounds] at h₁ h₂
--- --       specialize @h₁ πs[n + 1] sorry
-
-
-
--- --       specialize @h₂ _ πs[n + 1]
--- --       rw [List.getElem_mem] at h₁
-
--- --       -- apply funext
--- --       -- intros K
--- --       -- rw [Dict.keys_Merge_left]
--- --       -- unfold mergeR
-
--- --     done
--- --     specialize ih (πs := πs) (by omega)
--- --     obtain ⟨h₁, h₂⟩ := this
--- --     simp [upperBounds] at h₁
--- --     obtain ⟨h₃, h₄⟩ := ih
--- --     simp [upperBounds] at h₃
--- --     simp [IsLUB, IsLeast, upperBounds, lowerBounds]
--- --     split_ands
--- --     · intros a h'; rw [eqsmol] at h₁ ⊢
--- --       rw [List.take_succ] at h'; simp at h'
--- --       rcases h' with h' | h'
--- --       · rcases h₁ with ⟨h₁, h₁'⟩
--- --         specialize @h₃ a
--- --         refine' le_trans _ h₁
--- --         apply h₃ h'
--- --       · have : πs[n] = a := by rw [List.getElem?_eq_some] at h'
--- --                                rcases h' with ⟨w, hw⟩
--- --                                exact hw
--- --         rw [←this]
--- --         exact h₁.2
--- --     · simp [(·≤·)] at h₁
--- --       -- intros a h'; rw [eqsmol] at h₂ ⊢
--- --       -- specialize @h' smol
--- --       -- rw [List.take_succ] at h'; simp at h'
--- --       -- apply h'
--- --       -- simp [lowerBounds, upperBounds] at h₂ h₄
--- --       -- specialize @h₂ smol
--- --       -- apply h₂
--- --       -- apply h₄
--- --       -- intros π hπ
-
-
--- --       -- rcases h' with h' | h'
--- --       -- rw [eqsmol]
--- --       -- specialize @ha smol
--- --       -- apply ha
-
-
-
-
--- --     -- rcases πs with _ | ⟨hd, tl⟩
--- --     -- · simp at h
--- --     -- · simp at h ⊢
-
--- @[simp]
--- lemma Merge_initial_pi {π : BalanceProof K₁ K₂ C Pi V} :
---   BalanceProof.initial.Merge π = π := by
---   rw [Dict.keys_Merge_right']
---   intros x contra
---   unfold BalanceProof.initial at contra
---   rw [Dict.mem_iff_isSome] at contra
---   simp at contra
-
--- -- lemma hhy {π : BalanceProof K₁ K₂ C Pi V}
--- --   (h₀ : ∀ k, acc k ≠ .none → π k ≠ .none → acc k ≅ π k)
--- --   (h : π ∈ upperBounds s) : (Dict.Merge acc π) ∈ upperBounds (insert acc s) := by
--- --   simp only [upperBounds, Set.mem_setOf_eq, forall_exists_index, and_imp, (·≤·),
--- --              forall_apply_eq_imp_iff₂, lowerBounds] at *
--- --   intros y hy
--- --   simp at hy
--- --   rcases hy with hy | hy
--- --   · intros K
--- --     simp [Dict.Merge]; unfold Dict.Merge.D Dict.First
--- --     set A := acc K with eqA
--- --     set B := π K with eqB
--- --     rcases A with _ | A <;> rcases B with _ | B
--- --     · rw [←hy] at eqA
--- --       rw [←eqA]
--- --       simp
--- --     · rw [←hy] at eqA
--- --       rw [←eqA]
--- --       simp
--- --     · rw [←hy] at eqA
--- --       rw [←eqA]
--- --     · rw [←hy] at eqA
--- --       rw [←eqA]
--- --   · intros K
--- --     simp [Dict.Merge]; unfold Dict.Merge.D Dict.First
--- --     -- rcases hy with ⟨y', ⟨h₃, h₄⟩⟩
--- --     set A := acc K with eqA
--- --     set B := π K with eqB
--- --     set C := y K with eqC
--- --     rcases A with _ | A <;> rcases B with _ | B <;> rcases C with _ | C
--- --     · simp
--- --     · simp [-Prod.forall] at h
--- --       specialize @h y hy K
--- --       rw [←eqC, ←eqB] at h
--- --       simp at h
--- --     · simp
--- --     · simp
--- --       specialize @h y hy K
--- --       simp [eqB.symm, eqC.symm] at h
--- --       exact h
--- --     · simp
--- --     · specialize @h y hy K
--- --       simp [eqB.symm, eqC.symm] at h
--- --     · simp
--- --     · simp
--- --       specialize @h y hy K
--- --       simp [eqB.symm, eqC.symm] at h
--- --       specialize h₀ K
--- --       rw [←eqA, ←eqB] at h₀
--- --       simp at h₀
--- --       unfold iso at h₀
-
--- --       rw [←h₄]
--- --       simp
--- --       have : C ≅ B := by
--- --         specialize @h₁ y' h₃
--- --         rw [←eqC] at h₁
--- --         simp at h₁
--- --         exact h₁
--- --       have eq₁ : acc K ≅ π K := by apply h₀
--- --                                     rw [←eqA]; simp
--- --                                     rw [←eqB]; simp
--- --       rw [←eqA, ←eqB] at eq₁
--- --       simp at eq₁
--- --       exact iso_trans this eq₁.symm
--- --   -- simp only [upperBounds, Set.mem_setOf_eq, forall_exists_index, and_imp,
--- --   --   forall_apply_eq_imp_iff₂, lowerBounds] at *
--- --   -- rcases h with ⟨h₁, h₂⟩
--- --   -- split_ands
--- --   -- · intros y hy
--- --   --   rcases hy with hy | hy
--- --   --   · simp [Dict.Merge]; unfold Dict.Merge.D Dict.First
--- --   --     set A := acc K with eqA
--- --   --     set B := π K with eqB
--- --   --     rcases A with _ | A <;> rcases B with _ | B
--- --   --     · rw [←hy]
--- --   --     · rw [←hy]
--- --   --       simp
--- --   --     · rw [←hy]
--- --   --     · rw [←hy]
--- --   --   · simp [Dict.Merge]; unfold Dict.Merge.D Dict.First
--- --   --     rcases hy with ⟨y', ⟨h₃, h₄⟩⟩
--- --   --     set A := acc K with eqA
--- --   --     set B := π K with eqB
--- --   --     set C := y' K with eqC
--- --   --     rcases A with _ | A <;> rcases B with _ | B <;> rcases C with _ | C
--- --   --     · simp [h₄]
--- --   --     · simp
--- --   --       specialize h₁ _ h₃
--- --   --       rw [←eqC] at h₁
--- --   --       simp at h₁
--- --   --     · simp; rw [←h₄]; simp
--- --   --     · simp
--- --   --       specialize @h₁ y' h₃
--- --   --       aesop
--- --   --     · simp; rw [←h₄]; simp
--- --   --     · specialize @h₁ y' h₃
--- --   --       rw [←eqC] at h₁
--- --   --       simp at h₁
--- --   --     · simp; rw [←h₄]; simp
--- --   --     · simp
--- --   --       rw [←h₄]
--- --   --       simp
--- --   --       have : C ≅ B := by
--- --   --         specialize @h₁ y' h₃
--- --   --         rw [←eqC] at h₁
--- --   --         simp at h₁
--- --   --         exact h₁
--- --   --       have eq₁ : acc K ≅ π K := by apply h₀
--- --   --                                    rw [←eqA]; simp
--- --   --                                    rw [←eqB]; simp
--- --   --       rw [←eqA, ←eqB] at eq₁
--- --   --       simp at eq₁
--- --   --       exact iso_trans this eq₁.symm
--- --   -- · intros y hy
--- --   --   simp [Dict.Merge]; unfold Dict.Merge.D Dict.First
--- --   --   set A := acc K with eqA
--- --   --   set B := π K with eqB
--- --   --   rcases A with _ | A <;> rcases B with _ | B <;> rcases y with _ | y
--- --   --   · simp
--- --   --   · simp
--- --   --   · simp
--- --   --     by_cases eq' : π ∈ s
--- --   --     · specialize @hy (some B) (Or.inr _)
--- --   --       use π
--- --   --       tauto
--- --   --       simp at hy
--- --   --     ·
-
--- --   --     -- specialize h₂ h₁
--- --   --     -- specialize @hy (some B) (Or.inr _)
-
--- --   --     -- simp at hy
--- --   --   · rw [←hy]
--- --   --   · rw [←hy]
-
--- lemma hhy {π : BalanceProof K₁ K₂ C Pi V} {s : Set (BalanceProof K₁ K₂ C Pi V)}
---   (h₀ : ∀ k, acc k ≠ .none → π k ≠ .none → acc k ≅ π k)
---   -- (h₁ : )
---   (h : IsLUB s π) : IsLUB (insert acc s) (Dict.Merge acc π) := by
---   simp [-Prod.forall, isLUB_pi, Set.image] at h ⊢
---   intros K
---   specialize h K
---   simp only [IsLUB, IsLeast, upperBounds, Set.mem_setOf_eq, forall_exists_index, and_imp,
---     forall_apply_eq_imp_iff₂, lowerBounds] at *
---   rcases h with ⟨h₁, h₂⟩
---   split_ands
---   · intros y hy
---     rcases hy with hy | hy
---     · simp [Dict.Merge]; unfold Dict.Merge.D Dict.First
---       set A := acc K with eqA
---       set B := π K with eqB
---       rcases A with _ | A <;> rcases B with _ | B
---       · rw [←hy]
---       · rw [←hy]
---         simp
---       · rw [←hy]
---       · rw [←hy]
---     · simp [Dict.Merge]; unfold Dict.Merge.D Dict.First
---       rcases hy with ⟨y', ⟨h₃, h₄⟩⟩
---       set A := acc K with eqA
---       set B := π K with eqB
---       set C := y' K with eqC
---       rcases A with _ | A <;> rcases B with _ | B <;> rcases C with _ | C
---       · simp [h₄]
---       · simp
---         specialize h₁ _ h₃
---         rw [←eqC] at h₁
---         simp at h₁
---       · simp; rw [←h₄]; simp
---       · simp
---         specialize @h₁ y' h₃
---         aesop
---       · simp; rw [←h₄]; simp
---       · specialize @h₁ y' h₃
---         rw [←eqC] at h₁
---         simp at h₁
---       · simp; rw [←h₄]; simp
---       · simp
---         rw [←h₄]
---         simp
---         have : C ≅ B := by
---           specialize @h₁ y' h₃
---           rw [←eqC] at h₁
---           simp at h₁
---           exact h₁
---         have eq₁ : acc K ≅ π K := by apply h₀
---                                      rw [←eqA]; simp
---                                      rw [←eqB]; simp
---         rw [←eqA, ←eqB] at eq₁
---         simp at eq₁
---         exact iso_trans this eq₁.symm
---   · intros y hy
---     simp [Dict.Merge]; unfold Dict.Merge.D Dict.First
---     set A := acc K with eqA
---     set B := π K with eqB
---     rcases A with _ | A <;> rcases B with _ | B <;> rcases y with _ | y
---     · simp
---     · simp
---     · sorry
---     · simp
---       specialize @hy (acc K) (Or.inl eqA)
-
---     -- · simp
---     --   by_cases eq' : π ∈ s
---     --   · specialize @hy (some B) (Or.inr _)
---     --     use π
---     --     tauto
---     --     simp at hy
---     --   ·
-
---     --   -- specialize h₂ h₁
---     --   -- specialize @hy (some B) (Or.inr _)
-
---     --   -- simp at hy
---     -- · rw [←hy]
---     -- · rw [←hy]
-
--- lemma baf {πs : List (BalanceProof K₁ K₂ C Pi V)}
---           {acc : BalanceProof K₁ K₂ C Pi V}
---           (h : k ∈ acc ∧ k ∈ πs.toFinset.toSet → acc k ≅ hd k) :
---   IsLUB ({acc} ∪ πs.toFinset.toSet) (mergeR'' πs acc) := by
---   induction' πs with hd tl ih generalizing acc
---   · simp [Set.insert]
---   · simp
---     rw [Set.insert_comm]
---     unfold mergeR''
---     rcases tl with _ | ⟨hd', tl'⟩
---     · simp
---       apply proposition6' h
-    -- simp
-    -- apply proposition6' sorry
-    -- simp at ih ⊢
-    -- rw [←Dict.Merge_assoc]
-    
-    -- have : insert acc (insert hd {a | a = hd' ∨ a ∈ tl'}) =
-    --        {acc, hd} ∪ {a | a = hd' ∨ a ∈ tl'} := by aesop
-    -- simp_rw [this]; clear this
-    -- specialize @ih hd
-
-    -- have : {acc, hd} ∪ {a | a = hd' ∨ a ∈ tl'} = {acc, hd, hd'} ∪ {a | a ∈ tl'} := by aesop
-    -- simp_rw [this]; clear this
-
-    -- have : insert hd' (insert hd {a | a ∈ tl'}) = {hd, hd'} ∪ {a | a ∈ tl'} := by aesop
-    -- simp_rw [this] at ih; clear this
-
-
-    
-    
-
-
-
-    -- specialize @ih (Dict.Merge acc hd)
-    -- have : insert hd' (insert (Dict.Merge acc hd) {a | a ∈ tl'}) =
-    --        {acc, hd} ∪ {a | a = hd' ∨ a ∈ tl'} := by
-    --   have : {a | a = hd' ∨ a ∈ tl'} = insert hd' {a | a ∈ tl'} := by aesop
-    --   simp_rw [this]
-    --   have : {acc, hd} ∪ insert hd' {a | a ∈ tl'} =
-    --          {acc, hd, hd'} ∪ {a | a ∈ tl'} := by aesop
-    --   simp_rw [this]
-    --   have : insert (Dict.Merge acc hd) {a | a ∈ tl'} =
-    --          {Dict.Merge acc hd} ∪ {a | a ∈ tl'} := by aesop
-    --   simp_rw [this]
-
-    -- sorry
-    -- simp at ih ⊢
-    -- rw [←Dict.Merge_assoc]
-    -- have : insert acc (insert hd {a | a = hd' ∨ a ∈ tl'}) =
-    --        {acc, hd} ∪ {a | a = hd' ∨ a ∈ tl'} := by aesop
-    -- simp_rw [this]; clear this
-    -- specialize @ih (Dict.Merge acc hd)
-    -- have : insert hd' (insert (Dict.Merge acc hd) {a | a ∈ tl'}) =
-    --        {acc, hd} ∪ {a | a = hd' ∨ a ∈ tl'} := by
-    --   have : {a | a = hd' ∨ a ∈ tl'} = insert hd' {a | a ∈ tl'} := by aesop
-    --   simp_rw [this]
-    --   have : {acc, hd} ∪ insert hd' {a | a ∈ tl'} =
-    --          {acc, hd, hd'} ∪ {a | a ∈ tl'} := by aesop
-    --   simp_rw [this]
-    --   have : insert (Dict.Merge acc hd) {a | a ∈ tl'} =
-    --          {Dict.Merge acc hd} ∪ {a | a ∈ tl'} := by aesop
-    --   simp_rw [this]
-
-
-    -- simp_rw [←this]
-    -- exact ih
-
-
-
-
---     -- have : IsLUB ({acc} ∪ {mergeR'' tl hd}) (Dict.Merge acc (mergeR'' tl hd)) := by
---       -- apply proposition6XK
---       -- rintro k ⟨h₁, h₂⟩
---       -- specialize @ih hd
---       -- apply proposition6W at ih
---       -- rw [←proposition2]
---       -- sorry
-
-
-
-
-
-
-
---     -- apply proposition6XK
---     -- unfold mergeR''
---     -- rcases tl with _ | ⟨hd', tl'⟩
---     -- · simp
---     --   have : Set.insert acc {hd} = {acc, hd} := by aesop
---     --   simp_rw [this]; clear this
---     --   apply proposition6'
---     --   rintro k ⟨h₁, h₂⟩
---     --   simp [Set.insert] at ih
-
-
-
-
-
-
--- lemma haf {πs : (Pi × ExtraDataT) × TransactionBatch K₁ K₂ V} :
---   IsLUB πs.toFinset.toSet (mergeR'' πs .initial) := by
-
---   done
-
-
-lemma oompf {n : ℕ} {πs : List (BalanceProof K₁ K₂ C Pi V)} (h : n < πs.length + 1) :
-  IsLUB (πs.take n).toFinset.toSet (mergeR πs n) := by
-  induction' n with n ih
-  · unfold mergeR; aesop
-  · simp at ih h; specialize ih (by omega)
-    unfold mergeR; simp [h]; rw [List.take_succ]
-    rw [List.getElem?_eq, dif_pos h, Option.toList_some]
-    have : {a | a ∈ List.take n πs ++ [πs[n]]} = {a | a ∈ List.take n πs} ∪ {πs[n]} := by
-      ext elem
-      simp only [Set.mem_setOf_eq]; rw [List.mem_append]
-      simp; tauto
-    rw [this]; clear this
-    set πs₁ := {a | a ∈ List.take n πs} with eqπs₁
-    set πₙ := mergeR πs n with eqπₙ
-    set πₘ := πs[n]
-    set smol := Dict.Merge πₙ πₘ with eqsmol
-
-    -- have : IsLUB _ smol := proposition6' _
-    -- have : ∃ join, join ≅ Dict.Merge D₁ D₂
-
-
-
-
---     -- unfold mergeR
---     -- simp [h]
---     -- rw [dif_pos (by omega)]
---     -- rcases n with _ | n
---     -- · unfold mergeR at hk; simp at hk
---     --   unfold BalanceProof.initial at hk
---     --   rw [Dict.mem_iff_isSome] at hk
---     --   simp at hk
---     -- · simp
---     --   simp at hk
-
-
-
---     done
-
---     done
-
-
---     -- simp only [IsLUB, IsLeast]
---     -- split_ands
---     -- · rw [mem_upperBounds]
---     --   intros x hx
---     --   have : x ∈ {a | a ∈ List.take n πs ++ [πs[n]]} ↔
---     --          x ∈ {a | a ∈ List.take n πs} ∨ x = πs[n] := by
---     --     simp only [Set.mem_setOf_eq]
---     --     rw [List.mem_append]
---     --     simp
---     --   rw [this] at hx
---     --   rcases hx with hx | hx
---     --   · simp at hx
-
-
-
-
--- --   · rcases πs with _ | ⟨π, πs⟩
--- --     · simp at h
--- --     · rcases n with _ | n
--- --       · unfold mergeR
--- --         simp
--- --         unfold mergeR
--- --         simp
--- --       · simp at h i
--- --         unfold mer
--- --         simp
--- --         set smol := Dict.Merge (mergeR πs n) πs[n] with eqs
--- --         have : IsLUB _ smol := proposition6
--- --         case x
--- --         s
--- --         intros k
--- --         unfold mer
--- --         rw [dif_pos (by omeg
--- --         rcases n with _
--- --         · s
--- --           unfold mergeR at
--- --           simp at
--- --           rcases hk with hk |
--- --         · s
--- --           unfold mergeR at
--- --           simp at
--- --           -- rw [dif_pos (by omeg
--- --           rw [dif_pos (by omega)] at
--- --           specialize ih (πs := πs) (by ome
--- --           obtain ⟨h₁, h₂⟩ :=
--- --           simp [upperBounds, lowerBounds] at h₁
--- --           specialize @h₁ πs[n + 1] sorry
-
-
-
--- --       specialize @h₂ _ πs[n + 1]
--- --       rw [List.getElem_mem] at h₁
-
--- --       -- apply funext
--- --       -- intros K
--- --       -- rw [Dict.keys_Merge_left]
--- --       -- unfold mergeR
-
--- --     done
--- --     specialize ih (πs := πs) (by omega)
--- --     obtain ⟨h₁, h₂⟩ := this
--- --     simp [upperBounds] at h₁
--- --     obtain ⟨h₃, h₄⟩ := ih
--- --     simp [upperBounds] at h₃
--- --     simp [IsLUB, IsLeast, upperBounds, lowerBounds]
--- --     split_ands
--- --     · intros a h'; rw [eqsmol] at h₁ ⊢
--- --       rw [List.take_succ] at h'; simp at h'
--- --       rcases h' with h' | h'
--- --       · rcases h₁ with ⟨h₁, h₁'⟩
--- --         specialize @h₃ a
--- --         refine' le_trans _ h₁
--- --         apply h₃ h'
--- --       · have : πs[n] = a := by rw [List.getElem?_eq_some] at h'
--- --                                rcases h' with ⟨w, hw⟩
--- --                                exact hw
--- --         rw [←this]
--- --         exact h₁.2
--- --     · simp [(·≤·)] at h₁
--- --       -- intros a h'; rw [eqsmol] at h₂ ⊢
--- --       -- specialize @h' smol
--- --       -- rw [List.take_succ] at h'; simp at h'
--- --       -- apply h'
--- --       -- simp [lowerBounds, upperBounds] at h₂ h₄
--- --       -- specialize @h₂ smol
--- --       -- apply h₂
--- --       -- apply h₄
--- --       -- intros π hπ
-
-
--- --       -- rcases h' with h' | h'
--- --       -- rw [eqsmol]
--- --       -- specialize @ha smol
--- --       -- apply ha
-
-
-
-
--- --     -- rcases πs with _ | ⟨hd, tl⟩
--- --     -- · simp at h
--- --     -- · simp at h ⊢
-
-
-
--- -- --   sorry
-
--- -- -- --   sorry
-
 lemma batch_eq_iff {π₁k π₂k : (Pi × ExtraDataT) × TransactionBatch K₁ K₂ V} :
   (π₁k ≅ π₂k) ↔ π₁k.2 = π₂k.2 := by
   unfold iso
   simp [(·≤·)]
+  rw [iso_symm]
   tauto
 
 lemma batch?_eq_of_mem {π₁k π₂k : Option ((Pi × ExtraDataT) × TransactionBatch K₁ K₂ V)}
@@ -3581,26 +1274,11 @@ lemma batch?_eq_of_mem {π₁k π₂k : Option ((Pi × ExtraDataT) × Transactio
 
 lemma batch?_neq_of_mem {π₁k π₂k : Option ((Pi × ExtraDataT) × TransactionBatch K₁ K₂ V)}
   (h₀ : π₁k ≠ .none ∧ π₂k ≠ .none)
-  (h : ¬(π₁k ≅ π₂k)) : (π₁k.get (by unfold iso at h
-                                    simp [(·≤·)] at h
-                                    aesop)).2 ≠
-                       (π₂k.get (by unfold iso at h
-                                    simp [(·≤·)] at h
-                                    aesop)).2 := by
-  unfold iso at h
-  simp [(·≤·)] at h
-  aesop
+  (h : ¬(π₁k ≅ π₂k)) : (π₁k.get (Option.isSome_iff_ne_none.2 h₀.1)).2 ≠
+                       (π₂k.get (Option.isSome_iff_ne_none.2 h₀.2)).2 := by
+  rcases π₁k <;> rcases π₂k <;> aesop
 
-  -- unfold iso at h
-  -- simp only [(·≤·)] at h
-  -- rcases π₁k with _ | π₁k <;> rcases π₂k with _ | π₂k
-  -- · simp
-  -- · simp at h₀
-  -- · simp at h₀
-  -- · dsimp at h ⊢
-  --   by_contra contra
-  --   rw [not_and_or] at h
-  --   rcases h with h | h
+#exit
 
 include isπ in
 set_option maxHeartbeats 2000000 in

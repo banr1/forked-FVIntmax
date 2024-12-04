@@ -3,6 +3,7 @@ import «FVIntmax».Wheels.Dictionary
 import «FVIntmax».Wheels.SignatureAggregation
 import «FVIntmax».Wheels.Wheels
 
+import «FVIntmax».AttackGame
 import «FVIntmax».Balance
 import «FVIntmax».BalanceProof
 import «FVIntmax».Block
