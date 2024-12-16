@@ -5,7 +5,6 @@ import FVIntmax.BalanceProof
 import FVIntmax.Block
 import FVIntmax.Key
 import FVIntmax.Propositions
-import FVIntmax.RollupContract
 import FVIntmax.State
 import FVIntmax.Transaction
 import FVIntmax.Wheels
@@ -51,20 +50,6 @@ lemma length_TransactionsInBlock_deposit
   match b with
   | Block.deposit .. => simp
   | Block.transfer .. | Block.withdrawal .. => simp at h
-
--- /--
--- The sender is always `.Source`.
--- -/
--- lemma sender_TransactionsInBlock_deposit
---   {b : { b : Block K₁ K₂ C Sigma V // b.isDepositBlock }} :
---   ∀ i : ℕ, (h : i < (TransactionsInBlock_deposit b).length) →
---            ((TransactionsInBlock_deposit b)[i]'h).1.1 = .Source := by
---   intros i h
---   simp [TransactionsInBlock_deposit]
---   rcases b with ⟨b, h₁⟩
---   match b with
---   | Block.deposit .. => simp
---   | Block.transfer .. | Block.withdrawal .. => simp at h₁ 
 
 end Deposit
 
@@ -142,6 +127,9 @@ end Withdrawal
 variable [Finite K₁] [LinearOrder K₁]
          [Finite K₂] [LinearOrder K₂]
          [Nonnegative V]
+         {b : Block K₁ K₂ C Sigma V}
+         {bs : List (Block K₁ K₂ C Sigma V)}
+         {π₁ π₂ : BalanceProof K₁ K₂ C Pi V}
 
 local macro:max (priority := high) "↪" b:term : term => `(⟨$b, by aesop⟩)
 
@@ -151,16 +139,14 @@ def TransactionsInBlock (π : BalanceProof K₁ K₂ C Pi V) (b : Block K₁ K�
   | .transfer ..   => TransactionsInBlock_transfer π ↪b
   | .withdrawal .. => TransactionsInBlock_withdrawal ↪b
 
-lemma length_transactionsInBlock {b : Block K₁ K₂ C Sigma V}
-                                 (π₁ π₂ : BalanceProof K₁ K₂ C Pi V) :
+lemma length_transactionsInBlock :
   (TransactionsInBlock π₁ b).length = (TransactionsInBlock π₂ b).length := by
   unfold TransactionsInBlock
   split <;> try simp
   rw [length_TransactionsInBlock_transfer]
 
 set_option maxHeartbeats 400000 in
-lemma sender_transactionsInBlock {b : Block K₁ K₂ C Sigma V}
-                                 (π₁ π₂ : BalanceProof K₁ K₂ C Pi V) :
+lemma sender_transactionsInBlock :
   (TransactionsInBlock π₁ b).map (λ s ↦ s.1.1) =
   (TransactionsInBlock π₂ b).map (λ s ↦ s.1.1) := by
   apply List.ext_get (by simp; rw [length_transactionsInBlock])
@@ -172,8 +158,7 @@ lemma sender_transactionsInBlock {b : Block K₁ K₂ C Sigma V}
   | Block.withdrawal .. => simp [TransactionsInBlock_withdrawal]
 
 set_option maxHeartbeats 400000 in
-lemma receiver_transactionsInBlock {b : Block K₁ K₂ C Sigma V}
-                                   (π₁ π₂ : BalanceProof K₁ K₂ C Pi V) :
+lemma receiver_transactionsInBlock :
   (TransactionsInBlock π₁ b).map (λ s ↦ s.1.2.1) =
   (TransactionsInBlock π₂ b).map (λ s ↦ s.1.2.1) := by
   apply List.ext_get (by simp; rw [length_transactionsInBlock])
@@ -211,7 +196,7 @@ lemma isSome_of_withdrawal
   unfold TransactionsInBlock_withdrawal at h₁; aesop
 
 @[simp]
-lemma transactionsInBlocks_append_singleton {b : Block K₁ K₂ C Sigma V} :
+lemma transactionsInBlocks_append_singleton :
   TransactionsInBlocks π (bs ++ [b]) =
   (TransactionsInBlocks π bs) ++ (TransactionsInBlock π b) := by simp [TransactionsInBlocks]
 
@@ -219,30 +204,43 @@ lemma transactionsInBlocks_append_singleton {b : Block K₁ K₂ C Sigma V} :
 lemma transactionsInBlocks_nil :
   TransactionsInBlocks (Pi := Pi) (K₁ := K₁) (K₂ := K₂) (V := V) (C := C) (Sigma := Sigma) π [] = [] := rfl
 
+@[simp]
+lemma TransactionsInBlocks_cons {π : BalanceProof K₁ K₂ C Pi V}
+                                {hd}
+                                {tl : List (Block K₁ K₂ C Sigma V)} :
+  TransactionsInBlocks π (hd :: tl) =
+  TransactionsInBlock π hd ++ (List.map (TransactionsInBlock π) tl).flatten := rfl
+
+@[simp]
+lemma transactionsInBlock_deposit {r : K₂} {v : V₊} :
+  TransactionsInBlock (K₁ := K₁) (Sigma := Sigma) π (Block.deposit r v) =
+  [⟨(.Source, r, v), by simp [Τ'.isValid]⟩] := by
+  unfold TransactionsInBlock
+  aesop
 /--
 PAPER: Note that the function TransactionsInBlocks outputs a list of partial transactions whose
 length is only dependent on the second argument (the list of blocks)...
 -/
 lemma length_transactionsInBlocks {bs : List (Block K₁ K₂ C Sigma V)}
-                                  (π₁ π₂ : BalanceProof K₁ K₂ C Pi V) :
+                                  {π₁ π₂ : BalanceProof K₁ K₂ C Pi V} :
   (TransactionsInBlocks π₁ bs).length = (TransactionsInBlocks π₂ bs).length := by
   unfold TransactionsInBlocks; simp
   rw [List.map_congr_left]; intros _ _; simp
   rw [length_transactionsInBlock]
 
 lemma sender_transactionsInBlocks {bs : List (Block K₁ K₂ C Sigma V)}
-                                  (π₁ π₂ : BalanceProof K₁ K₂ C Pi V) :
+                                  {π₁ π₂ : BalanceProof K₁ K₂ C Pi V} :
   (TransactionsInBlocks π₁ bs).map (λ s ↦ s.1.1) =
   (TransactionsInBlocks π₂ bs).map (λ s ↦ s.1.1) := by
   simp [TransactionsInBlocks, List.map_flatten, List.map_flatten]
-  exact List.map_join_eq (λ _ ↦ sender_transactionsInBlock π₁ π₂)
+  exact List.map_join_eq (λ _ ↦ sender_transactionsInBlock)
 
 lemma receiver_transactionsInBlocks {bs : List (Block K₁ K₂ C Sigma V)}
-                                  (π₁ π₂ : BalanceProof K₁ K₂ C Pi V) :
+                                    {π₁ π₂ : BalanceProof K₁ K₂ C Pi V} :
   (TransactionsInBlocks π₁ bs).map (λ s ↦ s.1.2.1) =
   (TransactionsInBlocks π₂ bs).map (λ s ↦ s.1.2.1) := by
   simp [TransactionsInBlocks, List.map_flatten, List.map_flatten]
-  exact List.map_join_eq (λ _ ↦ receiver_transactionsInBlock π₁ π₂)
+  exact List.map_join_eq (λ _ ↦ receiver_transactionsInBlock)
 
 end Extraction
 
@@ -401,6 +399,53 @@ instance : Preorder (Τ K₁ K₂ V × S K₁ K₂ V) := inferInstance
 How is this not in Mathlib...
 -/ 
 instance [CovariantClass V V (· + ·) (· ≤ ·)] : OrderedAddCommMonoid V := ⟨by aesop⟩
+
+/--
+PAPER: First, we give VK+ the discrete preorder
+-/
+instance : Preorder (Key K₁ K₂ → V₊) := discretePreorder
+-- instance {α ω : Type} [Preorder ω] : Preorder (Dict α ω) := by unfold Dict; infer_instance
+
+/--
+Demote a preorder on `Key K₁ K₂ → V₊` to equality ASAP.
+-/
+@[simp]
+lemma discretePreorder_eq_equality_Key_Map_Vplus {a b : Key K₁ K₂ → V₊} : a ≤ b ↔ a = b := by
+  simp only [LE.le]
+  aesop
+
+/--
+NB Actually we'll use the notion of 'transaction batch' here.
+   We know that `TransactionBatch K₁ K₂ V` is by definition `Key K₁ K₂ → V₊`.
+-/
+instance [Finite K₁] [Finite K₂] : Preorder (TransactionBatch K₁ K₂ V) := discretePreorder
+
+/--
+Demote a preorder on `TransactionBatch` to equality ASAP.
+-/
+@[simp]
+lemma discretePreorder_eq_equality_TransactionBatch [Finite K₁] [Finite K₂]
+  {a b : TransactionBatch K₁ K₂ V} : a ≤ b ↔ a = b := by
+  simp only [LE.le]
+  aesop
+
+/--
+PAPER: Then, we give AD.Π × {0, 1} ∗ the trivial preorder
+-/
+instance : Preorder (Pi × ExtraDataT) := trivialPreorder
+
+/--
+Demote a preorder on `(Pi × ExtraDataT)` to equality ASAP.
+-/
+@[simp]
+lemma discretePreorder_eq_equality_Pi_Prod_ExtraDataT {a b : (Pi × ExtraDataT)} : a ≤ b := by
+  simp [(·≤·), Preorder.toLE, instPreorderProdExtraDataT, trivialPreorder]
+
+/--
+PAPER: Finally, we give (AD.Π × {0, 1}∗) × VK+ the induced product preorder
+-/
+instance [Finite K₁] [Finite K₂] : Preorder ((Pi × ExtraDataT) × TransactionBatch K₁ K₂ V) := inferInstance
+instance [Finite K₁] [Finite K₂] : Preorder (BalanceProof K₁ K₂ C Pi V) := by unfold BalanceProof; infer_instance
 
 end Order
 
@@ -579,9 +624,7 @@ The transition function.
 def f (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V :=
   ⟨
     λ k ↦
-      have : InfSet V := infV b T k -- Grab the infimum. We know nothing about it, aside from
-                                    -- the fact that it exists by virtue of some `f'` computing it.
-                                    -- We _CANNOT_ look at `f'`.
+      have : InfSet V := infV b T k
       ⨅ x : boundedBelow b T, fc x.1 k,
     by rintro (k | k)
        · unfold iInf sInf infV; simp
@@ -590,10 +633,6 @@ def f (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V :=
        · simp
   ⟩
 
-/--
-@ERIK - Can we really prove `Lemma 5` with throwing away `f'` and just keeping it as the function
-that exhibits the existence of the least upper bound?
--/
 lemma f_eq_f' : f = f' (K₁ := K₁) (K₂ := K₂) (V := V) := by
   ext b T k
   simp [f, f', infV, exists_inf, iInf, V'_eq_range, if_pos rfl, f']
@@ -807,5 +846,64 @@ end WithStructuredTypes
 end Balance
 
 end
+
+section BalanceProofOrderLemmas
+
+variable {K₁ : Type} [Finite K₁]
+         {K₂ : Type} [Finite K₂]
+         {V : Type} [Lattice V] [AddCommGroup V]
+         {Pi C Sigma : Type}
+         {π : BalanceProof K₁ K₂ C Pi V}
+         {k : C × K₂}
+
+@[simp]
+lemma BalanceProof.le_initial :
+  BalanceProof.initial k ≤ π k := by
+  unfold initial
+  simp [(·≤·)]
+  aesop
+
+@[simp]
+lemma BalanceProof.IsBot_initial : IsBot (BalanceProof.initial : BalanceProof K₁ K₂ C Pi V) := by
+  unfold initial; simp [IsBot, (·≤·)]; intros a b; aesop
+
+lemma proposition4W {x y : Option ((Pi × ExtraDataT) × TransactionBatch K₁ K₂ V)}
+  (h : x.isSome ∧ y.isSome → x = y) : IsLUB {x, y} (Dict.First x y) := by
+  simp [IsLUB, IsLeast, lowerBounds, Dict.First]
+  aesop
+
+@[simp]
+lemma BalanceProof.snd_discrete {x y : TransactionBatch K₁ K₂ V} :
+  @LE.le (TransactionBatch K₁ K₂ V) Preorder.toLE x y ↔ x = y := by
+  unfold LE.le Preorder.toLE instPreorderTransactionBatch
+  aesop
+
+lemma setoid_rewrite_LUB {X : Type} {s : Set X} [Setoid' X] {x y : X} (h₁ : IsLUB s x) (h₂ : x ≅ y) :
+  IsLUB s y := by
+  simp [IsLUB, IsLeast, lowerBounds, upperBounds] at h₁ ⊢
+  rcases h₁ with ⟨h₃, h₄⟩; split_ands
+  · intros x' hx
+    specialize @h₃ x' hx
+    specialize @h₄ x'
+    apply iso_trans <;> assumption
+  · intros x' hx
+    specialize @h₄ x' hx
+    rw [iso_symm] at h₂
+    apply iso_trans <;> assumption
+
+lemma mem_of_BalanceProof_le (h : π ≤ π') (h₁ : k ∈ π) : k ∈ π' := by
+  specialize h k; simp [(·≤·)] at h
+  aesop (add simp Dict.mem_iff_isSome)
+
+lemma eq_of_BalanceProof_le (h : π ≤ π') (h₁ : k ∈ π) (h₂ : k ∈ π') :
+  ((π k).get h₁).2 = ((π' k).get h₂).2 := by
+  specialize h k; simp [(·≤·)] at h; rw [Dict.mem_iff_isSome] at h₁
+  aesop (add simp Dict.mem_iff_isSome)
+
+lemma notin_of_BalanceProof_le_notin (h : π ≤ π') (h₁ : k ∉ π') : k ∉ π := by
+  specialize h k; simp [(·≤·)] at h
+  aesop (add simp Dict.mem_iff_isSome)
+
+end BalanceProofOrderLemmas
 
 end Intmax

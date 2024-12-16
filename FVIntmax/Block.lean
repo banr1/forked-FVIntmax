@@ -102,21 +102,25 @@ end Block
 end Block
 
 /--
-2.4
+Definition 28
 
-- Scontract := 𝔹*
+- Scontract := `𝔹* × V`
+
+NB we keep `V` as a separate entity during the attack game, instead of merging it with the state.
+Furthermore, we do _not_ model Definition 30 explicitly; once again, we take the values separately 
+instead. This helps with housekeeping as it avoids an extra abstraction that is used only once.
 -/
-abbrev RollupState (K₁ K₂ V : Type) [Nonnegative V] (C Sigma : Type) :=
+abbrev Scontract (K₁ K₂ V : Type) [Nonnegative V] (C Sigma : Type) :=
   List (Block K₁ K₂ C Sigma V)
 
-namespace RollupState
+namespace Scontract
 
 section Defs
 
 variable (K₁ K₂ C Sigma : Type)
          (V : Type) [Nonnegative V]
 
-def initial : RollupState K₁ K₂ V C Sigma := []
+def initial : Scontract K₁ K₂ V C Sigma := []
 
 end Defs
 
@@ -133,6 +137,6 @@ lemma bs_initial : (@initial K₁ K₂ C Sigma V _) = [] := rfl
 
 end Lemmas
 
-end RollupState
+end Scontract
 
 end Intmax

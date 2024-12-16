@@ -8,7 +8,13 @@ import FVIntmax.Wheels
 import FVIntmax.Wheels.AuthenticatedDictionary
 import FVIntmax.Wheels.SignatureAggregation
 
-set_option lang.lemmaCmd true
+/-!
+NB the request infrastructure is ever so slightly different from the paper version as it came
+to exist in its current form at the time of mechanisation. The differences are of technical nature
+only and do not impact the model semantically (we hope).
+
+We point out the differences whenever possible.
+-/
 
 namespace Intmax
 
@@ -27,6 +33,14 @@ section
 
 variable [Nonnegative V]
 
+/-
+Definition 29
+
+NB we choose to not wrap the blocks in `Request.deposit` and `Request.transfer`,
+as the notion of `Block` is semantically richer (cf. `Request.withdrawal`).
+As such, we choose to construct a `Block` for a _deposit_ and _transfer_ request with the natural
+injection.
+-/
 inductive Request where
   | deposit (recipient : K₂) (amount : V₊)
   | transfer (aggregator : K₁) (extradata : ExtraDataT) (commitment : C) (senders : List K₂) (sigma : Sigma)
@@ -92,7 +106,7 @@ variable [Lattice V] [AddCommGroup V]
          [LinearOrder K₁] [LinearOrder K₂]
 
 def BalanceProof.toBalanceF (π : BalanceProof K₁ K₂ C Pi V)
-                            (σ : RollupState K₁ K₂ V C Sigma) : K₁ → V₊ :=
+                            (σ : Scontract K₁ K₂ V C Sigma) : K₁ → V₊ :=
   λ k : K₁ ↦ ⟨Bal π σ k, by simp⟩
 
 end
@@ -110,20 +124,26 @@ variable [Lattice V] [AddCommGroup V]
          [ADScheme K₂ (C × K₁ × ExtraDataT) C Pi]
          [SignatureAggregation (C × K₁ × ExtraDataT) K₂ KₛT Sigma]
 
-def toBlock (σ : RollupState K₁ K₂ V C Sigma)
+/-
+Definition 34
+
+NB we also have `toBlock!` for valid requests.
+Note further we do validation separately with `Request.isValid`.
+-/
+def toBlock (σ : Scontract K₁ K₂ V C Sigma)
             (request : Request K₁ K₂ C Sigma Pi V) : Option (Block K₁ K₂ C Sigma V) :=
   if ¬request.isValid
   then .none
   else .some <|
   match request with
-  /- 2.5 -/
+  /- Definition 31 -/
   | .deposit r v            => .deposit r v
-  /- 2.6 -/
+  /- Definition 32 -/
   | .transfer a e c s sigma => .transfer a e c s sigma
-  /- 2.7 -/
+  /- Definition 33 -/
   | .withdrawal π           => .withdrawal (π.toBalanceF σ)
 
-def toBlock! (σ : RollupState K₁ K₂ V C Sigma)
+def toBlock! (σ : Scontract K₁ K₂ V C Sigma)
              (request : Request K₁ K₂ C Sigma Pi V) : Block K₁ K₂ C Sigma V :=
   match request with
   | .deposit r v            => .deposit r v
@@ -135,7 +155,7 @@ end
 section Lemmas
 
 variable [Lattice V] [AddCommGroup V]
-         {request : Request K₁ K₂ C Sigma Pi V} {σ σ' : RollupState K₁ K₂ V C Sigma}
+         {request : Request K₁ K₂ C Sigma Pi V} {σ σ' : Scontract K₁ K₂ V C Sigma}
 
 @[simp]
 lemma getWithdrawal_isSome :
@@ -147,11 +167,11 @@ variable [CovariantClass V V (· + ·) (· ≤ ·)]
          [CovariantClass V V (Function.swap (· + ·)) (· ≤ ·)]
          [LinearOrder K₁] [LinearOrder K₂]
 
-lemma toBlock_σ_matches_withdrawal (σ σ' : RollupState K₁ K₂ V C Sigma) :
+lemma toBlock_σ_matches_withdrawal (σ σ' : Scontract K₁ K₂ V C Sigma) :
   request.toBlock! σ matches .withdrawal .. ↔
   request.toBlock! σ' matches .withdrawal .. := by unfold toBlock!; aesop
 
-lemma toBlock_σ_isWithdrawalBlock (σ σ' : RollupState K₁ K₂ V C Sigma) :
+lemma toBlock_σ_isWithdrawalBlock (σ σ' : Scontract K₁ K₂ V C Sigma) :
   (request.toBlock! σ).isWithdrawalBlock ↔
   (request.toBlock! σ').isWithdrawalBlock := by unfold toBlock!; aesop
 

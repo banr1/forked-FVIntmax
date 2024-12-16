@@ -1,5 +1,7 @@
+import FVIntmax.AttackGame
 import FVIntmax.Lemma1
 import FVIntmax.Lemma2
+import FVIntmax.Lemma5
 import FVIntmax.Propositions
 import FVIntmax.Request
 
@@ -18,9 +20,12 @@ open Classical
 
 noncomputable section Intmax
 
-section
+noncomputable section theorem1
 
-variable {C Sigma Pi M : Type}
+section AttackGame
+
+variable {Sigma Pi M : Type}
+         {C : Type} [Nonempty C]
          {V : Type}
          [Lattice V] [AddCommGroup V]
          [CovariantClass V V (· + ·) (· ≤ ·)]
@@ -30,835 +35,8 @@ variable {C Sigma Pi M : Type}
          {Kₚ : Type} [Nonempty Kₚ]
          {Kₛ : Type} [Nonempty Kₛ]
 
-section RollupState
-
-variable [Nonempty C]
-         [ADScheme K₂ (C × K₁ × ExtraDataT) C Pi]
-         [SA : SignatureAggregation (C × K₁ × ExtraDataT) K₂ KₛT Sigma]
-
-def Block.isValid (block : Block K₁ K₂ C Sigma V) (π : BalanceProof K₁ K₂ C Pi V) : Bool :=
-  match block with
-  /- 2.5 -/
-  | deposit .. => true
-  /- 2.6 -/
-  | transfer aggregator extradata commitment senders sigma =>
-      let isValidSA := SA.Verify senders (commitment, aggregator, extradata) sigma
-      let isValidAggregator := aggregator = AgreedUponAggregator
-      isValidSA ∧ isValidAggregator
-  /- 2.7 -/
-  | withdrawal _ => π.Verify (M := (C × K₁ × ExtraDataT))
-
-def Block.updateBalance (bal : V) (block : Block K₁ K₂ C Sigma V) : V :=
-  match block with
-  /- 2.5 -/
-  | .deposit _ v  => bal + v
-  /- 2.6 -/
-  | .transfer ..  => bal
-  /- 2.7 -/
-  | .withdrawal B => bal - ∑ k : K₁, (B k).1
-
-section Lemmas
-
-variable {block : Block K₁ K₂ C Sigma V}
-
-lemma Block.updateBalance_eq_zero :
-  block.updateBalance v = v + block.updateBalance 0 := by
-  unfold Block.updateBalance
-  match block with
-  | .deposit .. => simp
-  | .transfer .. => simp
-  | .withdrawal B => simp; exact sub_eq_add_neg v (∑ x : K₁, ↑(B x))
-
-lemma Block.updateBalance_of_transfer (h : block.isTransferBlock) :
-  block.updateBalance v = v := by
-  unfold Block.updateBalance
-  match block with
-  | .transfer .. => simp
-  | .withdrawal .. | .deposit .. => aesop
-
-@[simp]
-lemma Block.updateBalance_transfer {v : V} {a : K₁} {b : ExtraDataT} {c : C} {d : List K₂} (e : Sigma) :
-  (Block.transfer a b c d e).updateBalance v = v :=
-  Block.updateBalance_of_transfer rfl
-
-@[simp]
-lemma Block.updateBalance_deposit {r : K₂} {v : V} {vplus : V₊} :
-  (Block.deposit r vplus).updateBalance (K₁ := K₁) (C := C) (Sigma := Sigma) v = v + vplus := by
-  unfold Block.updateBalance; aesop
-
-@[simp]
-lemma Block.updateBalance_withdrawal {B : K₁ → V₊} :
-  (Block.withdrawal B).updateBalance (K₁ := K₁) (K₂ := K₂) (C := C) (Sigma := Sigma) v = v - ∑ (k : K₁), (B k).1 := by
-  unfold Block.updateBalance; aesop
-
-end Lemmas
-
-namespace RollupState
-
-def appendBlock (σ : RollupState K₁ K₂ V C Sigma)
-                (request : Request K₁ K₂ C Sigma Pi V) : RollupState K₁ K₂ V C Sigma :=
-  (request.toBlock σ).elim σ (σ ++ [·])
-
-def appendBlock! (σ : RollupState K₁ K₂ V C Sigma)
-                 (request : Request K₁ K₂ C Sigma Pi V) : RollupState K₁ K₂ V C Sigma :=
-  σ ++ [request.toBlock! σ]
-
-section appendBlock
-
-variable {σ : RollupState K₁ K₂ V C Sigma} {request : Request K₁ K₂ C Sigma Pi V}
-
-lemma appendBlock_eq_appendBlock!_of_isValid (h : request.isValid) :
-  appendBlock σ request = appendBlock! σ request := by
-  unfold appendBlock
-  rw [Request.toBlock_eq_toBlock!_of_isValid h]
-  rfl
-
-lemma appendBlock_eq_id_of_not_isValid (h : ¬request.isValid) :
-  appendBlock σ request = σ := by
-  unfold appendBlock
-  rw [Request.toBlock_eq_id_of_not_isValid h]
-  rfl
-
-@[simp]
-lemma length_appendBlock :
-  (appendBlock! σ request).length = σ.length + 1 := by simp [appendBlock!]
-
-lemma appendBlock!_def : σ.appendBlock! request = σ ++ [request.toBlock! σ] := rfl
-
-@[simp]
-lemma appendBlock!_nil : RollupState.appendBlock! [] request = [request.toBlock! []] := rfl
-
-end appendBlock
-
-end RollupState
-
-end RollupState
-
-noncomputable section lemma1
-
-section
-
-variable {K₁ : Type} [Finite K₁] [LinearOrder K₁] [Nonempty K₁]
-         {K₂ : Type} [Finite K₂] [LinearOrder K₂] [Nonempty K₂]
-         {C : Type} [Nonempty C]
-         {Pi : Type}
-         {Sigma V : Type} [Lattice V]
-                          [AddCommGroup V]
-                          [CovariantClass V V (· + ·) (· ≤ ·)]
-                          [CovariantClass V V (Function.swap (· + ·)) (· ≤ ·)]
-         [ADScheme K₂ (C × K₁ × ExtraDataT) C Pi]
-         [SignatureAggregation (C × K₁ × ExtraDataT) K₂ KₛT Sigma]
-
-section AttackGameDefs
-
-variable (requests : List (Request K₁ K₂ C Sigma Pi V))
-         (σ : RollupState K₁ K₂ V C Sigma)
-
-def attackGameBlocks' : RollupState K₁ K₂ V C Sigma :=
-  requests.foldl RollupState.appendBlock σ
-
-def attackGame : RollupState K₁ K₂ V C Sigma :=
-  attackGameBlocks' requests []
-
-def attackGameBlocks'! : RollupState K₁ K₂ V C Sigma :=
-  requests.foldl RollupState.appendBlock! σ
-
-def attackGameBlocks'!r (requests : List (Request K₁ K₂ C Sigma Pi V))
-                        (σ : RollupState K₁ K₂ V C Sigma) : RollupState K₁ K₂ V C Sigma :=
-  match requests with
-  | [] => σ
-  | hd :: tl => attackGameBlocks'!r tl (σ.appendBlock! hd)
-
-def attackGameRGo (requests : List (Request K₁ K₂ C Sigma Pi V))
-                  (σ : RollupState K₁ K₂ V C Sigma) : RollupState K₁ K₂ V C Sigma :=
-  match requests with
-  | [] => []
-  | hd :: tl => hd.toBlock! σ :: attackGameRGo tl (σ.appendBlock! hd)
-
-def attackGameR : RollupState K₁ K₂ V C Sigma :=
-  σ ++ attackGameRGo requests σ
-
-def attackGameBlocks! (requests : List (Request K₁ K₂ C Sigma Pi V)) : RollupState K₁ K₂ V C Sigma :=
-  attackGameBlocks'! requests []
-
-end AttackGameDefs
-
-end
-
-section AttackGameLemmas
-
-end AttackGameLemmas
-
-section AttackGame
-
-variable [Nonempty C] [Finite K₁] [Finite K₂] [Nonempty K₁]
-         [Lattice V]
-         [AddCommGroup V]
-         [CovariantClass V V (· + ·) (· ≤ ·)]
-         [CovariantClass V V (Function.swap (· + ·)) (· ≤ ·)]
-         [AD : ADScheme K₂ (C × K₁ × ExtraDataT) C Pi]
-         [SA : SignatureAggregation (C × K₁ × ExtraDataT) K₂ KₛT Sigma]
-         {request : Request K₁ K₂ C Sigma Pi V}
-         {requests : List (Request K₁ K₂ C Sigma Pi V)}
-         {σ : RollupState K₁ K₂ V C Sigma}
-
 instance : Setoid' ((Pi × ExtraDataT) × TransactionBatch K₁ K₂ V) where
-  isEquiv := λ _ _ ↦
-    by simp [iso, (·≤·)]
-       unfold LE.le Preorder.toLE instPreorderTransactionBatch discretePreorder
-       aesop
-
-def normalise (requests : List (Request K₁ K₂ C Sigma Pi V)) : List (Request K₁ K₂ C Sigma Pi V) :=
-  requests.filter Request.isValid
-
-def computeBalance' (blocks : RollupState K₁ K₂ V C Sigma) (acc : V) : V :=
-  blocks.foldl Block.updateBalance acc
-
-def computeBalance (blocks : RollupState K₁ K₂ V C Sigma) : V :=
-  computeBalance' blocks 0
-
-def adversaryWon (blocks : RollupState K₁ K₂ V C Sigma) : Prop :=
-  ¬0 ≤ computeBalance blocks
-
-section AttackGameLemmas
-
-variable {request : Request K₁ K₂ C Sigma Pi V}
-         {requests : List (Request K₁ K₂ C Sigma Pi V)}
-         {σ : RollupState K₁ K₂ V C Sigma}
-
-def aggregateDeposits (σ : RollupState K₁ K₂ V C Sigma) : V :=
-  ∑ i : Fin σ.length,
-    if h : σ[i].isDepositBlock
-    then (σ[i.1].getDeposit h).2.1
-    else 0
-
-@[simp]
-lemma aggregateDeposits_nil : aggregateDeposits ([] : RollupState K₁ K₂ V C Sigma) = 0 := rfl
-
-@[simp]
-lemma aggregateDeposits_cons {hd} {tl : List (Block K₁ K₂ C Sigma V)} :
-  aggregateDeposits (hd :: tl) =
-  (if h : hd.isDepositBlock
-   then (hd.getDeposit h).2.1
-   else 0) +
-  aggregateDeposits tl := by
-  simp [aggregateDeposits]
-  rw [
-    Finset.sum_fin_eq_sum_range,
-    Finset.sum_eq_sum_diff_singleton_add (i := 0),
-    dif_pos (show 0 < tl.length + 1 by omega)
-  ]
-  simp_rw [List.getElem_cons_zero (h := _)]; case h => exact Finset.mem_range.2 (by omega)
-  let F : ℕ → V := λ i ↦
-    if h : i < tl.length
-    then if h_1 : tl[i].isDepositBlock = true
-         then (tl[i].getDeposit h_1).2
-         else 0
-    else 0
-  let F' : (a : ℕ) → a ∈ Finset.range (tl.length + 1) \ {0} → ℕ :=
-    λ a ha ↦ a.pred
-  rw [Finset.sum_bij (t := Finset.range tl.length) (g := F) (i := F')]
-  unfold F
-  rw [Finset.sum_dite_of_true (λ _ ↦ (Finset.mem_range.1 ·)), Finset.sum_fin_eq_sum_range]
-  simp
-  nth_rw 2 [Finset.sum_dite_of_true]; case h => exact λ _ ↦ (Finset.mem_range.1 ·)
-  rw [add_comm]
-  simp
-  intros i hi; simp [F']
-  simp at hi; rcases i <;> omega
-  simp [F']; intros; omega
-  simp [F']; intros b hb; use b.succ; simp [hb]
-  intros n hn
-  simp at hn
-  simp [hn]
-  rcases n with _ | n <;> [omega; simp [F, F']]
-  nth_rw 2 [dif_pos (by rcases hn with ⟨hn, _⟩; omega)]
-
-def aggregateWithdrawals (σ : RollupState K₁ K₂ V C Sigma) : V :=
-  ∑ i : Fin σ.length,
-    if h : σ[i].isWithdrawalBlock
-    then ∑ (k : K₁), (σ[i.1].getWithdrawal h) k
-    else 0
-
-def aggregateWithdrawals' (σ : RollupState K₁ K₂ V C Sigma) : V :=
-  ∑ (i : Fin σ.length × K₁),
-    if h : σ[i.1].isWithdrawalBlock
-    then (σ[i.1].getWithdrawal h) i.2
-    else 0
-
-lemma aggregateWithdrawals_eq_aggregateWithdrawals' {σ : RollupState K₁ K₂ V C Sigma} :
-  aggregateWithdrawals σ = aggregateWithdrawals' σ := by
-  unfold aggregateWithdrawals aggregateWithdrawals'
-  rw [Fintype.sum_prod_type, Fintype.sum_congr]
-  aesop
-
-/--
-The 'obvious' `∑ (i : {i : Fin σ.length // σ[i].isDepositBlock}) ...` is slightly clumsy.
--/
-def computeBalanceErik (σ : RollupState K₁ K₂ V C Sigma) :=
-  let v_deposited : V := aggregateDeposits σ
-  let v_withdrawn : V := aggregateWithdrawals σ
-  v_deposited - v_withdrawn
-
-@[simp]
-lemma computeBalance'_nil : computeBalance' ([] : RollupState K₁ K₂ V C Sigma) v = v := rfl
-
-@[simp]
-lemma computeBalance'_cons : computeBalance' (hd :: σ) v =
-                             computeBalance' σ (Block.updateBalance v hd) := rfl
-
-lemma computeBalance'_eq_zero : computeBalance' σ v = v + computeBalance' σ 0 := by
-  induction' σ with hd tl ih generalizing v
-  · simp
-  · rw [computeBalance'_cons, computeBalance'_cons, ih, Block.updateBalance_eq_zero]
-    nth_rw 2 [ih]
-    exact add_assoc v _ _
-
-@[simp]
-lemma TransactionsInBlocks_nil {π : BalanceProof K₁ K₂ C Pi V} :
-  TransactionsInBlocks π ([] : RollupState K₁ K₂ V C Sigma) = [] := rfl
-
-@[simp]
-lemma TransactionsInBlocks_cons {π : BalanceProof K₁ K₂ C Pi V}
-                                {hd}
-                                {tl : List (Block K₁ K₂ C Sigma V)} :
-  TransactionsInBlocks π (hd :: tl) =
-  TransactionsInBlock π hd ++ (List.map (TransactionsInBlock π) tl).flatten := rfl
-
-@[simp]
-lemma transactionsInBlock_deposit {r : K₂} {v : V₊} :
-  TransactionsInBlock (K₁ := K₁) (Sigma := Sigma) π (Block.deposit r v) =
-  [⟨(.Source, r, v), by simp [Τ'.isValid]⟩] := by
-  unfold TransactionsInBlock
-  aesop
-
-section ComputeBalanceErik
-
-variable {k : ℕ}
-
-@[simp]
-private def reindex : (a : ℕ) → a ∈ Finset.range (k + 1) \ {0} → ℕ :=
-  λ a _ ↦ a.pred
-
-private lemma reindex_mem :
-  ∀ (a : ℕ) (ha : a ∈ Finset.range (k + 1) \ {0}), reindex a ha ∈ Finset.range k := by
-  simp; omega
-
-private lemma reindex_inj :
-  ∀ (a₁ : ℕ) (ha₁ : a₁ ∈ Finset.range (k + 1) \ {0})
-    (a₂ : ℕ) (ha₂ : a₂ ∈ Finset.range (k + 1) \ {0}),
-  reindex a₁ ha₁ = reindex a₂ ha₂ → a₁ = a₂ := by simp; omega
-
-end ComputeBalanceErik
-
-set_option hygiene false in
-open Lean.Elab.Tactic in
-scoped elab "blast_sum" "with" f:ident : tactic => do
-  evalTactic <| ← `(tactic| (
-    simp [d₁, d₂, Finset.sum_fin_eq_sum_range]
-    rw [
-      Finset.sum_eq_sum_diff_singleton_add (s := Finset.range (tl.length + 1)) (i := 0) eq₁,
-      dif_pos (show 0 < tl.length + 1 by omega),
-      dif_neg (by rcases hd <;> aesop),
-      add_zero
-    ]
-    rw [Finset.sum_bij (s := _ \ _)
-                       (t := Finset.range tl.length)
-                       (i := reindex) (g := $f)
-                       (hi := reindex_mem)
-                       (i_inj := reindex_inj)
-                       (i_surj := λ b hb ↦ by use b.succ; simp; exact Finset.mem_range.1 hb)]
-    intros n hn
-    rw [dif_pos (by simp at hn; exact hn.1)]
-    rcases n with _ | n <;> simp at hn
-    simp [$f:ident, hn]))
-
-set_option maxHeartbeats 600000 in
-private lemma computeBalance'_eq_Erik_aux : computeBalance' σ v = v + computeBalanceErik σ := by
-  induction' σ with hd tl ih generalizing v
-  · simp [computeBalanceErik, aggregateWithdrawals, aggregateDeposits]
-  · rw [computeBalance'_eq_zero]; simp; rw [ih]
-    unfold computeBalanceErik aggregateWithdrawals aggregateDeposits
-    lift_lets
-    intros d₁ w₁ d₂ w₂
-    have eq₁ : 0 ∈ Finset.range (tl.length + 1) := by rw [Finset.mem_range]; omega
-    have eqd (h : ¬ hd matches .deposit ..) : d₁ = d₂ := by
-      simp [d₁, d₂]
-      let F : ℕ → V := λ i ↦
-        if h : i < tl.length then
-          if h_1 : tl[i].isDepositBlock
-          then (tl[i].getDeposit h_1).2
-          else 0
-        else 0
-      blast_sum with F
-    have eqw (h : ¬ hd matches .withdrawal ..) : w₁ = w₂ := by
-      simp [w₁, w₂]
-      let F : ℕ → V := λ i ↦
-        if h : i < tl.length then
-          if h' : tl[i].isWithdrawalBlock
-          then ∑ x : K₁, tl[i].getWithdrawal h' x
-          else 0
-        else 0
-      blast_sum with F
-    rcases heq : hd
-    · have : w₁ = w₂ := eqw (by aesop)
-      simp [this, d₁, d₂, add_sub, Finset.sum_fin_eq_sum_range]
-      rw [
-        Finset.sum_eq_sum_diff_singleton_add (s := Finset.range (tl.length + 1)) (i := 0) eq₁,
-        dif_pos (show 0 < tl.length + 1 by omega),
-        dif_pos (by aesop)
-      ]
-      simp_rw [List.getElem_cons_zero, heq]; nth_rw 2 [add_comm]
-      refine' congr_arg _ (Eq.symm (Finset.sum_bij (i := reindex)
-                                                   (t := Finset.range tl.length)
-                                                   (hi := reindex_mem)
-                                                   (i_inj := reindex_inj)
-                                                   (i_surj := λ b hb ↦ by use b.succ; simp; exact Finset.mem_range.1 hb)
-                                                   _))
-      simp; rintro a ⟨ha₁, ha₂⟩
-      rw [dif_pos ha₁]
-      have : a - 1 < tl.length ↔ a < tl.length + 1 := by omega
-      simp_rw [this, dif_pos ha₁]
-      rcases a with _ | a; simp at ha₂
-      simp
-    · have eq₁ : d₁ = d₂ := eqd (by aesop)
-      have eq₂ : w₁ = w₂ := eqw (by aesop)
-      simp [eq₁, eq₂]
-    · have eq : d₁ = d₂ := eqd (by aesop)
-      rw [add_sub, add_comm, ←add_sub, sub_eq_add_neg (b := w₂)]
-      simp [eq, w₁, w₂, Finset.sum_fin_eq_sum_range]
-      rw [
-        Finset.sum_eq_sum_diff_singleton_add (s := Finset.range (tl.length + 1)) (i := 0) eq₁,
-        dif_pos (show 0 < tl.length + 1 by omega),
-        dif_pos (by aesop)
-      ]
-      simp_rw [List.getElem_cons_zero]
-      conv_rhs => congr; arg 2; simp [heq]; simp [Block.getWithdrawal]
-      rw [neg_add, add_comm, sub_eq_add_neg]
-      apply congr_arg
-      let F : ℕ → V := λ i ↦
-        if h : i < tl.length then
-          if h₁ : tl[i].isWithdrawalBlock
-          then ∑ x : K₁, tl[i].getWithdrawal h₁ x else 0
-        else 0
-      rw [Finset.sum_bij (s := _ \ _)
-                         (i := reindex)
-                         (t := Finset.range tl.length)
-                         (g := F)
-                         (hi := reindex_mem)
-                         (i_inj := reindex_inj)
-                         (i_surj := λ b hb ↦ by use b.succ; simp; exact Finset.mem_range.1 hb)]
-      simp [F]; intros a ha₁ ha₂
-      simp_rw [dif_pos ha₁, show a - 1 < tl.length ↔ a < tl.length + 1 by omega, dif_pos ha₁]
-      rcases a with _ | a; simp at ha₂
-      simp
-
-lemma computeBalance_eq_sum : computeBalance σ = computeBalanceErik σ := by
-  simp [computeBalance, computeBalance'_eq_Erik_aux]
-
-@[simp]
-lemma attackGameRGo_nil :
-  attackGameRGo ([] : List (Request K₁ K₂ C Sigma Pi V)) σ = [] := rfl
-
-@[simp]
-lemma attackGameRGo_cons :
-  attackGameRGo (request :: requests) σ =
-  request.toBlock! σ :: attackGameRGo requests (σ.appendBlock! request) := rfl
-
-@[simp]
-lemma attackGameR_nil :
-  attackGameR ([] : List (Request K₁ K₂ C Sigma Pi V)) σ = σ := by simp [attackGameR]
-
-@[simp]
-lemma attackGameR_cons :
-  attackGameR (request :: requests) σ =
-  σ ++ attackGameRGo (request :: requests) σ := rfl
-
-lemma attackGameR_eq_attackGameBlocks' :
-  attackGameR requests σ = attackGameBlocks'!r requests σ := by
-  induction' requests with hd tl ih generalizing σ
-  · unfold attackGameR attackGameBlocks'!r attackGameRGo
-    rw [List.append_nil]
-  · unfold attackGameR attackGameBlocks'!r
-    simp [ih.symm]
-    unfold attackGameR
-    simp [RollupState.appendBlock!_def]
-
-lemma attackGameBlocks'r_eq_attackGameBlocks' :
-  attackGameBlocks'! requests σ = attackGameBlocks'!r requests σ := by
-  induction' requests with hd tl ih generalizing σ
-  · rfl
-  · unfold attackGameBlocks'! attackGameBlocks'!r
-    simp [ih.symm]
-    rfl
-
-lemma attackGameBlocks_eq_attackGameR :
-  attackGameBlocks! requests = attackGameR requests [] := by
-  rw [attackGameR_eq_attackGameBlocks']
-  rw [←attackGameBlocks'r_eq_attackGameBlocks']
-  rfl
-
-lemma attackGameBlocks'_eq_attackGameBlocks'!_normalise :
-  attackGameBlocks' requests σ = attackGameBlocks'! (normalise requests) σ := by
-  unfold attackGameBlocks' attackGameBlocks'!
-  unfold normalise
-  induction' requests with hd tl ih generalizing σ
-  · rfl
-  · by_cases eq : hd.isValid
-    · rw [List.filter_cons_of_pos eq]; dsimp
-      rw [ih, ←RollupState.appendBlock_eq_appendBlock!_of_isValid eq]
-    · rw [List.filter_cons_of_neg eq]; dsimp
-      rw [ih, RollupState.appendBlock_eq_id_of_not_isValid eq]
-
-lemma attackGame_eq_attackGameBlocks!_normalise :
-  attackGame requests = attackGameBlocks! (normalise requests) :=
-  attackGameBlocks'_eq_attackGameBlocks'!_normalise
-
-@[simp]
-lemma length_attackGameBlocks'! :
-  (attackGameBlocks'! requests σ).length = σ.length + requests.length := by
-  unfold attackGameBlocks'!
-  induction' requests with hd tl ih generalizing σ
-  · rfl
-  · simp [ih]; omega
-
-@[simp]
-lemma length_attackGameBlocks! :
-  (attackGameBlocks! requests).length = requests.length := by simp [attackGameBlocks!]
-
-@[simp]
-lemma attackGameBlocks'!_cons :
-  attackGameBlocks'! (hd :: requests) σ = attackGameBlocks'! requests (σ ++ [hd.toBlock! σ]) := by
-  unfold attackGameBlocks'!
-  rfl
-
-@[simp]
-lemma length_attackGameRGo : (attackGameRGo requests σ).length = requests.length := by
-  induction' requests with hd tl ih generalizing σ
-  · simp
-  · simp [attackGameRGo, ih]
-
-@[simp]
-lemma length_attackGameR : (attackGameR requests σ).length = σ.length + requests.length := by
-  simp [attackGameR]
-
-lemma attackGameRGo_isWithdrawal_iff (σ σ' : RollupState K₁ K₂ V C Sigma)
-                                     (h : i < (attackGameRGo requests σ).length) :
-  (attackGameRGo requests σ)[i].isWithdrawalBlock ↔
-  (attackGameRGo requests σ')[i].isWithdrawalBlock := by
-  simp
-  induction' requests with hd tl ih generalizing i σ σ'
-  · rfl
-  · simp
-    rcases i with _ | i
-    · simp; unfold Request.toBlock!; aesop
-    · aesop
-
-set_option maxHeartbeats 400000 in
-private lemma isWithdrawalRequest_of_isWithdrawalBlock_aux
-  {σ : RollupState K₁ K₂ V C Sigma}
-  {requests : List (Request K₁ K₂ C Sigma Pi V)}
-  (h₀ : ∀ request ∈ requests, request.isValid)
-  (i : ℕ)
-  (hi₁ : σ.length ≤ i)
-  (hi₂ : i < (attackGameR requests σ).length)
-  (h₁ : ((attackGameR requests σ)[i]'(by simp; simp at hi₂; exact hi₂)).isWithdrawalBlock) :
-  (requests[i - σ.length]'(by rcases i with _ | i <;> rcases requests with _ | ⟨hd, tl⟩
-                              · simp at hi₂; omega
-                              · simp
-                              · simp at hi₂; omega
-                              · simp at hi₂ ⊢; omega)) matches .withdrawal .. := by
-  simp [attackGameR] at h₁
-  induction' requests with hd tl ih generalizing i
-  · simp at hi₂ h₁; omega
-  · rcases i with _ | i
-    · simp at hi₁; subst hi₁
-      simp at h₁
-      simp [Request.toBlock!] at h₁ ⊢; rcases hd <;> simp_all
-    · rcases σ with _ | ⟨hd', tl'⟩
-      · simp at hi₁ hi₂ h₁ ih ⊢
-        apply ih (by aesop) _ hi₂
-        rw [attackGameRGo_isWithdrawal_iff (σ' := RollupState.appendBlock! [] hd)]
-        exact h₁
-      · simp at hi₁ ⊢
-        rw [le_iff_eq_or_lt] at hi₁
-        rcases hi₁ with hi₁ | hi₁
-        · simp_rw [hi₁];
-          simp [Request.toBlock!] at h₁ ⊢
-          simp_rw [←hi₁] at h₁
-          rw [List.getElem_append_right (le_refl _)] at h₁
-          rcases hd <;> simp_all
-        · rw [lt_iff_exists_add] at hi₁
-          rcases hi₁ with ⟨c, ⟨hc₁, hc₂⟩⟩
-          simp_rw [hc₂]
-          rcases c with _ | c <;> [simp at hc₁; simp]
-          specialize ih (by aesop) (c + (hd' :: tl').length); simp at ih
-          refine' ih (by simp at hi₂; omega) _
-          simp_rw [←Nat.add_assoc]; simp at h₁ ⊢
-          simp_rw [
-            hc₂, ←Nat.add_assoc,
-            List.append_cons (as := tl') (b := Request.toBlock! _ _) (bs := attackGameRGo _ _)
-          ] at h₁
-          rw [List.getElem_append_right] at h₁ ⊢ <;> simp at h₁ ⊢
-          rwa [←attackGameRGo_isWithdrawal_iff]
-
-lemma isWithdrawalRequest_of_isWithdrawalBlock
-  {requests : List (Request K₁ K₂ C Sigma Pi V)}
-  (h₀ : ∀ request ∈ requests, request.isValid)
-  (i : Fin (attackGameR requests []).length)
-  (h₁ : ((attackGameR requests [])[i]'(by simp; rcases i with ⟨i, hi⟩; simp at hi; exact hi)).isWithdrawalBlock) :
-  (requests[i]'(by rcases i with ⟨h, hi⟩; rcases requests with _ | ⟨hd, tl⟩
-                   · simp at hi
-                   · simp at hi ⊢; omega)) matches .withdrawal .. := by
-  let σ : RollupState K₁ K₂ V C Sigma := []
-  have hσ : σ.length = 0 := by simp [σ]
-  rcases i with ⟨i, hi⟩; dsimp at h₁ ⊢
-  have eq := isWithdrawalRequest_of_isWithdrawalBlock_aux (σ := [])
-                                                          (requests := requests)
-                                                          h₀
-                                                          (i + σ.length)
-                                                          (zero_le _)
-                                                          (hσ ▸ hi)
-  aesop
-
-def getBalanceProof (requests : List (Request K₁ K₂ C Sigma Pi V))
-                    (h₀ : ∀ request ∈ requests, request.isValid)
-                    (i : Fin (attackGameR requests []).length)
-                    (h₁ : (attackGameR requests [])[i].isWithdrawalBlock) :
-                    BalanceProof K₁ K₂ C Pi V :=
-  let request := requests[i]'(by rcases i with ⟨i, hi⟩; simp at hi; exact hi)
-  have : request.getWithdrawal.isSome := by
-    rw [Request.getWithdrawal_isSome]
-    dsimp only [request]
-    have := isWithdrawalRequest_of_isWithdrawalBlock (requests := requests) h₀ i h₁
-    aesop
-  request.getWithdrawal.get this
-
-def isπ (requests : List (Request K₁ K₂ C Sigma Pi V)) :=
-  ∀ (h₀ : ∀ request ∈ requests, request.isValid)
-    (i : Fin (attackGameR requests []).length)
-    (h : (attackGameR requests [])[i].isWithdrawalBlock),
-    (attackGameR requests [])[i].getWithdrawal h =
-    let π := getBalanceProof requests h₀ i h
-    let σ := (attackGameR requests []).take i.1
-    π.toBalanceF σ
-
-end AttackGameLemmas
-
-set_option maxHeartbeats 1000000 in
-private lemma lemma5_aux {len : ℕ} {σ : RollupState K₁ K₂ V C Sigma}
-  (hlen : len = σ.length) :
-  (Bal π σ) Kbar.Source =
-  (∑ x ∈ (Finset.univ : Finset (Fin σ.length)) ×ˢ Finset.univ,
-      if h : σ[x.1].isWithdrawalBlock then
-        (σ[x.1].getWithdrawal h x.2).1 ⊓ ((Bal π (List.take (x.1.1) σ)) x.2)
-      else 0) -
-  ∑ i : Fin (List.length σ), if h : σ[i].isDepositBlock then (σ[↑i].getDeposit h).2 else 0 := by
-  induction' len with k ih generalizing σ
-  · rcases σ <;> aesop
-  · obtain ((_ | _) | ⟨bs, b, ⟨⟩⟩) := List.eq_nil_or_concat' σ <;> [simp at hlen; skip]
-    unfold Bal fStar
-    simp only [
-      transactionsInBlocks_append_singleton, List.foldl_append, Finset.univ_product_univ, Fin.getElem_fin,
-      Fintype.sum_prod_type, Finset.sum_fin_eq_sum_range, Finset.sum_fin_eq_sum_range,
-      List.length_append, List.length_singleton
-    ]
-    simp_rw [
-      Finset.sum_eq_sum_diff_singleton_add
-        (show bs.length ∈ Finset.range (bs.length + 1) by rw [Finset.mem_range]; omega),
-      dif_pos (show bs.length < bs.length + 1 by omega),
-      show Finset.range (bs.length + 1) \ {bs.length} = Finset.range bs.length by
-              rw [Finset.range_succ, Finset.insert_eq, Finset.union_sdiff_cancel_left (by simp)
-    ]]
-    rcases hb : b with ⟨r, v⟩ | ⟨x₁, x₂, x₃, x₄, x₅⟩ | ⟨B⟩
-    · erw [
-        f_deposit_source'' (b := b) (h := by aesop) (π := π) (h₁ := by aesop),
-        ih (show k = bs.length by simp at hlen; exact hlen)
-      ]
-      simp only [Finset.univ_eq_attach, id_eq, Int.reduceNeg, Int.Nat.cast_ofNat_Int,
-        eq_mpr_eq_cast, List.getElem_concat_length, Block.deposit_ne_widthdrawal, ↓reduceDIte,
-        Finset.sum_const_zero, add_zero]
-      rw [sub_add]
-      congr 1
-      /-
-        IH matches rhs.
-      -/
-      · simp only [Finset.univ_product_univ, Fin.getElem_fin, Finset.univ_eq_attach, id_eq,
-          Int.reduceNeg, Int.Nat.cast_ofNat_Int, eq_mpr_eq_cast, Fintype.sum_prod_type,
-          Finset.sum_fin_eq_sum_range]
-        refine' Finset.sum_congr rfl (λ idx hidx ↦ _)
-        have hlen : idx < bs.length := Finset.mem_range.1 hidx
-        simp_rw [dif_pos hlen, dif_pos (Nat.lt_add_one_of_lt hlen)]
-        refine' Finset.sum_congr rfl (λ k hk ↦
-                  dite_congr (by rw [List.getElem_append_left hlen]) (λ h ↦ _) (by simp))
-        congr 2
-        · have : bs[idx] = (bs ++ [Block.deposit r v])[idx]'(by simp; omega) := by
-            rw [List.getElem_append_left hlen]
-          simp_rw [this]
-        · have : List.take idx (bs ++ [Block.deposit r v]) = List.take idx bs := by
-            rw [List.take_append_of_le_length (by omega)]
-          simp_rw [this]
-          rfl
-      /-
-        Rest matches rhs.
-      -/
-      · rw [Finset.sum_fin_eq_sum_range]
-        simp only [Fin.getElem_fin, Block.getDeposit, Τ.value, Option.get_some, sub_neg_eq_add,
-          List.length_singleton, add_left_inj]
-        refine' (Finset.sum_congr rfl (λ idx hidx ↦ _))
-        have hlen : idx < bs.length := Finset.mem_range.1 hidx
-        have : (bs ++ [Block.deposit r v])[idx]'(by simp; omega) = bs[idx] := by
-          rw [List.getElem_append_left hlen]
-        
-        refine' dite_congr (by simp [hlen]; omega) (λ h ↦ (dite_congr (by simp [this]) (λ h ↦ _) (by simp))) (by simp)
-        split; split; aesop
-    · rw [f_transfer_block_source' (by simp)]
-      erw [ih (show k = bs.length by simp at hlen; exact hlen)]
-      congr 1
-      /-
-        IH matches rhs
-      -/
-      · simp only [
-          Finset.univ_product_univ, Fin.getElem_fin, Fintype.sum_prod_type, Finset.sum_fin_eq_sum_range,
-          List.length_append, List.length_singleton
-        ]
-        nth_rw 3 [Finset.sum_dite_of_false (by simp)]
-        simp only [Finset.sum_dite_irrel, Finset.sum_const_zero, add_zero]
-        refine' Finset.sum_congr rfl (λ idx hidx ↦ _)
-        have hlen : idx < bs.length := Finset.mem_range.1 hidx
-        refine' dite_congr
-                  (by simp [hidx]; omega)
-                  (λ _ ↦ dite_congr (by rw [List.getElem_append_left hlen])
-                                    (λ _ ↦ Finset.sum_congr rfl λ _ _ ↦ _)
-                                    (by simp))
-                  (by simp)
-        congr 2
-        · have : bs[idx] = (bs ++ [Block.transfer x₁ x₂ x₃ x₄ x₅])[idx]'(by simp; omega) := by
-            rw [List.getElem_append_left hlen]
-          simp_rw [List.getElem_append_left hlen]
-        · have : List.take idx (bs ++ [Block.transfer x₁ x₂ x₃ x₄ x₅]) = List.take idx bs := by
-            rw [List.take_append_of_le_length (by omega)]
-          simp_rw [this]
-          rfl
-      /-
-        Rest matches rhs.
-      -/
-      · simp only [Fin.getElem_fin, Finset.sum_fin_eq_sum_range, List.length_append, List.length_singleton]
-        simp only [List.getElem_concat_length, Block.transfer_ne_deposit, ↓reduceDIte, add_zero]
-        refine' (Finset.sum_congr rfl (λ idx hidx ↦ _))
-        have hlen : idx < bs.length := Finset.mem_range.1 hidx
-        have : (bs ++ [Block.transfer x₁ x₂ x₃ x₄ x₅])[idx]'(by simp; omega) = bs[idx] := by
-          rw [List.getElem_append_left hlen]
-        exact dite_congr (by simp [hlen]; omega)
-                         (λ _ ↦ (dite_congr (by simp [this]) (λ _ ↦ by simp_rw [this]) (by simp)))
-                         (by simp)
-    · rw [f_withdrawal_block_source' (by simp)]
-      erw [ih (show k = bs.length by simp at hlen; exact hlen)]
-      simp only [
-        Finset.univ_product_univ, Fin.getElem_fin, Finset.sum_fin_eq_sum_range, Fintype.sum_prod_type,
-        List.length_append, List.length_singleton, Finset.sum_dite_irrel, Finset.sum_const_zero]
-      nth_rw 2 [dif_neg (by simp)]
-      simp only [List.getElem_concat_length, ↓reduceDIte, List.take_left', add_zero]
-      rw [sub_add, ←add_sub, sub_eq_add_neg]
-      congr 1
-      /-
-        IH matches rhs.
-      -/
-      · refine' Finset.sum_congr rfl (λ idx hidx ↦ _)
-        have hlen : idx < bs.length := Finset.mem_range.1 hidx
-        simp_rw [dif_pos hlen, dif_pos (Nat.lt_add_one_of_lt hlen)]
-        have : (bs ++ [Block.withdrawal B])[idx]'(by simp; omega) = bs[idx] := by
-          rw [List.getElem_append_left hlen]
-        simp_rw [this]
-        refine' dite_congr rfl (λ h₁ ↦ Finset.sum_congr rfl (λ i hi ↦ _)) (by simp)
-        have : List.take idx (bs ++ [Block.withdrawal B]) = List.take idx bs := by
-          rw [List.take_append_of_le_length (by omega)]
-        simp_rw [this]
-        rfl
-      /-
-        Rest matches rhs.
-      -/
-      · simp only [neg_sub, sub_right_inj]
-        refine' Finset.sum_congr rfl (λ idx hidx ↦ _)
-        have hlen : idx < bs.length := Finset.mem_range.1 hidx
-        exact dite_congr
-                (by simp [hidx]; omega)
-                (λ h ↦ dite_congr (by rw [List.getElem_append_left hlen])
-                                  (λ h₁ ↦ by simp_rw [List.getElem_append_left hlen])
-                                  (by simp))
-                (by simp)
-
-lemma lemma5 (π : BalanceProof K₁ K₂ C Pi V) :
-  Bal π σ .Source =
-  (∑ (i : Fin σ.length) (k : K₁),
-     if h : σ[i].isWithdrawalBlock
-     then let w := σ[i].getWithdrawal h
-          w k ⊓ Bal π (σ.take i.1) k
-     else 0)
-  -
-  aggregateDeposits σ := lemma5_aux (len := σ.length) rfl
-
-variable -- [ADScheme K₂ (C × K₁ × ExtraDataT) C Pi]
-         [Hinj : CryptoAssumptions.Injective (H (α := TransactionBatch K₁ K₂ V × ExtraDataT) (ω := (C × K₁ × ExtraDataT)))]
-         (isπ : isπ (normalise requests))
-
-def BalanceProof.initial : BalanceProof K₁ K₂ C Pi V := λ _ ↦ .none
-
-@[simp]
-lemma Merge_initial {π : BalanceProof K₁ K₂ C Pi V} :
-  BalanceProof.initial.Merge π = π := by
-  rw [Dict.keys_Merge_right']
-  intros x contra
-  unfold BalanceProof.initial at contra
-  rw [Dict.mem_iff_isSome] at contra
-  simp at contra
-
-@[simp]
-lemma BalanceProof.valid_initial :
-  BalanceProof.initial.Verify (K₁ := K₁) (AD := AD) (K₂ := K₂) (V := V) (M := (C × K₁ × ExtraDataT)) := by
-  simp [Verify, Dict.keys, Dict.is_mem, initial]
-
-@[simp]
-lemma BalanceProof.le_initial {k} {π : BalanceProof K₁ K₂ C Pi V} :
-  BalanceProof.initial k ≤ π k := by
-  unfold initial
-  simp [(·≤·)]
-  aesop
-
-@[simp]
-lemma BalanceProof.IsBot_initial : IsBot (BalanceProof.initial : BalanceProof K₁ K₂ C Pi V) := by
-  unfold initial; simp [IsBot, (·≤·)]; intros a b; aesop
-
-lemma proposition4W {x y : Option ((Pi × ExtraDataT) × TransactionBatch K₁ K₂ V)}
-  (h : x.isSome ∧ y.isSome → x = y) : IsLUB {x, y} (Dict.First x y) := by
-  simp [IsLUB, IsLeast, lowerBounds, Dict.First]
-  aesop
-
-@[simp]
-lemma BalanceProof.snd_discrete {x y : TransactionBatch K₁ K₂ V} :
-  @LE.le (TransactionBatch K₁ K₂ V) Preorder.toLE x y ↔ x = y := by
-  unfold LE.le Preorder.toLE instPreorderTransactionBatch
-  aesop
-
-instance : Setoid' ((Pi × ExtraDataT) × TransactionBatch K₁ K₂ V) where
-  isEquiv := by unfold IsEquivRel
-                intros a b
-                unfold iso
-                simp [(·≤·)]
-                aesop
-
-lemma setoid_rewrite_LUB {X : Type} {s : Set X} [Setoid' X] {x y : X} (h₁ : IsLUB s x) (h₂ : x ≅ y) :
-  IsLUB s y := by
-  simp [IsLUB, IsLeast, lowerBounds, upperBounds] at h₁ ⊢
-  rcases h₁ with ⟨h₃, h₄⟩; split_ands
-  · intros x' hx
-    specialize @h₃ x' hx
-    specialize @h₄ x'
-    apply iso_trans <;> assumption
-  · intros x' hx
-    specialize @h₄ x' hx
-    rw [iso_symm] at h₂
-    apply iso_trans <;> assumption
+  isEquiv := by unfold IsEquivRel iso; aesop
 
 def mergeR (πs : List (BalanceProof K₁ K₂ C Pi V)) (n : ℕ) : BalanceProof K₁ K₂ C Pi V :=
   if _ : n < πs.length.succ
@@ -903,10 +81,12 @@ lemma mergeR''_eq_foldl {πs : List (BalanceProof K₁ K₂ C Pi V)} {acc} :
 lemma mergeR''_cons {π} {πs : List (BalanceProof K₁ K₂ C Pi V)} {acc} :
   mergeR'' (π :: πs) acc =  Dict.Merge acc (mergeR'' πs π) := rfl
 
-def P : BalanceProof K₁ K₂ C Pi V → Prop :=
-  λ π ↦ True
-
-lemma P_initial : P (.initial : BalanceProof K₁ K₂ C Pi V) := by trivial
+@[simp]
+lemma mergeR''_append {πs πs' : List (BalanceProof K₁ K₂ C Pi V)} {acc} :
+  mergeR'' (πs ++ πs') acc = mergeR'' πs' (mergeR'' πs acc) := by
+    rw [mergeR''_eq_foldl, mergeR''_eq_foldl, mergeR''_eq_foldl]
+    unfold mergeR'''
+    rw [←List.foldl_append]
 
 @[simp]
 lemma mem_list_singleton_iff {π} : π ∈ ({acc} : List (BalanceProof K₁ K₂ C Pi V)) ↔ π = acc := by
@@ -919,11 +99,26 @@ notation:51 π₁:52 " <≅> " π₂:52 => BalanceProof.compat π₁ π₂
 
 notation:65 π₁:65 " <+> " π₂:66 => Dict.Merge π₁ π₂
 
+@[simp]
+lemma mergeR''_concat {π} {πs : List (BalanceProof K₁ K₂ C Pi V)} {acc} :
+  mergeR'' (πs.concat π) acc = ((mergeR'' πs acc) <+> π) := by
+    revert acc
+    induction πs with
+    | nil =>
+      simp
+    | cons π πs ih =>
+      intros acc
+      rw [mergeR''_cons, List.concat_cons, mergeR''_cons, ih, Dict.Merge_assoc]
+
 section compat
 
 @[symm]
 lemma BalanceProof.compat_comm {π₁ π₂ : BalanceProof K₁ K₂ C Pi V} :
   π₁ <≅> π₂ ↔ π₂ <≅> π₁ := by unfold BalanceProof.compat; simp_rw [iso_symm]; tauto
+
+@[simp]
+lemma BalanceProof.compat_rfl {π₁ : BalanceProof K₁ K₂ C Pi V} :
+  π₁ <≅> π₁ := by unfold BalanceProof.compat; tauto
 
 lemma Merge_comm_of_compat {π₁ π₂ : BalanceProof K₁ K₂ C Pi V}
   (h : π₁ <≅> π₂) : π₁ <+> π₂ ≅ π₂ <+> π₁ := by
@@ -967,6 +162,12 @@ lemma snd_eq_of_iso {d₁ d₂ : (Pi × ExtraDataT) × TransactionBatch K₁ K�
   d₁.2 = d₂.2 ↔ (d₁ ≅ d₂) := by
   unfold iso
   simp [(·≤·)]
+  tauto
+
+lemma compat_comm {π π' : BalanceProof K₁ K₂ C Pi V} :
+  (π <≅> π') ↔ π' <≅> π := by
+  unfold BalanceProof.compat
+  simp_rw [iso_symm]
   tauto
 
 lemma compat_of_iso {π π' : BalanceProof K₁ K₂ C Pi V}
@@ -1078,13 +279,31 @@ lemma mergeR''_eq_none' {acc : BalanceProof K₁ K₂ C Pi V} {πs} :
 lemma merge_K {π acc : BalanceProof K₁ K₂ C Pi V} :
   (π <+> acc) K = Dict.First (π K) (acc K) := rfl
 
-lemma iso_K_merge_left_of_ne_none {π acc : BalanceProof K₁ K₂ C Pi V} (h : π K ≠ none) : 
+@[simp]
+lemma mergeR''_eq_some {acc : BalanceProof K₁ K₂ C Pi V} {πs} {x} :
+  acc K = some x → (mergeR'' πs acc) K = acc K := by
+  revert acc
+  induction πs with
+  | nil => simp
+  | cons π πs ih =>
+    intros acc h
+    rw [mergeR''_cons, merge_K, h]
+    unfold Dict.First
+    aesop
+
+lemma iso_K_merge_left_of_ne_none {π acc : BalanceProof K₁ K₂ C Pi V} (h : π K ≠ none) :
   π K ≅ (π <+> acc) K := by
   rw [merge_K]
   unfold Dict.First
   aesop
 
-lemma iso_K_merge_right_of_ne_none_compat {π acc : BalanceProof K₁ K₂ C Pi V} (h : π K ≠ none) (h : π <≅> acc) : 
+lemma merge_left_none_eq_right {π acc : BalanceProof K₁ K₂ C Pi V} (h : π K = none) :
+  (π <+> acc) K = acc K := by
+  rw [merge_K]
+  unfold Dict.First
+  aesop
+
+lemma iso_K_merge_right_of_ne_none_compat {π acc : BalanceProof K₁ K₂ C Pi V} (h : π K ≠ none) (h : π <≅> acc) :
   π K ≅ (acc <+> π) K := by
   unfold BalanceProof.compat at h
   specialize h K
@@ -1107,74 +326,11 @@ lemma mergeR_eq_left {acc : BalanceProof K₁ K₂ C Pi V}
     simp_rw [Dict.mem_iff_isSome, Option.isSome_iff_ne_none]
     exact h
 
--- IsLUB {π | π ∈ πs} (mergeR'' πs ⊥)
-
-lemma proposition6_pog {πs : List (BalanceProof K₁ K₂ C Pi V)}
-                       {acc : BalanceProof K₁ K₂ C Pi V}
-                       (h : ∀ {π₁ π₂ : BalanceProof K₁ K₂ C Pi V},
-                              π₁ ∈ {acc} ∪ πs  →
-                              π₂ ∈ {acc} ∪ πs →
-                              π₁ <≅> π₂) :
-  IsLUB {π | π ∈ {acc} ∪ πs} (mergeR'' πs acc) ∧
-  ∀ x, (mergeR'' πs acc x = .none ∧ ∀ π ∈ {acc} ∪ πs, π x = .none) ∨
-       (mergeR'' πs acc x ≠ .none ∧ ∀ π ∈ {acc} ∪ πs,
-                                      π x = .none ∨ π x ≅ mergeR'' πs acc x) := by
-  induction' πs with π πs ih generalizing acc
-  · sorry
-  · simp only [
-      List.mem_union_iff, List.mem_cons, mergeR''_cons, List.cons_union,
-      List.mem_insert_iff, forall_eq_or_imp, mem_list_singleton_iff]
-    have ih' := @ih
-    have ih'' := @ih
-    specialize @ih acc ?compat
-    case compat =>
-      intros π₁ π₂ h₁ h₂ k hk
-      specialize @h π₁ π₂ (by simp at h₁ ⊢; tauto) (by simp at h₂ ⊢; tauto)
-      exact h _ hk
-    
-    simp_rw [show {π_1 | π_1 ∈ {acc} ∪ πs} = {acc} ∪ {π | π ∈ πs} by simp; rfl] at ih
-    rcases ih with ⟨ih₁, ih₂⟩
-    refine' ⟨_, _⟩
-    · have : {π_1 | π_1 = acc ∨ π_1 = π ∨ π_1 ∈ πs} =
-             {π} ∪ ({acc} ∪ {π | π ∈ πs}) := (by simp; rw [Set.insert_comm]; ac_rfl); simp_rw [this]; clear this
-      have : acc <+> (mergeR'' πs π) ≅ π <+> (mergeR'' πs acc) := Merge_mergeR''_comm (h (by simp) (by simp))
-      apply isLUB_of_isLUB_iso _ this.symm
-      refine' isLUB_union_Merge_of_isLUB_isLUB_compat (by simp) ih₁ _
-      -- π <≅> mergeR'' πs acc
-      sorry
-    · intros K
-      by_cases eq : (acc <+> mergeR'' πs π) K = .none
-      · simp [eq]; simp at eq; exact eq
-      · simp [eq]; simp at eq
-        split_ands
-        · by_cases eq? : acc K = none
-          · simp [eq?]
-          · simp [eq?]
-            apply iso_K_merge_left_of_ne_none eq?
-        · by_cases eq? : π K = none
-          · simp [eq?]
-          · simp [eq?]
-            have t₁ : acc <+> (mergeR'' πs π) ≅ π <+> (mergeR'' πs acc) := Merge_mergeR''_comm (h (by simp) (by simp))
-            have t₂ := iso_K_merge_left_of_ne_none (acc := mergeR'' πs acc) eq?
-            apply iso_K_of_iso (K := K) at t₁
-            exact iso_trans t₂ t₁.symm
-        · intros π' hπ'
-          by_cases eq? : π' K = none
-          · tauto
-          · simp [eq?]
-            specialize @ih'' π' ?compat
-            case compat =>
-              intros π₁ π₂ h₁ h₂ k hk
-              specialize @h π₁ π₂ (by simp at h₁ ⊢; rcases h₁ with h₁ | h₁ <;> (try rw [h₁]) <;> tauto)
-                                  (by simp at h₂ ⊢; rcases h₂ with h₁ | h₁ <;> (try rw [h₁]) <;> tauto)
-              exact h _ hk
-            rcases ih'' with ⟨ih''₁, ih''₂⟩
-            specialize ih''₂ K
-            simp [eq?] at ih''₂
-            rcases ih''₂ with ⟨ih''₂, ih''₃⟩
-            apply iso_trans ih''₂
-            -- acc <≅> mergeR'' πs π
-            sorry
+lemma mergeR''_split {acc} {πs : List (BalanceProof K₁ K₂ C Pi V)} (h : πs.length ≠ 0) :
+  mergeR'' πs acc = acc <+> (πs.head (by aesop)) <+> mergeR'' πs.tail .initial := by
+  nth_rw 1 [mergeR''.eq_def]
+  rcases πs with _ | ⟨hd, tl⟩ <;> [simp at h; simp]
+  rcases tl <;> simp [Dict.Merge_assoc]
 
 lemma mergeR'_eq_mergeR_of_lt {πs : List (BalanceProof K₁ K₂ C Pi V)} {n : ℕ}
                               (h : n < πs.length.succ) :
@@ -1189,6 +345,8 @@ lemma mergeR'_zero {πs : List (BalanceProof K₁ K₂ C Pi V)} (h : 0 < πs.len
 lemma mergeR'_succ {πs : List (BalanceProof K₁ K₂ C Pi V)} {n : ℕ} (h : n + 1 < πs.length.succ) :
   mergeR' πs ⟨n + 1, h⟩ = (mergeR' πs ⟨n, by omega⟩).Merge (πs[n]) := by
   conv_lhs => unfold mergeR'
+
+variable [AD : ADScheme K₂ (C × K₁ × ExtraDataT) C Pi]
 
 lemma verify_merge_of_valid {π₁ π₂ : BalanceProof K₁ K₂ C Pi V}
                             (h₁ : π₁.Verify (M := (C × K₁ × ExtraDataT)))
@@ -1224,7 +382,7 @@ private lemma valid_mergeR''_aux {π : BalanceProof K₁ K₂ C Pi V}
   · aesop
   · rcases πs with _ | ⟨π', πs'⟩
     · simp at hn
-    · apply verify_merge_of_valid h₀ (ih _ _ _) <;> aesop
+    · apply verify_merge_of_valid h₀ (ih ..) <;> aesop
 
 lemma valid_mergeR'' {πs : List (BalanceProof K₁ K₂ C Pi V)} {n : ℕ}
   (hn : n < πs.length.succ)
@@ -1260,6 +418,207 @@ lemma batch_eq_iff {π₁k π₂k : (Pi × ExtraDataT) × TransactionBatch K₁ 
   rw [iso_symm]
   tauto
 
+lemma Merge_split {acc} {πs : List (BalanceProof K₁ K₂ C Pi V)} (h₀ : 0 < i) (h₁ : i ≤ πs.length) :
+  mergeR'' (πs.take i) acc =
+  mergeR'' (πs.take (i - 1)) acc <+> πs[i - 1] := by
+  induction' i with i ih generalizing πs acc
+  · cases h₀
+  · rcases i with _ | i <;> rcases πs with _ | ⟨π, πs⟩ <;> simp at h₁ <;> simp
+    have := (Dict.Merge_assoc (D₁ := acc) (D₂ := mergeR'' (List.take i πs) π) (D₃ := πs[i])).symm
+    aesop
+
+private lemma merge_lem_aux {π : BalanceProof K₁ K₂ C Pi V} {πs : List (BalanceProof K₁ K₂ C Pi V)} :
+  mergeR'' (π :: πs) acc = acc <+> π <+> (mergeR'' πs BalanceProof.initial) := by
+  rcases πs with ⟨hd, tl⟩ <;> simp [Dict.Merge_assoc]
+
+lemma merge_lem {π : BalanceProof K₁ K₂ C Pi V} {πs : List (BalanceProof K₁ K₂ C Pi V)} :
+  mergeR'' (π :: πs) BalanceProof.initial = π <+> (mergeR'' πs BalanceProof.initial) := by
+  rw [merge_lem_aux]; simp
+
+lemma compat_lem {π π' π'': BalanceProof K₁ K₂ C Pi V} :
+  π <≅> π' → π <≅> π'' → π <≅> (π' <+> π'') := by
+  unfold BalanceProof.compat Dict.Merge Dict.Merge.D Dict.First
+  rintro h h' k ⟨h₁, h₂⟩
+  specialize h k
+  specialize h' k
+  aesop
+
+lemma compat_merge_of_compat {πs : List (BalanceProof K₁ K₂ C Pi V)} {π : BalanceProof K₁ K₂ C Pi V} :
+  (∀ π', π' ∈ πs → π <≅> π') → π <≅> (mergeR'' πs .initial) := by
+  revert π
+  induction πs with
+  | nil =>
+    intros π
+    unfold BalanceProof.compat BalanceProof.initial
+    simp
+  | cons π πs ih =>
+    intros π_1 h
+    rw [merge_lem]
+    apply compat_lem <;> aesop
+
+private lemma prop6?!_aux {πs : List (BalanceProof K₁ K₂ C Pi V)} :
+  (∀ π π' : BalanceProof K₁ K₂ C Pi V, π ∈ πs ∧ π' ∈ πs → π <≅> π') →
+     IsLUB {π | π ∈ πs} (mergeR'' πs .initial) := by
+  induction πs with
+  | nil => simp
+  | cons π πs ih =>
+    intros h
+    have : (∀ (π π' : BalanceProof K₁ K₂ C Pi V), π ∈ πs ∧ π' ∈ πs → π <≅> π') := by aesop
+    specialize ih this
+    rw [merge_lem, show {π_1 | π_1 ∈ π :: πs} = {π} ∪ {π_1 | π_1 ∈ πs} by aesop]
+    apply isLUB_union_Merge_of_isLUB_isLUB_compat <;> aesop (add safe apply compat_merge_of_compat)
+
+set_option maxHeartbeats 800000 in
+lemma prop6?! {πs : List (BalanceProof K₁ K₂ C Pi V)}
+              (h : ∀ i : Fin πs.length,
+                     IsLUB {mergeR'' (πs.take i.1) .initial, πs[i.1]} (mergeR'' (πs.take (i.1 + 1)) .initial))
+  : IsLUB {π | π ∈ πs} (mergeR'' πs .initial) := by
+  replace h : ∀ (i : ℕ) (h : i < πs.length),
+                IsLUB {mergeR'' (List.take i πs) .initial, πs[↑i]}
+                      (mergeR'' (List.take (i + 1) πs) .initial) := λ i hi ↦ h ⟨i, hi⟩
+  apply prop6?!_aux
+  by_contra contra
+  simp at contra
+  let min₁ : Finset (Fin πs.length) := {n | ∃ i : Fin πs.length, i > n ∧ ¬(πs[n] <≅> πs[i])}.toFinset
+  have wa_ne : min₁.Nonempty := by
+    rcases contra with ⟨π, ⟨π_in_πs, ⟨π', ⟨π'_in_πs, h⟩⟩⟩⟩
+    obtain ⟨π_ind, π_ind_lim, π_in_πs⟩ := List.getElem_of_mem π_in_πs
+    obtain ⟨π'_ind, π'_ind_lim, π'_in_πs⟩ := List.getElem_of_mem π'_in_πs
+    by_cases h' : π_ind < π'_ind
+    · simp_all only [List.getElem_mem, Set.toFinset_setOf, gt_iff_lt, Fin.getElem_fin, min₁]
+      rw [Finset.filter_nonempty_iff]; simp only [Finset.mem_univ, true_and]
+      use ⟨π_ind, by omega⟩; use ⟨π'_ind, by omega⟩
+      aesop
+    · rewrite [not_lt] at h'
+      rcases eq_or_lt_of_le h' with h' | h'
+      · exfalso; aesop
+      · simp_all only [List.getElem_mem, Set.toFinset_setOf, gt_iff_lt, Fin.getElem_fin, min₁]
+        rw [Finset.filter_nonempty_iff]; simp only [Finset.mem_univ, true_and]
+        use ⟨π'_ind, by omega⟩; use ⟨π_ind, by omega⟩
+        subst π_in_πs; subst π'_in_πs
+        simp [h']; rw [compat_comm]; assumption
+  have wa_min : ∃ idx, idx ∈ min₁ ∧ ∀ k ∈ min₁, idx ≤ k := by
+    rcases Finset.exists_minimal min₁ wa_ne with ⟨idx, h₁, h₂⟩; use idx; aesop
+  rcases wa_min with ⟨idx, idx_min_wa⟩
+  let π := πs[idx]
+  let min₂ : Finset (Fin πs.length) := {idx' | idx < idx' ∧ ¬(πs[idx'] <≅> πs[idx])}
+  have min₂_ne : min₂.Nonempty := by
+    rw [Finset.filter_nonempty_iff]; simp_rw [compat_comm]; aesop
+  have min₂_min : ∃ idx', idx' ∈ min₂ ∧ ∀ k ∈ min₂, idx' ≤ k := by
+    rcases Finset.exists_minimal min₂ min₂_ne with ⟨idx, h₁, h₂⟩; use idx; aesop
+  rcases min₂_min with ⟨idx', idx'_min_min₂⟩
+  have idx_lt_idx' : idx < idx' := by simp [min₂] at idx'_min_min₂; tauto
+  have eq₁' : ∀ i, idx ≤ i ∧ i < idx' → πs[i] <≅> πs[idx] := by
+    by_contra h
+    simp only [Fin.getElem_fin, and_imp, not_forall, Classical.not_imp] at h
+    rcases h with ⟨i, h, h', h''⟩
+    have : i ∈ min₂ := by
+      dsimp [min₂]
+      simp only [Finset.mem_filter, Finset.mem_univ, h'', not_false_eq_true, and_true, true_and]
+      rcases eq_or_lt_of_le h <;> aesop
+    exact absurd (Fin.lt_of_le_of_lt (idx'_min_min₂.2 i this) h') (lt_irrefl _)
+  have eq₁'' : ∀ i, i < idx → πs[i] <≅> πs[idx] := by
+    intros i h
+    by_contra contra
+    have : i ∈ min₁ := by
+      dsimp [min₁]
+      simp only [gt_iff_lt, Set.toFinset_setOf, Finset.mem_filter, Finset.mem_univ, true_and]
+      use idx
+      exact ⟨h, contra⟩
+    exact absurd (Fin.lt_of_lt_of_le h (idx_min_wa.2 i this)) (lt_irrefl _)
+  have eq₁ : ∀ i, i < idx' → πs[i] <≅> πs[idx] := by
+    intros i h; by_cases h' : idx ≤ i <;> aesop
+  have eq₂ : ¬(πs[idx] <≅> πs[idx']) := by
+    rw [compat_comm]; aesop
+  have eq₃ : ∃ k : C × K₂, ¬(πs[idx] k ≅ πs[idx'] k) ∧ πs[idx] k ≠ .none ∧ πs[idx'] k ≠ .none := by
+    unfold BalanceProof.compat at eq₂
+    simp only [Fin.getElem_fin, ne_eq, and_imp, Prod.forall, not_forall, Classical.not_imp] at eq₂
+    rcases eq₂ with ⟨k₁, k₂, h₁, h₂, h⟩
+    use ⟨k₁, k₂⟩
+    exact ⟨h, h₁, h₂⟩
+  rcases eq₃ with ⟨k, eq₃⟩
+  have eq₄ : ∀ i, i < idx' → πs[idx] k ≅ πs[i] k ∨ πs[i] k = .none := by
+    intros i h
+    unfold BalanceProof.compat at eq₁ eq₃
+    simp only [Fin.getElem_fin] at eq₃
+    specialize eq₁ i h k
+    rw [iso_symm]
+    by_cases h' : πs[i] k = .none <;> tauto
+  specialize h idx'.1 (by simp)
+  have eq₅ : mergeR'' (List.take (idx.1 + 1) πs) BalanceProof.initial k ≅ (πs[idx]) k := by
+    have eq₆' : ∀ i, i < idx.1 + 1 ∧ i < πs.length →
+      mergeR'' (List.take i πs) BalanceProof.initial k ≅ (πs[idx]) k ∨ mergeR'' (List.take i πs) BalanceProof.initial k = .none := by
+      intros i h
+      induction i with
+      | zero => right; rfl
+      | succ i ih =>
+        have : i < πs.length := by linarith
+        rw [←List.take_concat_get _ _ this, mergeR''_concat]
+        rcases ih ⟨by linarith, by linarith⟩ with ih | ih
+        · left
+          refine iso_trans ?_ ih
+          rw [iso_symm]
+          apply iso_K_merge_left_of_ne_none
+          by_contra h
+          rw [h] at ih
+          obtain ⟨_, h⟩ := Option.ne_none_iff_exists.1 eq₃.2.1
+          rwa [←h, none_iso_some] at ih
+        · rw [merge_left_none_eq_right ih, iso_symm,
+              show πs[i] = πs[((⟨i, by linarith⟩) : Fin πs.length)] from rfl]
+          apply eq₄
+          simp only [Fin.lt_def] at idx_lt_idx' ⊢
+          exact lt_trans (by omega) idx_lt_idx'
+    rw [←List.take_concat_get (h := idx.2), mergeR''_concat]
+    rcases eq₆' idx.1 ⟨by simp only [lt_add_iff_pos_right, zero_lt_one], idx.2⟩ with h | h
+    · refine iso_trans ?_ h
+      rw [iso_symm]
+      apply iso_K_merge_left_of_ne_none
+      by_contra h'
+      obtain ⟨_, h''⟩ := Option.ne_none_iff_exists.1 eq₃.2.1
+      rwa [h', ←h'', none_iso_some] at h
+    · rw [merge_left_none_eq_right h]
+      rfl
+  have eq₆ : mergeR'' (πs.take (idx.1 + 1)) .initial k ≅ mergeR'' (πs.take idx'.1) .initial k := by
+    have : idx.1 + 1 ≤ idx'.1 := by
+      rw [Fin.lt_def] at idx_lt_idx'
+      linarith
+    rcases Nat.exists_eq_add_of_le this with ⟨i, h⟩
+    rw [h, List.take_add (m := idx.1 + 1), mergeR''_append]
+    have : ∃ r, mergeR'' (List.take (idx.1 + 1) πs) BalanceProof.initial k = .some r := by
+      by_contra h
+      simp at h
+      have : mergeR'' (List.take (idx.1 + 1) πs) BalanceProof.initial k = .none := by
+        by_contra h'
+        have h' := Option.ne_none_iff_exists.1 h'
+        rcases h' with ⟨x, h'⟩
+        specialize h x.1.1 x.1.2 x.2
+        apply h
+        rw [←h']
+      rw [this] at eq₅
+      rcases Option.ne_none_iff_exists.1 eq₃.2.1 with ⟨x, h''⟩
+      rw [←h'', none_iso_some] at eq₅
+      exact eq₅
+    rcases this with ⟨_, h⟩
+    rw [mergeR''_eq_some h]
+  have eq₇ : (πs[idx]) k ≅ mergeR'' (List.take idx'.1 πs) BalanceProof.initial k :=
+    iso_trans (eq₅.symm) eq₆
+  have eq₈ : ¬(mergeR'' (πs.take idx'.1) .initial <≅> πs[idx']) := by
+    unfold BalanceProof.compat
+    simp only [ne_eq, mergeR''_eq_none', not_and, not_forall, Classical.not_imp, Fin.getElem_fin, and_imp]
+    use k; simp at eq₃
+    simp [eq₃, BalanceProof.initial]
+    refine' ⟨_, λ contra' ↦ absurd (iso_trans eq₇ contra') eq₃.1⟩
+    use π; simp [π]
+    refine' ⟨_, eq₃.2.1⟩
+    rw [List.mem_take_iff_getElem]
+    simp only [Fin.is_le', inf_of_le_left]
+    use idx.1
+    simp [min₂] at idx'_min_min₂
+    use idx'_min_min₂.1.1
+  unfold BalanceProof.compat at eq₈
+  rw [←proposition6] at eq₈
+  exact absurd (by tauto) eq₈ 
+
 lemma batch?_eq_of_mem {π₁k π₂k : Option ((Pi × ExtraDataT) × TransactionBatch K₁ K₂ V)}
   (h₀ : π₁k ≠ .none ∨ π₂k ≠ .none)
   (h : π₁k ≅ π₂k) : (π₁k.get (by unfold iso at h
@@ -1278,97 +637,61 @@ lemma batch?_neq_of_mem {π₁k π₂k : Option ((Pi × ExtraDataT) × Transacti
                        (π₂k.get (Option.isSome_iff_ne_none.2 h₀.2)).2 := by
   rcases π₁k <;> rcases π₂k <;> aesop
 
-#exit
+variable [SA : SignatureAggregation (C × K₁ × ExtraDataT) K₂ KₛT Sigma]
+         [Hinj : CryptoAssumptions.Injective (H (α := TransactionBatch K₁ K₂ V × ExtraDataT) (ω := (C × K₁ × ExtraDataT)))]
+         {requests : List (Request K₁ K₂ C Sigma Pi V)}
+         (isπ : isπ (normalise requests))
 
-include isπ in
-set_option maxHeartbeats 2000000 in
-theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
-  /-
-    The attack game plays out the same regardless of validity of requests.
-  -/
-  rw [attackGame_eq_attackGameBlocks!_normalise, attackGameBlocks_eq_attackGameR] at contra
-  set requests! := normalise requests with eqRequests
-  set Bstar := attackGameR requests! [] with eqBstar
-  /-
-    All requests in `normalise requests` are valid.
-  -/
-  have hValid : ∀ request ∈ (normalise requests), request.isValid := by unfold normalise; aesop
-  let n := Bstar.length
-  /-
-    Section ugly.
-  -/
-  have hValid_withdrawal {i : Fin n} {h₀} (h : (requests![i.1]'h₀).getWithdrawal.isSome) :
-    requests![i.1]'h₀ matches .withdrawal .. := by -- sorry
-    rcases i with ⟨i, hi⟩
-    simp [Request.getWithdrawal] at h
-    aesop
-  have hValidπ {i : Fin n} {h₀} {h₁} {π} (h : (requests![i.1]'h₀).getWithdrawal.get h₁ = π) :
-    π.Verify (M := (C × K₁ × ExtraDataT)) := by -- sorry
-    rcases i with ⟨i, hi⟩
-    unfold Request.isValid at hValid
-    set request := requests![i] with eqRequest
-    specialize hValid request (by simp [eqRequest, requests!])
-    have := @hValid_withdrawal (i := ⟨i, hi⟩)
-    simp [eqRequest] at h
-    next h' => specialize this h'; aesop
-    done
-  /-
-    End Ugly.
-  -/
-  have hn : n = requests!.length := by simp [n, eqBstar]
-  let I : List (Fin n) := (List.finRange n).filter (Bstar[·].isWithdrawalBlock)
-  have hI : ∀ i, i ∈ I ↔ Bstar[i].isWithdrawalBlock := by aesop
-  let getπ : {i : Fin n // i ∈ I} → ({i : Fin n // i ∈ I} × BalanceProof K₁ K₂ C Pi V) :=
-    λ i ↦
-      have lenEq : (attackGameR requests! []).length = n := by simp [n, eqBstar]
-      have hi₁ : i.1.1 < (attackGameR requests! []).length := by rw [lenEq]; exact i.1.2
-      (i, getBalanceProof requests! hValid ⟨i.1.1, hi₁⟩ ((hI i.1).1 i.2))
-  let πs : List ({i : Fin n // i ∈ I} × BalanceProof K₁ K₂ C Pi V) := I.attach.map getπ
-  have lenπs : πs.length ≤ n := by
-    -- sorry
-    simp [πs, I, n]
-    simp_rw [show Bstar.length = (List.finRange (List.length Bstar)).length by aesop]
-    exact List.length_filter_le _ _
-  have hπs : ∀ i : {i : Fin n // i ∈ I}, (πs.lookup i).isSome := λ i ↦ -- sorry
-    have : i ∈ I.attach := by rcases i with ⟨i, hi⟩; aesop
-    by simp [πs, getπ, List.lookup_graph _ this]
-  have validπs {π : BalanceProof K₁ K₂ C Pi V} (h : π ∈ List.map Prod.snd πs) :
-               π.Verify (M := (C × K₁ × ExtraDataT)) := by
-    -- sorry
-    simp [πs] at h; exact hValidπ h.2.2
-  unfold Intmax.isπ at isπ; specialize isπ hValid; dsimp at isπ
-  dsimp [adversaryWon] at contra; simp [computeBalance_eq_sum] at contra
-  by_cases eq : ∃ join : BalanceProof K₁ K₂ C Pi V, IsLUB {π | π ∈ πs.map Prod.snd} join
-  -- · sorry
-  · rcases eq with ⟨π, hπ₂⟩
-    have hlub {π'} (h' : π' ∈ πs.map Prod.snd) : π' ≤ π :=
-      mem_upperBounds.1 (hπ₂.1) _ (by simp_all)
-    /-
-      Step 1.
-    -/
-    have eq₁ : 0 ≤ -Bal π Bstar .Source := (by have : Bal π Bstar .Source ≤ 0 := lemma1; aesop)
-    rw [lemma5] at eq₁; simp only [Bstar] at eq₁
-    /-
-      Step 2.
-    -/
-    let indexingSet := Finset.univ (α := Fin n) ×ˢ Finset.univ (α := K₁)
-    let σ := λ x : Fin n × K₁ ↦ List.take x.1.1 Bstar
-    let πᵢ := λ (x : Fin n × K₁) (h : Bstar[x.1].isWithdrawalBlock) ↦
-                (πs.lookup ⟨x.1, (hI x.1).2 h⟩).get (hπs ⟨x.1, (hI x.1).2 h⟩)
-    have hπᵢ {x} (h) : πᵢ x h ∈ List.map Prod.snd πs := by
-      simp [πᵢ, πs, List.lookup_graph, getπ]
-      rw [←hI] at h
-      use x.1; use h
-    let F : Fin n × K₁ → V :=
+set_option hygiene false in
+open Lean.Elab.Tactic Lean.Parser.Tactic in
+scoped elab "blast_sum" "with" f:ident l:(location)? : tactic => do
+  evalTactic <| ← `(tactic| (
+    rw [Finset.sum_congr (s₂ := indexingSet) (g := $f) (h := by first | rfl | simp [indexingSet])
+                         (by simp [
+                               isπ, $f:ident, BalanceProof.toBalanceF,
+                               πᵢ, List.lookup_graph, eqπs, hgetπ])] $[$l]?))
+
+set_option linter.unusedVariables false in
+omit Hinj in
+private theorem not_adversaryWon_attackGame_of_exists_LUB
+  (eqrequests : requests! = normalise requests)
+  (hValid     : ∀ request ∈ requests!, request.isValid)
+  (eqI        : I = (List.finRange (attackGameR requests! []).length).filter ((attackGameR requests! [])[·].isWithdrawalBlock))
+  (hI         : ∀ {i : Fin (attackGameR requests! []).length}, i ∈ I ↔ (attackGameR requests! [])[i].isWithdrawalBlock)
+  (hgetπ      : getπ =
+                λ i : {i : Fin (attackGameR requests! []).length // i ∈ I} ↦
+                  (i, getBalanceProof requests! hValid ⟨i.1.1, i.1.2⟩ (hI.1 i.2)))
+  (eqπs       : πs = I.attach.map getπ)
+  (hlen       : πs.length ≤ n)
+  (hπs        : ∀ (i : {i // i ∈ I}), (List.lookup i πs).isSome)
+  (eqπproofs  : πproofs = πs.map Prod.snd)
+  (πproofslen : πproofs.length = πs.length)
+  (isπ        : ∀ (i : Fin (List.length (attackGameR requests! [])))
+                  (h : (attackGameR requests! [])[i.1].isWithdrawalBlock),
+                  (attackGameR requests! [])[i.1].getWithdrawal h =
+                  (getBalanceProof requests! hValid i h).toBalanceF ((attackGameR requests! []).take i.1))
+  (contra     : ¬0 ≤ computeBalanceSum (attackGameR requests! []))
+  (existsLUB  : ∃ join, IsLUB {π | π ∈ πproofs} join) : False := by
+  · rcases existsLUB with ⟨π, hπ₂⟩
+    set Bstar := attackGameR requests! [] with eqBstar
+    have hlub {π'} (h' : π' ∈ πproofs) : π' ≤ π := mem_upperBounds.1 hπ₂.1 _ h'
+    have eq₁ : 0 ≤ -Bal π Bstar .Source := by
+      have : Bal π Bstar .Source ≤ 0 := lemma1; simpa
+    rw [lemma5] at eq₁; simp only at eq₁
+    let indexingSet := Finset.univ (α := Fin Bstar.length) ×ˢ Finset.univ (α := K₁)
+    let σ := λ x : Fin Bstar.length × K₁ ↦ Bstar.take x.1.1
+    let πᵢ := λ (x : Fin Bstar.length × K₁) (h : Bstar[x.1].isWithdrawalBlock) ↦
+                (πs.lookup ⟨x.1, hI.2 h⟩).get (hπs ⟨x.1, hI.2 h⟩)
+    have hπᵢ {x} (h) : πᵢ x h ∈ πproofs := by
+      simp [πᵢ, eqπs, eqπproofs, List.lookup_graph, hgetπ]
+      exact ⟨_, ⟨hI.2 h, rfl⟩⟩
+    let F : Fin Bstar.length × K₁ → V :=
       λ x ↦ if h : Bstar[x.1].isWithdrawalBlock
             then Bal (πᵢ x h) (σ x) x.2 ⊓ Bal π (σ x) x.2
             else 0
-    rw [Finset.sum_congr (s₂ := indexingSet) (g := F) (h := rfl)
-                         (by simp [
-                               F, σ, πᵢ, Bstar, isπ, BalanceProof.toBalanceF,
-                               πs, getπ, List.lookup_graph])] at eq₁
+    blast_sum with F at eq₁
     simp only [Fin.getElem_fin, F] at eq₁
-    let F : Fin n × K₁ → V :=
+    let F : Fin Bstar.length × K₁ → V :=
       λ x ↦ if h : Bstar[x.1].isWithdrawalBlock
             then Bal (πᵢ x h) (σ x) x.2
             else 0
@@ -1376,21 +699,107 @@ theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
                          (by simp [F]; intros idx k₁ h
                              split <;> try simp
                              next h' =>
-                                have := lemma2 (bs := (σ (idx, k₁)))
-                                               (show πᵢ (idx, k₁) h' ≤ π from hlub (hπᵢ h'))
-                                simp [(·≤·)] at this; apply this)] at eq₁
+                               have := lemma2 (bs := (σ (idx, k₁))) (show πᵢ (idx, k₁) h' ≤ π from hlub (hπᵢ h'))
+                               simp [(·≤·)] at this; apply this)] at eq₁
     simp only [
-      computeBalanceErik, aggregateWithdrawals_eq_aggregateWithdrawals', aggregateWithdrawals'
+      computeBalanceSum, aggregateWithdrawals_eq_aggregateWithdrawals', aggregateWithdrawals'
     ] at contra
-    rw [Finset.sum_congr (s₂ := indexingSet) (g := F) (h := by simp [indexingSet])
-                         (by simp [
-                               F, σ, πᵢ, Bstar, isπ, BalanceProof.toBalanceF,
-                               πs, getπ, List.lookup_graph])] at contra
+    blast_sum with F at contra
     simp at eq₁ contra; contradiction
-  · -- by_cases hwithdrawal : πs = []; sorry -- If no withdrawal happens, balance cannot decrease.
-    let πproofs := πs.map Prod.snd
-    have lenπs': πproofs.length = πs.length := by simp [πproofs]
-    let πs' := List.Ico 0 (πs.length + 1) |>.map λ i ↦ mergeR'' (πproofs.take i) .initial
+
+include isπ in
+set_option maxHeartbeats 2000000 in
+/--
+NB We take `isπ` to be the behaviour of the rollup contract. This is actually provable from the model.
+-/
+theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
+  /-
+    PAPER: Suppose an adversary and a challenger have interacted in Attack game 1.
+    We will show that either the resulting contract balance is positive (the adver-
+    sary lost the game), or the adversary has been able to either break the bind-
+    ing property of the authenticated dictionary scheme or found a collision of the
+    hash function H.
+  -/
+
+  /-
+    The attack game plays out the same regardless of validity of requests.
+  -/
+  rw [attackGame_eq_attackGameBlocks!_normalise, attackGameBlocks_eq_attackGameR] at contra
+  set requests! := normalise requests with eqRequests
+  /-
+    PAPER: Let B∗ = (Bi)i∈[n] be the contract state after the attack game
+  -/
+  set Bstar := attackGameR requests! [] with eqBstar
+  /-
+    As such, we can consider a state with only valid requests.
+  -/
+  have hValid : ∀ request ∈ (normalise requests), request.isValid := by unfold normalise; aesop
+  let n := Bstar.length
+  have hValidπ {i : Fin n} {h₀} {h₁} {π} (h : (requests![i.1]'h₀).getWithdrawal.get h₁ = π) :
+    π.Verify (M := (C × K₁ × ExtraDataT)) := by
+    rcases i with ⟨i, hi⟩
+    unfold Request.isValid at hValid
+    set request := requests![i] with eqRequest
+    specialize hValid request (by simp [eqRequest, requests!])
+    have hValid_withdrawal {h₀} (h : (requests![i]'h₀).getWithdrawal.isSome) :
+      requests![i]'h₀ matches .withdrawal .. := by
+      simp [Request.getWithdrawal] at h
+      aesop
+    aesop
+  have hn : n = requests!.length := by simp [n, eqBstar]
+  /-
+    PAPER: let I ⊆ [n] be the indices of the withdrawal blocks in B∗
+  -/
+  let I : List (Fin n) := (List.finRange n).filter (Bstar[·].isWithdrawalBlock)
+  have hI : ∀ i, i ∈ I ↔ Bstar[i].isWithdrawalBlock := by aesop
+  let getπ : {i : Fin n // i ∈ I} → ({i : Fin n // i ∈ I} × BalanceProof K₁ K₂ C Pi V) :=
+    λ i ↦
+      have lenEq : Bstar.length = n := by simp [n, eqBstar]
+      have hi₁ : i.1.1 < Bstar.length := by rw [lenEq]; exact i.1.2
+      (i, getBalanceProof requests! hValid ⟨i.1.1, hi₁⟩ ((hI i.1).1 i.2))
+  let πs : List ({i : Fin n // i ∈ I} × BalanceProof K₁ K₂ C Pi V) := I.attach.map getπ
+  have lenπs : πs.length ≤ n := by
+    simp [πs, I, n]
+    simp_rw [show Bstar.length = (List.finRange (List.length Bstar)).length by aesop]
+    exact List.length_filter_le _ _
+  have hπs : ∀ i : {i : Fin n // i ∈ I}, (πs.lookup i).isSome := λ i ↦
+    have : i ∈ I.attach := by rcases i with ⟨i, hi⟩; aesop
+    by simp [πs, getπ, List.lookup_graph _ this]
+  /-
+    PAPER: (πi)i∈I be the balance proofs used in the withdrawal request
+  -/
+  let πproofs := πs.map Prod.snd
+  have lenπs': πproofs.length = πs.length := by simp [πproofs]
+  have validπs {π : BalanceProof K₁ K₂ C Pi V} (h : π ∈ πproofs) :
+               π.Verify (M := (C × K₁ × ExtraDataT)) := by
+    simp [πs, πproofs] at h; rcases h with ⟨π, _, hπ⟩
+    exact hValidπ hπ
+  unfold Intmax.isπ at isπ; specialize isπ hValid; dsimp at isπ
+  /-
+    PAPER: The resulting contract balance can be computed by adding all deposited amounts and subtracting all withdrawn amounts:
+    NB we prove 
+  -/
+  dsimp [adversaryWon] at contra; simp [computeBalance_eq_sum] at contra
+  /-
+    PAPER: We now have two possibilities, either the balance proofs (πi)i∈I have a join in Π or they don’t.
+  -/
+  by_cases eq : ∃ join : BalanceProof K₁ K₂ C Pi V, IsLUB {π | π ∈ πproofs} join
+  · -- PAPER: Suppose they have a join π ∈ Π. Then we have 
+    exact not_adversaryWon_attackGame_of_exists_LUB
+            eqRequests
+            hValid
+            (I := I) (by simp only [Fin.getElem_fin, I])
+            (by simp only [hI]; intros; trivial)
+            (getπ := getπ) (by simp only [getπ])
+            (πs := πs) (by simp only [πs])
+            lenπs
+            hπs
+            (πproofs := πproofs) (by simp only [πproofs])
+            lenπs'
+            isπ
+            contra
+            eq
+  · let πs' := List.Ico 0 (πs.length + 1) |>.map λ i ↦ mergeR'' (πproofs.take i) .initial
     have lenπs'': πs'.length = πs.length + 1 := by simp [πs', lenπs']
     have hπs' : ∀ π ∈ πs', π.Verify (M := (C × K₁ × ExtraDataT)) := by
       simp [πs', πproofs]; intros n hn
@@ -1398,51 +807,79 @@ theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
     have recπs' : ∀ {i : ℕ} (hi : i < πs'.length), πs'[i] = mergeR'' (πproofs.take i) .initial :=
       by simp [πs', πproofs]; intros i hi; rw [List.getElem_Ico_of_lt hi]
     let m := πs'.length.pred
+    have hm : m = πproofs.length := by simp [m, lenπs', lenπs'']
     set π'ₘ := πs'[m]'(by simp [m]; omega) with eqπ'ₘ
-    simp [-Prod.forall, -Prod.exists] at eq
-    have idx : ∃ i : Fin πs.length, ¬ IsLUB { π | π ∈ πproofs.take i.1 } (πs'[i.1 + 1]'(by rcases i; omega)) := sorry
-    rcases idx with ⟨i, lubi⟩
-    have eq₁ : ∃ key : { k : C × K₂ // k ∈ πs'[i.1 + 1]'(by rcases i; omega) ∧ k ∈ (πproofs[i.1]'(by simp [lenπs'])) },
-      ¬((((πs'[i.1 + 1]'(by rcases i; omega)) key.1).get key.2.1) ≅ ((πproofs[i.1]'(by simp [lenπs'])) key.1).get key.2.2) := sorry
-    rcases eq₁ with ⟨⟨key, ⟨mem₁, mem₂⟩⟩, hkey⟩
-    set π₁ := ((πs'[i.1 + 1]'(by rcases i; omega)) key).get mem₁ with eqπ₁
-    set π₂ := ((πproofs[i.1]'(by simp [lenπs'])) key).get mem₂ with eqπ₂
-    rcases key with ⟨c, s⟩
-    rcases π₁ with ⟨⟨π, salt⟩, t⟩
-    have π₁valid : AD.Verify π s (H _ (t, salt)) c := by
-      have : (πs'[i.1 + 1]'(by rcases i; omega)).Verify (M := (C × K₁ × ExtraDataT)) := hπs' _ (by simp)
-      simp [BalanceProof.Verify] at this; simp_rw [←Dict.mem_dict_iff_mem_keys] at this
-      specialize this c s mem₁
-      convert this <;> rw [←eqπ₁]
-    rcases π₂ with ⟨⟨π', salt'⟩, t'⟩
-    have π₂valid : AD.Verify π' s (H _ (t', salt')) c := by
-      have : (πproofs[i.1]'(by simp [lenπs'])).Verify (M := (C × K₁ × ExtraDataT)) := validπs (by simp)
-      simp [BalanceProof.Verify] at this; simp_rw [←Dict.mem_dict_iff_mem_keys] at this
-      specialize this c s mem₂
-      convert this <;> rw [←eqπ₂]
-    have tneq : t ≠ t' := by rw [batch_eq_iff] at hkey; tauto
-    by_cases hashEq : H (ω := (C × K₁ × ExtraDataT)) (t, salt) = H _ (t', salt')
-    · have : Function.Injective (H (ω := (C × K₁ × ExtraDataT))) :=
-        Intmax.CryptoAssumptions.Function.injective_of_CryptInjective (inj := Hinj) -- AXIOMATISED
-      have : (t, salt) = (t', salt') := this hashEq
-      injection this
-      contradiction
-    · have binding := AD.binding
-      apply computationallyInfeasible_axiom at binding -- AXIOMATISED
-      simp at binding
-      specialize binding _ _ _ _ _ _ π₁valid _ _ _ _ π₂valid
-      rcases H (C × K₁ × ExtraDataT) (t, salt) with ⟨c, k₁, extra⟩
-      set hash₁ := H (C × K₁ × ExtraDataT) (t, salt) with eqhash₁
-      set hash₂ := H (C × K₁ × ExtraDataT) (t', salt') with eqhash₂
-      rcases hash₁ with ⟨c₁, k₁, ed₁⟩; rcases hash₂ with ⟨c₂, k₂, ed₂⟩
-      dsimp at binding hashEq
-      simp [binding] at hashEq
+    simp only [not_exists] at eq
+    by_cases isempty : πs.length = 0
+    · have : πproofs = [] := List.map_eq_nil_iff.2 (List.eq_nil_of_length_eq_zero isempty)
+      simp_rw [this] at eq
+      specialize eq .initial
+      simp at eq
+    · have idx : ∃ i : {n : ℕ // 0 < n ∧ n < πs'.length},
+                 ¬IsLUB {
+                    πs'[i.1 - 1],
+                    πproofs[i.1 - 1]'(Nat.sub_one_lt_of_le i.2.1 (Nat.le_of_lt_add_one (by rw [lenπs', lenπs''.symm]; exact i.2.2)))
+                  } (πs'[i.1]'i.2.2) := by
+        by_contra c; simp at c
+        specialize eq π'ₘ; simp only [eqπ'ₘ] at eq
+        simp_rw [recπs' (i := m), show List.take m πproofs = πproofs by simp [hm]] at eq
+        have : IsLUB {π | π ∈ πproofs} (mergeR'' πproofs .initial) := by
+          apply prop6?!
+          rintro ⟨i, hi⟩
+          simp only
+          simp_rw [recπs'] at c; specialize c (i + 1) (by omega); simp at c
+          exact c
+        exact absurd this eq
+      
+      
+      rcases idx with ⟨⟨i, hi₁, hi₂⟩, lubi⟩; simp only at lubi
+      have eq₁ : ∃ key : { k : C × K₂ // (πs'[i-1]'(by omega)) k ≠ .none ∧ (πproofs[i-1]'(by simp [hm.symm, m]; omega)) k ≠ .none},
+        ¬((((πs'[i-1]'(by omega)) key.1) ≅ ((πproofs[i-1]'(by simp [hm.symm, m]; omega)) key.1))) := by
+        simp only [id_eq, Int.Nat.cast_ofNat_Int, Int.reduceNeg, Nat.pred_eq_sub_one, Int.reduceAdd,
+          eq_mpr_eq_cast, Subtype.exists]
+        by_contra c; simp only [Int.reduceNeg, not_exists, Decidable.not_not] at c
+        apply proposition6_aux at c
+        simp_rw [recπs' (i := i)] at lubi
+        rw [Merge_split hi₁ (by omega)] at lubi
+        nth_rw 2 [recπs' (i := i - 1)] at c
+        contradiction
+      rcases eq₁ with ⟨⟨key, mem₁, mem₂⟩, hkey⟩
+      set π₁ := ((πs'[i-1]'(by omega)) key).get (Option.isSome_iff_ne_none.2 mem₁) with eqπ₁
+      set π₂ := ((πproofs[i-1]'(by simp [hm.symm, m]; omega)) key).get (Option.isSome_iff_ne_none.2 mem₂) with eqπ₂
+      rcases key with ⟨c, s⟩
+      rcases π₁ with ⟨⟨π, salt⟩, t⟩
+      have π₁valid : AD.Verify π s (H _ (t, salt)) c := by
+        have : (πs'[i-1]'(by omega)).Verify (M := (C × K₁ × ExtraDataT)) := hπs' _ (by simp)
+        simp [BalanceProof.Verify] at this; simp_rw [←Dict.mem_dict_iff_mem_keys] at this
+        specialize this c s (Option.isSome_iff_ne_none.2 mem₁)
+        convert this <;> rw [←eqπ₁]
+      rcases π₂ with ⟨⟨π', salt'⟩, t'⟩
+      have π₂valid : AD.Verify π' s (H _ (t', salt')) c := by
+        have : (πproofs[i-1]'(by simp [hm.symm, m]; omega)).Verify (M := (C × K₁ × ExtraDataT)) := validπs (by simp)
+        simp [BalanceProof.Verify] at this; simp_rw [←Dict.mem_dict_iff_mem_keys] at this
+        specialize this c s (Option.isSome_iff_ne_none.2 mem₂)
+        convert this <;> rw [←eqπ₂]
+      have tneq : t ≠ t' := by apply batch?_neq_of_mem (by simp; exact ⟨mem₁, mem₂⟩) at hkey; simp [←eqπ₁, ←eqπ₂] at hkey; exact hkey
+      by_cases hashEq : H (ω := (C × K₁ × ExtraDataT)) (t, salt) = H _ (t', salt')
+      · have : Function.Injective (H (ω := (C × K₁ × ExtraDataT))) :=
+          Intmax.CryptoAssumptions.Function.injective_of_CryptInjective (inj := Hinj) -- AXIOMATISED
+        have : (t, salt) = (t', salt') := this hashEq
+        injection this
+        contradiction
+      · have binding := AD.binding
+        apply computationallyInfeasible_axiom at binding -- AXIOMATISED
+        simp at binding
+        specialize binding _ _ _ _ _ _ π₁valid _ _ _ _ π₂valid
+        rcases H (C × K₁ × ExtraDataT) (t, salt) with ⟨c, k₁, extra⟩
+        set hash₁ := H (C × K₁ × ExtraDataT) (t, salt) with eqhash₁
+        set hash₂ := H (C × K₁ × ExtraDataT) (t', salt') with eqhash₂
+        rcases hash₁ with ⟨c₁, k₁, ed₁⟩; rcases hash₂ with ⟨c₂, k₂, ed₂⟩
+        dsimp at binding hashEq
+        simp [binding] at hashEq
 
 end AttackGame
 
-end lemma1
-
-end
+end theorem1
 
 end Intmax
 

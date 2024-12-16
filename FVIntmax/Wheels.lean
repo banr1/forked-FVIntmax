@@ -57,6 +57,8 @@ noncomputable def attach (α : Type) [Finite α] : UniquelyIndexed α :=
 
 noncomputable instance {α : Type} [Finite α] : Inhabited (UniquelyIndexed α) := ⟨attach α⟩
 
+noncomputable instance {α : Type} [Lattice α] [Zero α] : Nonnegative α := inferInstance
+
 @[simp]
 lemma default_eq_attach (α : Type) [Finite α] : (default : UniquelyIndexed α) = attach α :=
   rfl
