@@ -6,7 +6,7 @@ namespace Intmax
 /-
 A - A.2
 -/
-section AuthenticatedDictionaries
+noncomputable section AuthenticatedDictionaries
 
 variable {K : Type} [DecidableEq K]
          {M : Type}

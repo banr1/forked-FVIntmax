@@ -4,7 +4,7 @@ import Mathlib.Data.Set.Basic
 namespace Intmax
 
 /-
-NB: PAPER: Definition 1 - Let X be a set. We define Maybe ...
+NB PAPER: Definition 1 - Let X be a set. We define Maybe ...
 This is Lean's `Option` type, for which we have a litany of lemmas.
 As such, we use this without abbreviating to `Maybe`.
 -/
