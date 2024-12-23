@@ -1,5 +1,7 @@
 ## Formal verification of the Intmax protocol in Lean
 
+TODO - Readme, Docs, Links.
+
 This repository mechanises proofs of following statements from [0]:
 - lemmas 1, 2, 3
 - theorem 1
