@@ -7,7 +7,7 @@ Just ignore this section.
 -/
 section HicSuntDracones
 
-declare_aesop_rule_sets [Intmax.aesop_dict] (default := false)
+declare_aesop_rule_sets [Intmax.aesop_dict, Intmax.aesop_valid] (default := false)
 
 end HicSuntDracones
 
@@ -30,3 +30,60 @@ def lookup_h [DecidableEq α] {a : α}
 end Lookup
 
 end Finmap
+
+namespace Intmax
+
+/--
+A model of a random bistring.
+-/
+abbrev ExtraDataT : Type := ℕ
+
+instance : Nonempty ExtraDataT := inferInstanceAs (Nonempty ℕ)
+
+/--
+NB we are not here to model assymetric cryptography, we choose whatever.
+-/
+abbrev KₛT : Type := ℕ
+
+/--
+NB we are not here to model assymetric cryptography, we choose whatever.
+-/
+abbrev KₚT : Type := ℕ
+
+section RubeGoldberg
+
+/--
+This is _opaque_, we will reason by axioms.
+-/
+opaque ComputationallyInfeasible (p : Prop) : Prop := ¬p
+
+/--
+This is not provable because `ComputationallyInfeasible` is opaque; as such, it can NOT be unfolded.
+The point of this setup is to make sure that we can _not_ ever show `¬p → ComputationallyInfeasible p`.
+-/
+axiom computationallyInfeasible_axiom : ∀ {p : Prop}, ComputationallyInfeasible p → ¬p
+
+end RubeGoldberg
+
+namespace SimpleRandom
+/-
+TODO(REVIEW): This is beyond trivial on purpose, I am not really sure we even need this, maybe we can just
+              postulate that our 'random values' can be treated opaquely. Not sure. For now, I gave 'some',
+              clearly non-computational definition.
+-/
+
+def Seed : Type := ℕ
+
+def isRandom (f : Seed → α) (x : α) := ∃ seed, x = f seed
+
+scoped notation x "←ᵣ" f => isRandom f x
+
+end SimpleRandom
+
+section ByteArray
+
+deriving instance DecidableEq for ByteArray
+
+end ByteArray
+
+end Intmax

@@ -1,95 +1,70 @@
-import Mathlib.Data.Finmap
-
 import FVIntmax.Wheels.Wheels
+import Mathlib.Data.Set.Basic
 
 namespace Intmax
 
 /-
-A - A.1
+NB PAPER: Definition 1 - Let X be a set. We define Maybe ...
+This is Lean's `Option` type, for which we have a litany of lemmas.
+As such, we use this without abbreviating to `Maybe`.
 -/
-section Dictionaries
-
-variable {K V : Type}
 
 /--
-Definition 1
-
-TODO(REVIEW): I _think_ the `m` is to be understood as total with respect to `keys`.
-              As such, `total` establishes `k ∈ m`, which then gives `m.lookup k = some _`.
-
-Feel free to ignore this bit:
-              This lets us remove all the `Option`s without artifically returning a default element for keys not in the map.
-              Of course, the price is the proof obligation for `h : k ∈ m` at the point of lookup, which cannot be avoided anyway,
-              merely postponed in case we wanted to be in `Option` and prove under the assumption `Option.isSome`,
-              or alternatively, not be in `Option` and prove under the assumption `m.lookup k ≠ default`(-ish).
-              NB. there are some functions in `section Lookup` marked `@[deprecated]` that implement all of the options.
-              
-              While it is normally a _good_ idea to postpone these obligations (shoo dependent types),
-              there are two key considerations for which I opted for this:
-                - #0: It makes the subsequent definitions correlate more closely with the way they are written in the paper.
-                - #1: I hope the `k ∈ m` relationship is in many cases provable automatically with a bit of Lean magic.
-                      If this turns out not to be the case, I'll refactor the solution to save a bit of time in the future.
+PAPER: Given two sets X and Y, we define Dict(X, Y ) := Maybe(Y )X
 -/
-structure Dict (K V : Type) : Type :=
-  keys  : Set K
-  -- `Vᵏ`
-  m     : Finmap (λ _ : K ↦ V)
-  -- I hope the ethos here is that `Vᵏ` is total over the set of `keys`.
-  total : ∀ {k : K}, k ∈ keys ↔ k ∈ m
+abbrev Dict (α ω : Type) : Type := α → Option ω
 
 section Dict
+variable {α ω : Type}
 
-variable {dict : Dict K V} {k : K} [DecidableEq K]
+def Dict.is_mem (m : Dict α ω) (x : α) : Prop := (m x).isSome
 
-def Dict.contains (k : K) (dict : Dict K V) : Prop := k ∈ dict.m
+@[ext]
+lemma Dict.ext {D₁ D₂ : Dict α ω} (h : ∀ k, D₁ k = D₂ k) : D₁ = D₂ := by funext; aesop
 
-/--
-Enables the notation:
-- `key ∈ dict`
+instance : Membership α (Dict α ω) := ⟨Dict.is_mem⟩
 
-NB - Considering `k ∈ keys ↔ k ∈ m`, we choose `k ∈ m` arbitrarily and always get the other one for free.
-
-- `k ∈ dict = dict.contains k`
--/
-instance : Membership K (Dict K V) := ⟨Dict.contains⟩
-
-/--
-`k ∈ dict` is decidable. Useful for development.
--/
-instance : Decidable (k ∈ dict) := inferInstanceAs (Decidable (k ∈ dict.m))
+instance : GetElem (Dict α ω) α ω Dict.is_mem where
+  getElem := λ m x h ↦ (m x).get h
 
 namespace Dict
 
-section Mem
+def keys (m : Dict α ω) : Set α := { x | Dict.is_mem m x }
 
-/-
-Henceforth, we will give preference to statements using `x ∈ dict` rather than `x ∈ dict.m` or
-`x ∈ dict.keys`, even though these notions are all equal by virtue of `Dict.total` and `Dict.contains`,
-as witnessed by the lemmas in this section.
-This is because I would prefer to formulate all subsequent lemmas using a single notion, rather than
-awkwardly shuffle. The choice is made almost arbitrarily but this is technically 'the most abstract'.
+/--
+PAPER: Definition 3 Let X be a set. We define First
 
-That said, I think it wise to keep statements that come directly from the paper as close to how they are
-in the paper. As such, when it says that 'some k is in the set of keys of the dictionary', the Lean statement
-will say `k ∈ dict.keys`. 
-
-Slightly counter-intuitively, I will teach `aesop` (one way of doing automation in Lean)
-to normalise to `k ∈ dict.keys` - the normalisation is useful so that the automation sees all relevant
-lemmas and this specific form seems like the simplest to reason about; this is subject to change
-if I find the other way more convenient in subsequent proofs. As such, `aesop` sees
-`dict.keys > dict.m > dict` as expressed by the `aesop` tag on the lemmas below that gives
-preference to the natural way of rewriting (i.e. replace lhs with rhs).
+NB we explicitly enumerate all the cases to simplify reasoning.
 -/
-@[aesop norm (rule_sets := [Intmax.aesop_dict])]
-lemma mem_dict_iff_mem_map : k ∈ dict ↔ k ∈ dict.m := by rfl
+def First (x₁ x₂ : Option α) : Option α :=
+  match x₁, x₂ with
+  | .some x, .none => .some x
+  | .some x, .some _ => .some x
+  | .none, .some y => .some y
+  | .none, .none => .none
 
-@[aesop norm (rule_sets := [Intmax.aesop_dict])]
-lemma mem_map_iff_mem_keys : k ∈ dict.m ↔ k ∈ dict.keys := dict.total.symm
+@[simp]
+lemma isSome_First {x₁ x₂ : Option α} : (First x₁ x₂).isSome ↔ x₁.isSome ∨ x₂.isSome := by
+  simp [First]; aesop
+
+def Merge (D₁ D₂ : Dict α ω) : Dict α ω := D
+  where D := λ x ↦ First (D₁ x) (D₂ x)
+
+lemma mem_iff_isSome {m : Dict α ω} {x : α} : x ∈ m ↔ (m x).isSome := by rfl
+
+@[simp]
+lemma keys_Merge {D₁ D₂ : Dict α ω} : (Merge D₁ D₂).keys = D₁.keys ∪ D₂.keys := by
+  unfold Merge Merge.D keys
+  simp [is_mem, mem_iff_isSome]
+  rfl
 
 /-
 Just ignore this section.
 -/
 section AutomateMembership
+
+@[aesop norm (rule_sets := [Intmax.aesop_dict])]
+lemma mem_dict_iff_mem_keys {dict : Dict α ω} : k ∈ dict ↔ k ∈ dict.keys := by rfl
 
 open Lean.Elab.Tactic in
 /--
@@ -97,114 +72,82 @@ open Lean.Elab.Tactic in
 - uses the `Intmax.aesop_dict` set
 -/
 elab "dict" : tactic => do
-  evalTactic <| ← `(tactic| (aesop (rule_sets := [Intmax.aesop_dict]); done))
+  evalTactic <| ← `(tactic| aesop (erase simp Sum.exists) (rule_sets := [Intmax.aesop_dict]))
 
 /--
 Resolve membership proof obligation by the custom `dict` tactic.
 Thus, `dict[k]` will conceptually do `dict[k]'(by dict)`.
-Cf. `Definition 1`, discussion `#1`.
 -/
 macro_rules | `(tactic| get_elem_tactic_trivial) =>
               `(tactic| first | trivial | simp (config := { arith := true }); done | omega | dict)
 
 end AutomateMembership
 
-end Mem
+section Lemmas
 
-section Lookup
+variable {x₁ x₂ : Option α}
+         {D₁ D₂ : Dict α ω}
 
-/--
-NB As mentioned, I am hoping automation makes most of the membership yoga transparent.
-It is reasonably simple to switch to a different option as per discussion in `Definition 1`.
-Subject to change therefore.
+lemma first_left (h : x₁.isSome) : First x₁ x₂ = x₁ := by
+  simp [First]; ext; aesop
 
-Total by construction. Needs `h : k ∈ dict` but we sprinkle Lean dust and hope this is transparent most of the times.
--/
-def lookup {k : K} (dict : Dict K V) : k ∈ dict → V := dict.m.lookup_h
+lemma first_right (h : x₁.isNone) : First x₁ x₂ = x₂ := by
+  simp [First]; ext; aesop
 
-/--
-Partial. In `Option`. Needs `h : (dict.lookup k).isSome`.
--/
-@[deprecated]
-def lookup? (k : K) (dict : Dict K V) : Option V := dict.m.lookup k
+@[simp]
+lemma first_none : First .none x₂ = x₂ := by
+  simp [First]; ext; aesop
 
-/--
-Total. Needs `h : (dict.lookup k).isSome`.
--/
-@[deprecated]
-def lookupD (k : K) (d : V) (dict : Dict K V) : V := dict.m.lookup k |>.getD d
+@[simp]
+lemma first_some {x₁ : α} : First (.some x₁) x₂ = x₁ := by
+  simp [First]; ext; aesop
 
-end Lookup
+lemma keys_Merge_left' (h : ∀ x, x ∈ D₁) : Merge D₁ D₂ = D₁ := by
+  unfold Merge Merge.D
+  ext x _; simp [First]
+  have : (D₁ x).isSome := by dict
+  aesop
+
+lemma keys_Merge_left {x : α} (h : x ∈ D₁) : Merge D₁ D₂ x = D₁ x := by
+  unfold Merge Merge.D
+  ext k; simp [First]
+  have : (D₁ x).isSome := by dict
+  aesop
+
+lemma keys_Merge_right {x : α}
+                       (h₁ : x ∉ D₁) (h₂ : x ∈ D₂) : Merge D₁ D₂ x = D₂ x := by
+  unfold Merge Merge.D
+  ext k; simp [First]
+  have : (D₂ x).isSome := by dict
+  have : (D₁ x).isNone := by rw [mem_iff_isSome] at h₁; aesop
+  aesop
+
+lemma keys_Merge_right' (h : ∀ x : α, x ∉ D₁) : Merge D₁ D₂ = D₂ := by
+  unfold Merge Merge.D
+  apply funext; intros x; specialize h x
+  simp [First]
+  have : (D₁ x).isNone := by rw [mem_iff_isSome] at h; aesop
+  aesop
+
+lemma Merge_assoc {D₃ : Dict α ω} :
+  Merge (Merge D₁ D₂) D₃ = Merge D₁ (Merge D₂ D₃) := by
+  unfold Merge Merge.D
+  apply funext; intros x
+  unfold First
+  generalize eq₁ : D₁ x = X₁
+  generalize eq₂ : D₂ x = X₂
+  generalize eq₃ : D₃ x = X₃
+  rcases X₁ <;> rcases X₂ <;> rcases X₃ <;> aesop
+
+@[simp]
+lemma First_none_none : Dict.First (.none : Option α) .none = .none := by
+  unfold First
+  simp
+
+end Lemmas
 
 end Dict
 
-/--
-Enables the notation:
-- `dict[k]'h`
--/
-instance : GetElem (Dict K V) K V (λ dict k ↦ k ∈ dict) := ⟨λ dict _ h ↦ dict.lookup h⟩
-
-namespace Dict
-
-section Merge
-
-/-
-Equip `K` with lawful equality. This is necessary for `Dict.Merge`.
--/
-variable [DecidableEq K]
-
-/--
-Definition 2
-
-NB - From the paper, we have `D₁(k), if k ∈ K₁`, i.e. the merge is _left biased_.
-     This just happens to be the case `Finmap.union`, see the sanity-check `example` below.
--/
-def Merge (dict₁ dict₂ : Dict K V) : Dict K V :=
-  {
-    keys  := dict₁.keys ∪ dict₂.keys
-    m     := dict₁.m ∪ dict₂.m
-    total := by cases dict₁; cases dict₂; aesop
-  }
-
-end Merge
-
 end Dict
-
--- NB (d₁.Merge d₂)[2] works without an explicit proof that `2 ∈ (d₁.Merge d₂)` and yet is in `Nat`, not in `Option Nat`.
--- example : let d₁ : Dict ℕ ℕ := ⟨{1, 2}, ⟨Multiset.ofList [⟨1, 42⟩, ⟨2, 1337⟩], sorry⟩, sorry⟩
---           let d₂ : Dict ℕ ℕ := ⟨{2, 3}, ⟨Multiset.ofList [⟨2, 24601⟩, ⟨2, 0xdeadbeef⟩], sorry⟩, sorry⟩
---           (d₁.Merge d₂)[2] = 1337 := rfl
-
-namespace Merge
-
-section Merge
-
-variable {dict₁ dict₂ : Dict K V}
-
-section Projections
-
-@[simp]
-lemma m_union_eq : (dict₁.Merge dict₂).m = dict₁.m ∪ dict₂.m := rfl
-
-@[simp]
-lemma keys_union_eq : (dict₁.Merge dict₂).keys = dict₁.keys ∪ dict₂.keys := rfl
-
-end Projections
-
-section Mem
-
-@[simp]
-lemma mem_union : k ∈ dict₁.Merge dict₂ ↔ k ∈ dict₁ ∨ k ∈ dict₂ := by
-  simp [Dict.mem_dict_iff_mem_map]
-
-end Mem
-
-end Merge
-
-end Merge
-
-end Dict
-
-end Dictionaries
 
 end Intmax

@@ -2,7 +2,7 @@ import Lake
 open Lake DSL
 
 require mathlib from git
-  "https://github.com/leanprover-community/mathlib4.git"@"e2938e094a7a98a6f18f06ac1bd15cc0d2e89c8e"
+  "https://github.com/leanprover-community/mathlib4.git"@"334be41cd6a4737ac24813c926c6f61fcedd1998"
 
 package «FVIntmax» where
 
