@@ -887,18 +887,18 @@ theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
         nth_rw 2 [recπs' (i := i - 1)] at c
         contradiction
       rcases eq₁ with ⟨⟨key, mem₁, mem₂⟩, hkey⟩
-      set π₁ := ((πs'[i-1]'(by omega)) key).get (Option.isSome_iff_ne_none.2 mem₁) with eqπ₁
-      set π₂ := ((πproofs[i-1]'(by simp [hm.symm, m]; omega)) key).get (Option.isSome_iff_ne_none.2 mem₂) with eqπ₂
+      set π₁ := (π₁! key).get (Option.isSome_iff_ne_none.2 mem₁) with eqπ₁
+      set π₂ := (π₂! key).get (Option.isSome_iff_ne_none.2 mem₂) with eqπ₂
       rcases key with ⟨c, s⟩
       rcases π₁ with ⟨⟨π, salt⟩, t⟩
       have π₁valid : AD.Verify π s (H _ (t, salt)) c := by
-        have : (πs'[i-1]'(by omega)).Verify (M := (C × K₁ × ExtraDataT)) := hπs' _ (by simp)
+        have : π₁!.Verify (M := (C × K₁ × ExtraDataT)) := hπs' _ (by simp [π₁!])
         simp [BalanceProof.Verify] at this; simp_rw [←Dict.mem_dict_iff_mem_keys] at this
         specialize this c s (Option.isSome_iff_ne_none.2 mem₁)
         convert this <;> rw [←eqπ₁]
       rcases π₂ with ⟨⟨π', salt'⟩, t'⟩
       have π₂valid : AD.Verify π' s (H _ (t', salt')) c := by
-        have : (πproofs[i-1]'(by simp [hm.symm, m]; omega)).Verify (M := (C × K₁ × ExtraDataT)) := validπs (by simp)
+        have : π₂!.Verify (M := (C × K₁ × ExtraDataT)) := validπs (by simp [π₂!])
         simp [BalanceProof.Verify] at this; simp_rw [←Dict.mem_dict_iff_mem_keys] at this
         specialize this c s (Option.isSome_iff_ne_none.2 mem₂)
         convert this <;> rw [←eqπ₂]
