@@ -857,8 +857,8 @@ theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
       -/
       have idx : ∃ i : {n : ℕ // 0 < n ∧ n < πs'.length},
                  ¬IsLUB {
-                    πs'[i.1 - 1],
-                    πproofs[i.1 - 1]'(Nat.sub_one_lt_of_le i.2.1 (Nat.le_of_lt_add_one (by rw [lenπs', lenπs''.symm]; exact i.2.2)))
+                    πs'[i.1-1],
+                    πproofs[i.1-1]'(Nat.sub_one_lt_of_le i.2.1 (Nat.le_of_lt_add_one (by rw [lenπs', lenπs''.symm]; exact i.2.2)))
                   } (πs'[i.1]'i.2.2) := by
         by_contra c; simp at c
         specialize eq π'ₘ; simp only [eqπ'ₘ] at eq
@@ -875,9 +875,10 @@ theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
         PAPER: It then follows from Proposition 6 that there is a key (C, s) ∈ AD.C × K2 such that π′
         k−1(C, s)̸ ≃ πik (C, s).
       -/
-      have eq₁ : ∃ key : { k : C × K₂ // (πs'[i-1]'(by omega)) k ≠ .none ∧ (πproofs[i-1]'(by simp [hm.symm, m]; omega)) k ≠ .none},
-        ¬((((πs'[i-1]'(by omega)) key.1) ≅ ((πproofs[i-1]'(by simp [hm.symm, m]; omega)) key.1))) := by
-        simp only [id_eq, Int.Nat.cast_ofNat_Int, Int.reduceNeg, Nat.pred_eq_sub_one, Int.reduceAdd,
+      let π₁! := πs'[i-1]'(by omega)
+      let π₂! := πproofs[i-1]'(by simp [hm.symm, m]; omega)
+      have eq₁ : ∃ key : {k : C × K₂ // π₁! k ≠ .none ∧ π₂! k ≠ .none}, ¬(((π₁! key.1) ≅ (π₂! key.1))) := by
+        simp only [π₁!, π₂!, id_eq, Int.Nat.cast_ofNat_Int, Int.reduceNeg, Nat.pred_eq_sub_one, Int.reduceAdd,
           eq_mpr_eq_cast, Subtype.exists]
         by_contra c; simp only [Int.reduceNeg, not_exists, Decidable.not_not] at c
         apply proposition6_aux at c
