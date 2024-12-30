@@ -479,7 +479,7 @@ lemma prop6?! {πs : List (BalanceProof K₁ K₂ C Pi V)}
   apply prop6?!_aux
   by_contra contra
   simp at contra
-  let min₁ : Finset (Fin πs.length) := {n | ∃ i : Fin πs.length, i > n ∧ ¬(πs[n] <≅> πs[i])}.toFinset
+  let min₁ : Finset (Fin πs.length) := {n | ∃ i, n < i ∧ ¬(πs[n] <≅> πs[i])}
   have wa_ne : min₁.Nonempty := by
     rcases contra with ⟨π, ⟨π_in_πs, ⟨π', ⟨π'_in_πs, h⟩⟩⟩⟩
     obtain ⟨π_ind, π_ind_lim, π_in_πs⟩ := List.getElem_of_mem π_in_πs
@@ -545,9 +545,9 @@ lemma prop6?! {πs : List (BalanceProof K₁ K₂ C Pi V)}
     rw [iso_symm]
     by_cases h' : πs[i] k = .none <;> tauto
   specialize h idx'.1 (by simp)
-  have eq₅ : mergeR'' (List.take (idx.1 + 1) πs) BalanceProof.initial k ≅ (πs[idx]) k := by
+  have eq₅ : mergeR'' (πs.take (idx.1 + 1)) .initial k ≅ πs[idx] k := by
     have eq₆' : ∀ i, i < idx.1 + 1 ∧ i < πs.length →
-      mergeR'' (List.take i πs) BalanceProof.initial k ≅ (πs[idx]) k ∨ mergeR'' (List.take i πs) BalanceProof.initial k = .none := by
+      mergeR'' (List.take i πs) .initial k ≅ (πs[idx]) k ∨ mergeR'' (List.take i πs) .initial k = .none := by
       intros i h
       induction i with
       | zero => right; rfl
@@ -813,8 +813,25 @@ theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
   · /-
       PAPER: Now, suppose the balance proofs (πi)i∈I do not have a join in Π.
     -/
+    /-
+      PAPER: Let ik be the k′th index in I (so that I = {i1, i2, . . . , im}, where m = |I|).
+             Then, let (π′ k)k∈{1,...,m} be the balance proofs defined recursively as π′1 = πi1 and π′
+             k = Merge(π′k−1, πik ).
+
+      NB we define `πs'` to be an ordered sequence of balance proofs with the `.initial` balance proof
+      at the head position. Note further we use a slightly different merging scheme; one can
+      compare `mergeR` and `mergeR''`, where the former is the definition from the paper, while
+      the latter is the one we use.
+    -/
     let πs' := List.Ico 0 (πs.length + 1) |>.map λ i ↦ mergeR'' (πproofs.take i) .initial
     have lenπs'': πs'.length = πs.length + 1 := by simp [πs', lenπs']
+    /-
+      PAPER: Clearly, these merged balance proofs are valid, since each of the original bal-
+             ance proofs are valid (otherwise they wouldn’t be accepted by the rollup con-
+             tract), and since the merge of two valid balance proofs is again valid.
+
+      NB the relevant proof is `valid_mergeR''`.
+    -/
     have hπs' : ∀ π ∈ πs', π.Verify (M := (C × K₁ × ExtraDataT)) := by
       simp [πs', πproofs]; intros n hn
       exact valid_mergeR'' (by simp; omega) (λ _ hx ↦ validπs hx)
@@ -824,12 +841,21 @@ theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
     have hm : m = πproofs.length := by simp [m, lenπs', lenπs'']
     set π'ₘ := πs'[m]'(by simp [m]; omega) with eqπ'ₘ
     simp only [not_exists] at eq
+    /-
+      With no withdrawal requests, one can derive an immediate contradiction by showing that
+      the `.initial` balance proof is the least upper bound, which had been assumed not to exist.
+    -/
     by_cases isempty : πs.length = 0
     · have : πproofs = [] := List.map_eq_nil_iff.2 (List.eq_nil_of_length_eq_zero isempty)
       simp_rw [this] at eq
       specialize eq .initial
       simp at eq
-    · have idx : ∃ i : {n : ℕ // 0 < n ∧ n < πs'.length},
+    · /-
+        PAPER: Now, we argue that there must be an index k ∈ {1, . . . , m} such that π′k is not the join
+        of π′k−1 and πik in Π, since if not, the final merged balance proof π′m would
+        be a join of (πi)i∈I (by Proposition 6), which we have assumed not to exist.
+      -/
+      have idx : ∃ i : {n : ℕ // 0 < n ∧ n < πs'.length},
                  ¬IsLUB {
                     πs'[i.1 - 1],
                     πproofs[i.1 - 1]'(Nat.sub_one_lt_of_le i.2.1 (Nat.le_of_lt_add_one (by rw [lenπs', lenπs''.symm]; exact i.2.2)))
@@ -845,6 +871,10 @@ theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
           exact c
         exact absurd this eq
       rcases idx with ⟨⟨i, hi₁, hi₂⟩, lubi⟩; simp only at lubi
+      /-
+        PAPER: It then follows from Proposition 6 that there is a key (C, s) ∈ AD.C × K2 such that π′
+        k−1(C, s)̸ ≃ πik (C, s).
+      -/
       have eq₁ : ∃ key : { k : C × K₂ // (πs'[i-1]'(by omega)) k ≠ .none ∧ (πproofs[i-1]'(by simp [hm.symm, m]; omega)) k ≠ .none},
         ¬((((πs'[i-1]'(by omega)) key.1) ≅ ((πproofs[i-1]'(by simp [hm.symm, m]; omega)) key.1))) := by
         simp only [id_eq, Int.Nat.cast_ofNat_Int, Int.reduceNeg, Nat.pred_eq_sub_one, Int.reduceAdd,
