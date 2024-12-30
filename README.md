@@ -10,6 +10,9 @@ most importantly, we prove that:
 
 ### Assumptions / Trust base
 
+Strictly technically speaking, the statements we mechanically prove come with a set of assumptions that we merely assume to hold.
+These are as follows.
+
 #### Axioms
 
 We introduce the following axioms:
@@ -26,6 +29,17 @@ expressing the fact that the binding property of the authenticated dictionary ca
 
 `AttackGame.lean` defines `isπ` which is subsequently assumed by `theorem1`, in spite of this being provable from the model
 of the attack game.
+
+#### Model
+
+We took great care to follow the definitions laid out in the paper to the maximum extent possible.
+Nevertheless, the correctness of the statements being proved is with regards to the Lean definitions
+mechanised in this formalisation, which are only as faithful to the ones presented in the paper
+as we can reasonably ascertain as human beings.
+
+#### Lean
+
+We trust Lean to check the correctness of proofs.
 
 ### Building / Proof checking
 
