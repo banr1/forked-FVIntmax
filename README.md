@@ -1,12 +1,16 @@
 ## Formal verification of the Intmax protocol in Lean
 
-TODO - Readme, Docs, Links.
+TODO - Docs, Links.
 
-This repository mechanises proofs of following statements from [0]:
-- lemmas 1, 2, 3
-- theorem 1
+This repository mechanises the main result (`theorem 1`) of [0].
+This subsumes all of the relevant definitions and lemmas from the paper.
 
-### Assumptions / Trust base (TODO)
+Furthermore, we prove various additional properties that follow naturally from the description of the attack game;
+most importantly, we prove that:
+* the behaviour of the attack game does not depend on validity of requests (lemma `attackGame_eq_attackGameBlocks!_normalise`)
+* the sum used to compute `contractBalance` in the proof of `theorem 1` does in fact follow from the model of the attack game (lemma `computeBalance_eq_sum`).
+
+### Assumptions / Trust base
 
 #### Axioms
 
@@ -17,13 +21,17 @@ To model the semantics of computational infeasibility; this technically makes th
 as such, we make sure to disallow Lean to use this reasoning in any automated way whatsoever in addition
 to restricting our own usage of this statement to the least degree possible.
 
-TODO - We will add assumptions and such (e.g. what is our notion of computationally infeasible)
-as we go, along with the fact that we trust Lean, that the model could in theory be wrong, etc.
-Very standard, but needs to be articulated carefully.
+This is used to show that the hash function we use is injective (cf. `theorem injective_of_CryptInjective`) as well as
+expressing the fact that the binding property of the authenticated dictionary cannot be broken (cf. `computationallyInfeasible_axiom` in the proof of `theorem 1`).
+
+#### Assumptions
+
+`AttackGame.lean` defines `isπ` which is subsequently assumed by `theorem1`, in spite of this being provable from the model
+of the attack game.
 
 ### Building / Proof checking
 
-Using `leanprover/lean4:v4.11.0` we simply run `lake build`.
+Using `leanprover/lean4:v4.14.0-rc2` we simply run `lake build` in the root directory.
 Successful compilation of this project means that Lean has checked the proofs of the pertinent statements.
 
-[0] - https://eprint.iacr.org/2023/1082.pdf
+[0] - TODO(the verison on overleaf as of 30.12.2024).
