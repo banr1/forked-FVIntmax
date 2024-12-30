@@ -322,6 +322,9 @@ variable {τc : Τc K₁ K₂ V} {b : S K₁ K₂ V}
 @[simp]
 lemma fc_key : 0 ≤ fc (τc, b) (.key k) := by simp
 
+/--
+Lemma 2
+-/
 lemma le_fc_of_ne {k : Kbar K₁ K₂} (h : τc.1.1.1 ≠ k) : b k ≤ fc (τc, b) k := by unfold fc v'; aesop
 
 end Fc

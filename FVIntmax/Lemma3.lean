@@ -2,7 +2,7 @@ import FVIntmax.Balance
 
 namespace Intmax
 
-section Lemma1
+section Lemma3
 
 variable
   {Pi C Sigma : Type}
@@ -83,7 +83,7 @@ variable [LinearOrder K₁] [LinearOrder K₂]
          {π : BalanceProof K₁ K₂ C Pi V}
          {bs : List (Block K₁ K₂ C Sigma V)}
 
-lemma lemma1 : Bal π bs .Source ≤ 0 := by
+lemma lemma3 : Bal π bs .Source ≤ 0 := by
   dsimp [Bal]
   generalize eq : TransactionsInBlocks π _ = blocks
   generalize eq₁ : S.initial K₁ K₂ V = s₀
@@ -96,7 +96,7 @@ lemma lemma1 : Bal π bs .Source ≤ 0 := by
   have eq₄ : 0 ≤ ∑ x ∈ Finset.univ \ {Kbar.Source}, f x := Finset.sum_nonneg λ i ↦ by rcases i <;> aesop
   exact le_trans eq₃ eq₄
 
-end Lemma1
+end Lemma3
 
 
 end Intmax

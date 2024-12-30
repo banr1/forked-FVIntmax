@@ -1,6 +1,6 @@
 import FVIntmax.AttackGame
-import FVIntmax.Lemma1
-import FVIntmax.Lemma2
+import FVIntmax.Lemma3
+import FVIntmax.Lemma4
 import FVIntmax.Lemma5
 import FVIntmax.Propositions
 import FVIntmax.Request
@@ -675,8 +675,14 @@ private theorem not_adversaryWon_attackGame_of_exists_LUB
   · rcases existsLUB with ⟨π, hπ₂⟩
     set Bstar := attackGameR requests! [] with eqBstar
     have hlub {π'} (h' : π' ∈ πproofs) : π' ≤ π := mem_upperBounds.1 hπ₂.1 _ h'
+    /-
+      PAPER: step lemma 3
+    -/
     have eq₁ : 0 ≤ -Bal π Bstar .Source := by
-      have : Bal π Bstar .Source ≤ 0 := lemma1; simpa
+      have : Bal π Bstar .Source ≤ 0 := lemma3; simpa
+    /-
+      PAPER: step lemma 5
+    -/
     rw [lemma5] at eq₁; simp only at eq₁
     let indexingSet := Finset.univ (α := Fin Bstar.length) ×ˢ Finset.univ (α := K₁)
     let σ := λ x : Fin Bstar.length × K₁ ↦ Bstar.take x.1.1
@@ -695,11 +701,16 @@ private theorem not_adversaryWon_attackGame_of_exists_LUB
       λ x ↦ if h : Bstar[x.1].isWithdrawalBlock
             then Bal (πᵢ x h) (σ x) x.2
             else 0
+    /-
+      PAPER: step lemma 4
+
+      NB `contra` takes this shape because of `computeBalance_eq_sum`.
+    -/
     rw [Finset.sum_congr (s₂ := indexingSet) (g := F) (h := rfl)
                          (by simp [F]; intros idx k₁ h
                              split <;> try simp
                              next h' =>
-                               have := lemma2 (bs := (σ (idx, k₁))) (show πᵢ (idx, k₁) h' ≤ π from hlub (hπᵢ h'))
+                               have := lemma4 (bs := (σ (idx, k₁))) (show πᵢ (idx, k₁) h' ≤ π from hlub (hπᵢ h'))
                                simp [(·≤·)] at this; apply this)] at eq₁
     simp only [
       computeBalanceSum, aggregateWithdrawals_eq_aggregateWithdrawals', aggregateWithdrawals'
@@ -784,7 +795,7 @@ theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
     PAPER: We now have two possibilities, either the balance proofs (πi)i∈I have a join in Π or they don’t.
   -/
   by_cases eq : ∃ join : BalanceProof K₁ K₂ C Pi V, IsLUB {π | π ∈ πproofs} join
-  · -- PAPER: Suppose they have a join π ∈ Π. Then we have 
+  · -- PAPER: Suppose they have a join π ∈ Π. Then we have cf. `not_adversaryWon_attackGame_of_exists_LUB`.
     exact not_adversaryWon_attackGame_of_exists_LUB
             eqRequests
             hValid
@@ -799,7 +810,10 @@ theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
             isπ
             contra
             eq
-  · let πs' := List.Ico 0 (πs.length + 1) |>.map λ i ↦ mergeR'' (πproofs.take i) .initial
+  · /-
+      PAPER: Now, suppose the balance proofs (πi)i∈I do not have a join in Π.
+    -/
+    let πs' := List.Ico 0 (πs.length + 1) |>.map λ i ↦ mergeR'' (πproofs.take i) .initial
     have lenπs'': πs'.length = πs.length + 1 := by simp [πs', lenπs']
     have hπs' : ∀ π ∈ πs', π.Verify (M := (C × K₁ × ExtraDataT)) := by
       simp [πs', πproofs]; intros n hn
@@ -830,8 +844,6 @@ theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
           simp_rw [recπs'] at c; specialize c (i + 1) (by omega); simp at c
           exact c
         exact absurd this eq
-      
-      
       rcases idx with ⟨⟨i, hi₁, hi₂⟩, lubi⟩; simp only at lubi
       have eq₁ : ∃ key : { k : C × K₂ // (πs'[i-1]'(by omega)) k ≠ .none ∧ (πproofs[i-1]'(by simp [hm.symm, m]; omega)) k ≠ .none},
         ¬((((πs'[i-1]'(by omega)) key.1) ≅ ((πproofs[i-1]'(by simp [hm.symm, m]; omega)) key.1))) := by
