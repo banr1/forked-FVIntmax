@@ -21,14 +21,14 @@ class SignatureAggregation (M Kₚ Kₛ Sigma : Type) where
   Verify    : List Kₚ → M → Sigma → Bool
 
   /--
-  Definition 6
+  Definition 8
   -/
   Correctness : ∀ (l : List (Kₚ × Kₛ)) (_ : ∀ pair ∈ l, pair ←ᵣ KeyGen) (m : M),
                   let (kₚs, kₛs) := l.unzip
                   Verify kₚs m (Aggregate (kₚs.zip (kₛs.map (Sign · m)))) = true
 
   /--
-  Definition 7
+  Definition 9
   -/
   Unforgeability :
     ComputationallyInfeasible <|
