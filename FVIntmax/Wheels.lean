@@ -101,6 +101,9 @@ end NonNeg
 
 section Order
 
+/--
+Definition 14
+-/
 def discretePreorder {α : Type} : Preorder α :=
   {
     lt := λ _ _ ↦ False
@@ -110,6 +113,9 @@ def discretePreorder {α : Type} : Preorder α :=
     lt_iff_le_not_le := by aesop
   }
 
+/--
+Definition 13
+-/
 def trivialPreorder {α : Type} : Preorder α :=
   {
     lt := λ _ _ ↦ False
