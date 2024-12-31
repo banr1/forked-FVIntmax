@@ -46,6 +46,12 @@ def Block.isValid (block : Block K₁ K₂ C Sigma V) (π : BalanceProof K₁ K�
   /- 2.7 -/
   | .withdrawal _ => π.Verify (M := (C × K₁ × ExtraDataT))
 
+/--
+Definition 36
+
+NB we separate the computation of balance from the changes to the state.
+This allows us to reason about balance without the notion of requests, directly from blocks.
+-/
 def Block.updateBalance (bal : V) (block : Block K₁ K₂ C Sigma V) : V :=
   match block with
   /- 2.5 -/
@@ -188,6 +194,16 @@ variable {K₁ : Type} [Finite K₁] [LinearOrder K₁] [Nonempty K₁]
 def attackGameBlocks' : Scontract K₁ K₂ V C Sigma :=
   requests.foldl Scontract.appendBlock σ
 
+/-
+Attack game 1 The attack game is played between a PPT adversary and a
+challenger, where the challenger plays the role of the rollup contract. First, the
+challenger initializes the rollup contract with the state ((), 0) ∈ Scontract. Then,
+the adversary sends a sequence of contract transactions (elements of Tcontract)
+to the challenger. For each contract transaction, the challenger updates the
+rollup contract state using the transition function fcontract.
+
+NB the definition `isπ` is taken to be a part of the attack game.
+-/
 def attackGame : Scontract K₁ K₂ V C Sigma :=
   attackGameBlocks' requests []
 
@@ -221,6 +237,13 @@ def computeBalance' (blocks : Scontract K₁ K₂ V C Sigma) (acc : V) : V :=
 def computeBalance (blocks : Scontract K₁ K₂ V C Sigma) : V :=
   computeBalance' blocks 0
 
+/--
+PAPER: The adversary wins the attack game if at the end of the interaction, the rollup contract has a state
+(B∗, balance) where balance ≱ 0.
+
+NB the `balance` is not a part of the state in the formalisation. It is instead extrinsically computed
+by `computeBalance`.
+-/
 def adversaryWon (blocks : Scontract K₁ K₂ V C Sigma) : Prop :=
   ¬0 ≤ computeBalance blocks
 
