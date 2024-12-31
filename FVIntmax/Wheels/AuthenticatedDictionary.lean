@@ -40,7 +40,7 @@ instance : GetElem (CommitT C K Pi) K Pi (λ ct k ↦ k ∈ ct.dict) := ⟨Commi
 end CommitT
 
 /--
-Definition 3
+Definition 5
 
 NB `Π` and `λ` have known meanings in Lean, so we diverge a little:
 - `Π = Pi`
@@ -64,19 +64,19 @@ class ADScheme (K : Type)
   -/
 
   /--
-  Definition 4 (1/2) - Correctness | Keys eq
+  Definition 6 (1/2) - Correctness | Keys eq
   -/
   correct_keys_eq : ∀ {dict : Dict K M}, (Commit dict).keys = dict.keys -- PAPER: K' = K
 
   /--
-  Definition 4 (2/2) - Correctness | Verify is consistent
+  Definition 6 (2/2) - Correctness | Verify is consistent
   -/
   correct_consistent :
     ∀ {dict : Dict K M} {key : K} (h : key ∈ dict.keys), -- `(h : key ∈ dict.keys)` obtained from the paper's ∀k ∈ K
       Verify (Commit dict)[key] key dict[key] (Commit dict).commitment = true -- PAPER: Verify(πk, k, Mk, C) = True, ∀k ∈ K
 
   /--
-  Definition 5 - Binding
+  Definition 7 - Binding
 
   `ComputationallyInfeasible P` means `¬P`. (One can cf. the def in `Wheels/Wheels.lean`.)
 
