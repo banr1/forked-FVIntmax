@@ -9,7 +9,7 @@ import FVIntmax.Wheels.Dictionary
 namespace Intmax
 
 /--
-Definition 17
+Definition 15
 Let (X, ≤X) be a proset. We define the induced preorder ≤ on
 Maybe(X) where for all x, y ∈ M aybe(X) we have
 x ≤ y ⇔ x = ⊥ ∨ (x, y ∈ X ∧ x ≤X y)
