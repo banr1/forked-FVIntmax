@@ -66,11 +66,6 @@ axiom computationallyInfeasible_axiom : ∀ {p : Prop}, ComputationallyInfeasibl
 end RubeGoldberg
 
 namespace SimpleRandom
-/-
-TODO(REVIEW): This is beyond trivial on purpose, I am not really sure we even need this, maybe we can just
-              postulate that our 'random values' can be treated opaquely. Not sure. For now, I gave 'some',
-              clearly non-computational definition.
--/
 
 def Seed : Type := ℕ
 

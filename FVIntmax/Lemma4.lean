@@ -4,7 +4,7 @@ namespace Intmax
 
 open Mathlib
 
-noncomputable section Lemma2
+noncomputable section Lemma4
   
 /-
 To follow the argument in the paper, one has to emulate the set-theoretical set-switching by
@@ -289,12 +289,12 @@ variable {n : ℕ}
 /--
 PAPER: Lemma 2. The balance function Bal is monotone in its first argument 
 -/
-lemma lemma2 (h : π₁ ≤ π₂) : Bal π₁ bs ≤ Bal π₂ bs := by
+lemma lemma4 (h : π₁ ≤ π₂) : Bal π₁ bs ≤ Bal π₂ bs := by
   simp only [←Bal'_eq_Bal]
   suffices BalFixed bs π₁ ≤ BalFixed bs π₂ by aesop
   rw [BalFixed_eq_BalFixed', BalFixed_eq_BalFixed']
   exact Monotone.comp monotone_fStarFixed monotone_TransactionsInBlocksFixed h
 
-end Lemma2
+end Lemma4
 
 end Intmax

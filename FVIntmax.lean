@@ -8,8 +8,8 @@ import «FVIntmax».Balance
 import «FVIntmax».BalanceProof
 import «FVIntmax».Block
 import «FVIntmax».Key
-import «FVIntmax».Lemma1
-import «FVIntmax».Lemma2
+import «FVIntmax».Lemma4
+import «FVIntmax».Lemma3
 import «FVIntmax».Lemma5
 import «FVIntmax».Propositions
 import «FVIntmax».Request

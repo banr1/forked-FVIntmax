@@ -16,10 +16,6 @@ noncomputable opaque H {α : Type} (ω : Type) [Nonempty ω] (x : α) : ω := Cl
 
 namespace CryptoAssumptions
 
-/-
-(BIG WIP)
--/
-
 section Hashing
 
 class Injective {α ω : Type} (f : α → ω) where

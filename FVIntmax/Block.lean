@@ -14,9 +14,6 @@ NB the `V` here does not _yet_ need the fact that it is a latticed-ordered abeli
 inductive Block (K₁ K₂ : Type) (C Sigma : Type) (V : Type) [Nonnegative V] where
   /--
     Bdeposit - (2.5 - Bdeposit := K₂ × V+)
-
-    TODO(REVIEW): > A deposit block contains only one deposit tx?
-                  I have no intuition for this, but formally they state this is in fact the case.
   -/
   | deposit (recipient : K₂) (amount : V₊)
   /--
@@ -55,6 +52,11 @@ abbrev isTransferBlock (b : Block K₁ K₂ C Sigma V) := b matches (Block.trans
 
 abbrev isWithdrawalBlock (b : Block K₁ K₂ C Sigma V) := b matches (Block.withdrawal _)
 
+/--
+Definition 35
+
+NB we define this function in the `Π` space of blocks that are withdrawal blocks.
+-/
 def getWithdrawal (b : Block K₁ K₂ C Sigma V) (_h : b.isWithdrawalBlock) : K₁ → V₊ :=
   match b with | .withdrawal B => B
 

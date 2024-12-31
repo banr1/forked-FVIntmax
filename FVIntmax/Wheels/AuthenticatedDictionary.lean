@@ -45,20 +45,6 @@ Definition 3
 NB `Π` and `λ` have known meanings in Lean, so we diverge a little:
 - `Π = Pi`
 - `λ = Λ`
-
-vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-TODO(REVIEW): The current implementation here is such that the idea of the security parameter `λ`
-is that for two 'individual' functions `Commit : (λ : ℕ) → ...` and `Verify : (λ : ℕ) → ...`,
-the `ADScheme` unifies this parameter to a single given `λ` (well, denoted `Λ` here) - e.g. cf.
-`correct_consistent`. Is this the intent? I am unsure because I quote the paper:
-> and algorithms
-  Commit : Dict(K,M) → C × Dict(K, Π)
-  Verify : Π × K × M × C → {T rue, F alse}
-  parameterized over a security parameter λ ∈ N.
-So they are not parameterizing the functions by `λ : ℕ` to express the intent that it is shared between them?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
--------------------------------------------------------------------------------------------------------------
-I don't think we need to model Λ actually.
 -/
 class ADScheme (K : Type)
                (M : Type)
@@ -92,14 +78,13 @@ class ADScheme (K : Type)
   /--
   Definition 5 - Binding
 
-  TODO(REVIEW): `ComputationallyInfeasible P` means `¬P`. (One can cf. the def in `Wheels/Wheels.lean`.)
-                Is this sensible? Of course, this is not technically true in the broad sense.
+  `ComputationallyInfeasible P` means `¬P`. (One can cf. the def in `Wheels/Wheels.lean`.)
 
-                NB `comutationallyInfeasible_axiom Binding` gives us:
-                `¬∃ (c : C) (k : K) (m₁ m₂ : M) (π₁ π₂ : Pi),
-                    Verify π₁ k m₁ c = true ∧
-                    Verify π₂ k m₂ c = true ∧
-                    m₁ ≠ m₂`
+  NB `comutationallyInfeasible_axiom Binding` gives us:
+  `¬∃ (c : C) (k : K) (m₁ m₂ : M) (π₁ π₂ : Pi),
+      Verify π₁ k m₁ c = true ∧
+      Verify π₂ k m₂ c = true ∧
+      m₁ ≠ m₂`
   -/
   binding : ComputationallyInfeasible <|
               ∃ (c : C) (k : K) (m₁ m₂ : M) (π₁ π₂ : Pi),
