@@ -46,15 +46,8 @@ variable [Lattice V]
          [CovariantClass V V (· + ·) (· ≤ ·)]
          [CovariantClass V V (Function.swap (· + ·)) (· ≤ ·)]
 
--- def Meet' {α : Type} (s : Finset α) (f : α → V) : V := (s.1.map f).fold (·⊓·) 0
-
--- def Meet'' {α : Type} (s : Finset α) (f : α → V) : V := ⨅ s, f s
-
 open scoped BigOperators
 
-/-
-TODO(my esteemed self) - probably remove later.
--/
 noncomputable section
 
 /--

@@ -446,7 +446,7 @@ private lemma prop6_general_aux :
 
 set_option maxHeartbeats 800000 in
 lemma prop6_general (h : ∀ i : Fin πs.length,
-                     IsLUB {mergeR'' (πs.take i.1) .initial, πs[i.1]} (mergeR'' (πs.take (i.1 + 1)) .initial))
+                     IsLUB {mergeR'' (πs.take i.1) .initial, πs[i]} (mergeR'' (πs.take (i.1 + 1)) .initial))
   : IsLUB {π | π ∈ πs} (mergeR'' πs .initial) := by
   replace h : ∀ (i : ℕ) (h : i < πs.length),
                 IsLUB {mergeR'' (List.take i πs) .initial, πs[↑i]}

@@ -7,9 +7,6 @@ section S
 
 variable [Nonnegative V]
 
--- lemma zero_le_val_subtype_of_le {P : V → Prop} (h : 0 ≤ v) (h : P v) :
---   (0 : V) ≤ (Subtype.mk v h).1 := by aesop
-
 abbrev S' (K₁ K₂ V : Type) := Kbar K₁ K₂ → V
 
 namespace S'

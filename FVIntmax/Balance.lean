@@ -278,8 +278,6 @@ def v' (v : V₊) (b : S K₁ K₂ V) (s : Kbar K₁ K₂) : V₊ :=
 
 variable {v : V₊} {b : S K₁ K₂ V} {s : Kbar K₁ K₂}
 
--- lemma v'_nonneg_of_valid : 0 ≤ v' v b s := by aesop
-
 @[simp]
 lemma v'_source_eq_v : v' v b .Source = v := by unfold v'; aesop
 
@@ -407,7 +405,6 @@ instance [CovariantClass V V (· + ·) (· ≤ ·)] : OrderedAddCommMonoid V := 
 PAPER: First, we give VK+ the discrete preorder
 -/
 instance : Preorder (Key K₁ K₂ → V₊) := discretePreorder
--- instance {α ω : Type} [Preorder ω] : Preorder (Dict α ω) := by unfold Dict; infer_instance
 
 /--
 Demote a preorder on `Key K₁ K₂ → V₊` to equality ASAP.
