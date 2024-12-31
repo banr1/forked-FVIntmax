@@ -442,6 +442,8 @@ lemma discretePreorder_eq_equality_Pi_Prod_ExtraDataT {a b : (Pi × ExtraDataT)}
   simp [(·≤·), Preorder.toLE, instPreorderProdExtraDataT, trivialPreorder]
 
 /--
+Definition 38
+
 PAPER: Finally, we give (AD.Π × {0, 1}∗) × VK+ the induced product preorder
 -/
 instance [Finite K₁] [Finite K₂] : Preorder ((Pi × ExtraDataT) × TransactionBatch K₁ K₂ V) := inferInstance
@@ -619,6 +621,8 @@ def infV (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) (k : Kbar K₁ K₂) :
                   else 0
 
 /--
+Definition 26
+
 The transition function.
 -/
 def f (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V :=

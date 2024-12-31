@@ -9,7 +9,7 @@ import FVIntmax.Wheels.Dictionary
 namespace Intmax
 
 /--
-Definition 15
+Definition 17
 Let (X, ≤X) be a proset. We define the induced preorder ≤ on
 Maybe(X) where for all x, y ∈ M aybe(X) we have
 x ≤ y ⇔ x = ⊥ ∨ (x, y ∈ X ∧ x ≤X y)
@@ -27,6 +27,9 @@ instance (priority := high) maybeInduced {α : Type} [Preorder α] : Preorder (O
     le_trans := by dsimp [le, (·≤·)]; aesop (add safe forward le_trans)
   }
 
+/--
+Definition 11
+-/
 def iso {X : Type} [Preorder X] (a b : X) := a ≤ b ∧ b ≤ a
 
 notation:51 (priority := high) a:52 " ≅ " b:52 => iso a b
