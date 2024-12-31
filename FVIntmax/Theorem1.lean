@@ -57,8 +57,12 @@ def mergeR'' (πs : List (BalanceProof K₁ K₂ C Pi V)) (acc : BalanceProof K�
   | [] => acc
   | π :: πs => Dict.Merge acc (mergeR'' πs π)
 
+section MergeLemmas
+
+variable {acc π : BalanceProof K₁ K₂ C Pi V} {πs πs : List (BalanceProof K₁ K₂ C Pi V)}
+
 @[simp]
-lemma mergeR''_nil {acc : BalanceProof K₁ K₂ C Pi V} : mergeR'' [] acc = acc := rfl
+lemma mergeR''_nil : mergeR'' [] acc = acc := rfl
 
 def mergeR''' (πs : List (BalanceProof K₁ K₂ C Pi V)) (acc : BalanceProof K₁ K₂ C Pi V) : BalanceProof K₁ K₂ C Pi V :=
   πs.foldl Dict.Merge acc
@@ -67,7 +71,7 @@ instance : Std.Associative
              (Dict.Merge (α := (C × K₂)) (ω := ((Pi × ExtraDataT) × TransactionBatch K₁ K₂ V))) :=
   ⟨λ _ _ _ ↦ Dict.Merge_assoc⟩
 
-lemma mergeR''_eq_foldl {πs : List (BalanceProof K₁ K₂ C Pi V)} {acc} :
+lemma mergeR''_eq_foldl :
   mergeR'' πs acc = mergeR''' πs acc := by
   induction' πs with hd tl ih generalizing acc
   · rfl
@@ -78,19 +82,21 @@ lemma mergeR''_eq_foldl {πs : List (BalanceProof K₁ K₂ C Pi V)} {acc} :
     conv_lhs => unfold mergeR'''
 
 @[simp]
-lemma mergeR''_cons {π} {πs : List (BalanceProof K₁ K₂ C Pi V)} {acc} :
-  mergeR'' (π :: πs) acc =  Dict.Merge acc (mergeR'' πs π) := rfl
+lemma mergeR''_cons :
+  mergeR'' (π :: πs) acc = Dict.Merge acc (mergeR'' πs π) := rfl
 
 @[simp]
-lemma mergeR''_append {πs πs' : List (BalanceProof K₁ K₂ C Pi V)} {acc} :
+lemma mergeR''_append :
   mergeR'' (πs ++ πs') acc = mergeR'' πs' (mergeR'' πs acc) := by
     rw [mergeR''_eq_foldl, mergeR''_eq_foldl, mergeR''_eq_foldl]
     unfold mergeR'''
     rw [←List.foldl_append]
 
 @[simp]
-lemma mem_list_singleton_iff {π} : π ∈ ({acc} : List (BalanceProof K₁ K₂ C Pi V)) ↔ π = acc := by
+lemma mem_list_singleton_iff : π ∈ ({acc} : List (BalanceProof K₁ K₂ C Pi V)) ↔ π = acc := by
   simp [singleton]
+
+end MergeLemmas
 
 def BalanceProof.compat (π₁ π₂ : BalanceProof K₁ K₂ C Pi V) : Prop :=
   ∀ k, π₁ k ≠ none ∧ π₂ k ≠ none → π₁ k ≅ π₂ k
@@ -110,18 +116,18 @@ lemma mergeR''_concat {π} {πs : List (BalanceProof K₁ K₂ C Pi V)} {acc} :
       intros acc
       rw [mergeR''_cons, List.concat_cons, mergeR''_cons, ih, Dict.Merge_assoc]
 
-section compat
+section Compat
+
+variable {π₁ π₂ π₃ : BalanceProof K₁ K₂ C Pi V}
 
 @[symm]
-lemma BalanceProof.compat_comm {π₁ π₂ : BalanceProof K₁ K₂ C Pi V} :
-  π₁ <≅> π₂ ↔ π₂ <≅> π₁ := by unfold BalanceProof.compat; simp_rw [iso_symm]; tauto
+lemma BalanceProof.compat_comm : π₁ <≅> π₂ ↔ π₂ <≅> π₁ := by
+  unfold BalanceProof.compat; simp_rw [iso_symm]; tauto
 
 @[simp]
-lemma BalanceProof.compat_rfl {π₁ : BalanceProof K₁ K₂ C Pi V} :
-  π₁ <≅> π₁ := by unfold BalanceProof.compat; tauto
+lemma BalanceProof.compat_rfl : π₁ <≅> π₁ := by unfold BalanceProof.compat; tauto
 
-lemma Merge_comm_of_compat {π₁ π₂ : BalanceProof K₁ K₂ C Pi V}
-  (h : π₁ <≅> π₂) : π₁ <+> π₂ ≅ π₂ <+> π₁ := by
+lemma Merge_comm_of_compat (h : π₁ <≅> π₂) : π₁ <+> π₂ ≅ π₂ <+> π₁ := by
   apply proposition5'
   have := proposition6_aux h
   exact this
@@ -130,7 +136,7 @@ lemma Merge_comm_of_compat {π₁ π₂ : BalanceProof K₁ K₂ C Pi V}
   intros x; specialize h x; specialize h₁ x
   aesop
 
-lemma Merge_iso_of_iso {π₁ π₂ π₃ : BalanceProof K₁ K₂ C Pi V} (h : π₁ ≅ π₂) :
+lemma Merge_iso_of_iso (h : π₁ ≅ π₂) :
   π₁ <+> π₃ ≅ π₂ <+> π₃ := by
   simp [iso] at *
   unfold LE.le Preorder.toLE instPreorderBalanceProof id inferInstance _root_.Pi.preorder at *
@@ -148,13 +154,13 @@ lemma Merge_mergeR''_comm {πs : List (BalanceProof K₁ K₂ C Pi V)} (h : π <
     rw [←Dict.Merge_assoc]
     exact Merge_iso_of_iso (Merge_comm_of_compat (BalanceProof.compat_comm.1 h))
 
-lemma existsLUB_iff_compat {π₁ π₂ : BalanceProof K₁ K₂ C Pi V} :
+lemma existsLUB_iff_compat :
   (∃ join, IsLUB {π₁, π₂} join) ↔ π₁ <≅> π₂ := proposition6
 
-lemma le_of_iso {π₁ π₂ π₃ : BalanceProof K₁ K₂ C Pi V} (h : π₂ ≅ π₃) (h₁ : π₁ ≤ π₂) : π₁ ≤ π₃ :=
+lemma le_of_iso (h : π₂ ≅ π₃) (h₁ : π₁ ≤ π₂) : π₁ ≤ π₃ :=
   le_trans h₁ h.1
 
-lemma le_of_iso' {π₁ π₂ π₃ : BalanceProof K₁ K₂ C Pi V} (h : π₁ ≅ π₂) (h₁ : π₂ ≤ π₃) : π₁ ≤ π₃ :=
+lemma le_of_iso' (h : π₁ ≅ π₂) (h₁ : π₂ ≤ π₃) : π₁ ≤ π₃ :=
   le_trans h.1 h₁
 
 @[simp]
@@ -164,14 +170,12 @@ lemma snd_eq_of_iso {d₁ d₂ : (Pi × ExtraDataT) × TransactionBatch K₁ K�
   simp [(·≤·)]
   tauto
 
-lemma compat_comm {π π' : BalanceProof K₁ K₂ C Pi V} :
-  (π <≅> π') ↔ π' <≅> π := by
+lemma compat_comm : (π₁ <≅> π₂) ↔ π₂ <≅> π₁ := by
   unfold BalanceProof.compat
   simp_rw [iso_symm]
   tauto
 
-lemma compat_of_iso {π π' : BalanceProof K₁ K₂ C Pi V}
-  (h : π ≅ π') : π <≅> π' := by
+lemma compat_of_iso (h : π₁ ≅ π₂) : π₁ <≅> π₂ := by
   intros x y
   simp [iso] at h
   unfold LE.le Preorder.toLE instPreorderBalanceProof id inferInstance _root_.Pi.preorder at h
@@ -182,22 +186,18 @@ lemma compat_of_iso {π π' : BalanceProof K₁ K₂ C Pi V}
   unfold iso
   tauto
 
-lemma isLUB_of_isLUB_iso {π π' : BalanceProof K₁ K₂ C Pi V}
-  (h : IsLUB A π) (h₁ : π ≅ π') : IsLUB A π' := by
+lemma isLUB_of_isLUB_iso (h : IsLUB A π₁) (h₁ : π₁ ≅ π₂) : IsLUB A π₂ := by
   simp only [IsLUB, IsLeast, upperBounds, Set.mem_setOf_eq, lowerBounds] at *
   rcases h with ⟨h₂, h₃⟩
   split_ands
   · intros X hX
-    have : X ≤ π := h₂ hX
+    have : X ≤ π₁ := h₂ hX
     exact le_trans this h₁.1
   · intros X hX
     specialize h₃ hX
     exact le_trans h₁.2 h₃
 
-end compat
-
-lemma merge_le {π₁ π₂ π₃ : BalanceProof K₁ K₂ C Pi V}
-  (h₁ : π₁ ≤ π₃) (h₂ : π₂ ≤ π₃) : π₁ <+> π₂ ≤ π₃ := by
+lemma merge_le (h₁ : π₁ ≤ π₃) (h₂ : π₂ ≤ π₃) : π₁ <+> π₂ ≤ π₃ := by
   have h₃ : π₁ <≅> π₂ := by
     intros k hk
     simp [-Prod.forall, (·≤·)] at h₁ h₂
@@ -217,6 +217,8 @@ lemma merge_le {π₁ π₂ π₃ : BalanceProof K₁ K₂ C Pi V}
   rcases hπ' with ⟨hπ₁, hπ₂⟩
   simp at hπ₂
   apply hπ₂ <;> assumption
+
+end Compat
 
 lemma isLUB_union_Merge_of_isLUB_isLUB_compat {A B : Set (BalanceProof K₁ K₂ C Pi V)}
   (h₁ : IsLUB A j₁) (h₂ : IsLUB B j₂) (h₃ : j₁ <≅> j₂) : IsLUB (A ∪ B) (j₁ <+> j₂) := by
@@ -266,44 +268,39 @@ lemma isLUB_union_Merge_of_isLUB_isLUB_compat {A B : Set (BalanceProof K₁ K₂
   · exact λ _ hπ ↦ merge_le (h₁.right λ _ hd ↦ hπ (by tauto))
                             (h₂.right λ _ hd ↦ hπ (by tauto))
 
+section MergeLemmas
+
+variable {π acc : BalanceProof K₁ K₂ C Pi V}
+         {πs : List (BalanceProof K₁ K₂ C Pi V)}
+
 @[simp]
-lemma merge_eq_none {π acc : BalanceProof K₁ K₂ C Pi V} :
+lemma merge_eq_none :
   (π <+> acc) K = none ↔ π K = none ∧ acc K = none := by
   unfold Dict.Merge Dict.Merge.D Dict.First; aesop
 
 @[simp]
-lemma mergeR''_eq_none' {acc : BalanceProof K₁ K₂ C Pi V} {πs} :
+lemma mergeR''_eq_none' :
   (mergeR'' πs acc) K = none ↔ acc K = none ∧ ∀ π ∈ πs, π K = none := by
   induction' πs with hd tl ih generalizing acc <;> aesop
 
-lemma merge_K {π acc : BalanceProof K₁ K₂ C Pi V} :
-  (π <+> acc) K = Dict.First (π K) (acc K) := rfl
+lemma merge_K : (π <+> acc) K = Dict.First (π K) (acc K) := rfl
 
 @[simp]
-lemma mergeR''_eq_some {acc : BalanceProof K₁ K₂ C Pi V} {πs} {x} :
+lemma mergeR''_eq_some {x} :
   acc K = some x → (mergeR'' πs acc) K = acc K := by
-  revert acc
-  induction πs with
-  | nil => simp
-  | cons π πs ih =>
-    intros acc h
-    rw [mergeR''_cons, merge_K, h]
-    unfold Dict.First
-    aesop
+  induction πs generalizing acc <;> aesop (add simp merge_K)
 
-lemma iso_K_merge_left_of_ne_none {π acc : BalanceProof K₁ K₂ C Pi V} (h : π K ≠ none) :
-  π K ≅ (π <+> acc) K := by
+lemma iso_K_merge_left_of_ne_none (h : π K ≠ none) : π K ≅ (π <+> acc) K := by
   rw [merge_K]
   unfold Dict.First
   aesop
 
-lemma merge_left_none_eq_right {π acc : BalanceProof K₁ K₂ C Pi V} (h : π K = none) :
-  (π <+> acc) K = acc K := by
+lemma merge_left_none_eq_right (h : π K = none) : (π <+> acc) K = acc K := by
   rw [merge_K]
   unfold Dict.First
   aesop
 
-lemma iso_K_merge_right_of_ne_none_compat {π acc : BalanceProof K₁ K₂ C Pi V} (h : π K ≠ none) (h : π <≅> acc) :
+lemma iso_K_merge_right_of_ne_none_compat (h : π K ≠ none) (h : π <≅> acc) :
   π K ≅ (acc <+> π) K := by
   unfold BalanceProof.compat at h
   specialize h K
@@ -311,40 +308,15 @@ lemma iso_K_merge_right_of_ne_none_compat {π acc : BalanceProof K₁ K₂ C Pi 
   unfold Dict.First
   aesop
 
-lemma iso_K_of_iso {π acc : BalanceProof K₁ K₂ C Pi V} (h : π ≅ acc) : π K ≅ acc K := by
-  unfold iso LE.le Preorder.toLE instPreorderBalanceProof id inferInstance _root_.Pi.preorder inferInstanceAs _root_.Pi.hasLe at h
-  simp [-Prod.forall] at h
-  tauto
-
-lemma mergeR_eq_left {acc : BalanceProof K₁ K₂ C Pi V}
-  (h : ∀ k, acc k ≠ none) : mergeR'' πs acc = acc := by
-  unfold mergeR''
-  rcases πs with _ | ⟨π, πs⟩
-  · simp
-  · simp
-    rw [Dict.keys_Merge_left']
-    simp_rw [Dict.mem_iff_isSome, Option.isSome_iff_ne_none]
-    exact h
-
-lemma mergeR''_split {acc} {πs : List (BalanceProof K₁ K₂ C Pi V)} (h : πs.length ≠ 0) :
-  mergeR'' πs acc = acc <+> (πs.head (by aesop)) <+> mergeR'' πs.tail .initial := by
-  nth_rw 1 [mergeR''.eq_def]
-  rcases πs with _ | ⟨hd, tl⟩ <;> [simp at h; simp]
-  rcases tl <;> simp [Dict.Merge_assoc]
-
-lemma mergeR'_eq_mergeR_of_lt {πs : List (BalanceProof K₁ K₂ C Pi V)} {n : ℕ}
-                              (h : n < πs.length.succ) :
+lemma mergeR'_eq_mergeR_of_lt {n : ℕ} (h : n < πs.length.succ) :
   mergeR' πs ⟨n, h⟩ = mergeR πs n := by
   induction' n with hd tl ih <;> unfold mergeR' mergeR <;> aesop
-
-lemma mergeR'_zero {πs : List (BalanceProof K₁ K₂ C Pi V)} (h : 0 < πs.length.succ) :
-  mergeR' πs ⟨0, h⟩ = .initial := by
-  unfold mergeR'
-  aesop
 
 lemma mergeR'_succ {πs : List (BalanceProof K₁ K₂ C Pi V)} {n : ℕ} (h : n + 1 < πs.length.succ) :
   mergeR' πs ⟨n + 1, h⟩ = (mergeR' πs ⟨n, by omega⟩).Merge (πs[n]) := by
   conv_lhs => unfold mergeR'
+
+end MergeLemmas
 
 variable [AD : ADScheme K₂ (C × K₁ × ExtraDataT) C Pi]
 
@@ -418,7 +390,12 @@ lemma batch_eq_iff {π₁k π₂k : (Pi × ExtraDataT) × TransactionBatch K₁ 
   rw [iso_symm]
   tauto
 
-lemma Merge_split {acc} {πs : List (BalanceProof K₁ K₂ C Pi V)} (h₀ : 0 < i) (h₁ : i ≤ πs.length) :
+section MergeLemmas
+
+variable {π acc : BalanceProof K₁ K₂ C Pi V}
+         {πs : List (BalanceProof K₁ K₂ C Pi V)}
+
+lemma Merge_split (h₀ : 0 < i) (h₁ : i ≤ πs.length) :
   mergeR'' (πs.take i) acc =
   mergeR'' (πs.take (i - 1)) acc <+> πs[i - 1] := by
   induction' i with i ih generalizing πs acc
@@ -427,11 +404,11 @@ lemma Merge_split {acc} {πs : List (BalanceProof K₁ K₂ C Pi V)} (h₀ : 0 <
     have := (Dict.Merge_assoc (D₁ := acc) (D₂ := mergeR'' (List.take i πs) π) (D₃ := πs[i])).symm
     aesop
 
-private lemma merge_lem_aux {π : BalanceProof K₁ K₂ C Pi V} {πs : List (BalanceProof K₁ K₂ C Pi V)} :
+private lemma merge_lem_aux :
   mergeR'' (π :: πs) acc = acc <+> π <+> (mergeR'' πs BalanceProof.initial) := by
   rcases πs with ⟨hd, tl⟩ <;> simp [Dict.Merge_assoc]
 
-lemma merge_lem {π : BalanceProof K₁ K₂ C Pi V} {πs : List (BalanceProof K₁ K₂ C Pi V)} :
+lemma merge_lem :
   mergeR'' (π :: πs) BalanceProof.initial = π <+> (mergeR'' πs BalanceProof.initial) := by
   rw [merge_lem_aux]; simp
 
@@ -443,10 +420,9 @@ lemma compat_lem {π π' π'': BalanceProof K₁ K₂ C Pi V} :
   specialize h' k
   aesop
 
-lemma compat_merge_of_compat {πs : List (BalanceProof K₁ K₂ C Pi V)} {π : BalanceProof K₁ K₂ C Pi V} :
+lemma compat_merge_of_compat :
   (∀ π', π' ∈ πs → π <≅> π') → π <≅> (mergeR'' πs .initial) := by
-  revert π
-  induction πs with
+  induction πs generalizing π with
   | nil =>
     intros π
     unfold BalanceProof.compat BalanceProof.initial
@@ -456,7 +432,7 @@ lemma compat_merge_of_compat {πs : List (BalanceProof K₁ K₂ C Pi V)} {π : 
     rw [merge_lem]
     apply compat_lem <;> aesop
 
-private lemma prop6?!_aux {πs : List (BalanceProof K₁ K₂ C Pi V)} :
+private lemma prop6_general_aux :
   (∀ π π' : BalanceProof K₁ K₂ C Pi V, π ∈ πs ∧ π' ∈ πs → π <≅> π') →
      IsLUB {π | π ∈ πs} (mergeR'' πs .initial) := by
   induction πs with
@@ -469,14 +445,13 @@ private lemma prop6?!_aux {πs : List (BalanceProof K₁ K₂ C Pi V)} :
     apply isLUB_union_Merge_of_isLUB_isLUB_compat <;> aesop (add safe apply compat_merge_of_compat)
 
 set_option maxHeartbeats 800000 in
-lemma prop6?! {πs : List (BalanceProof K₁ K₂ C Pi V)}
-              (h : ∀ i : Fin πs.length,
+lemma prop6_general (h : ∀ i : Fin πs.length,
                      IsLUB {mergeR'' (πs.take i.1) .initial, πs[i.1]} (mergeR'' (πs.take (i.1 + 1)) .initial))
   : IsLUB {π | π ∈ πs} (mergeR'' πs .initial) := by
   replace h : ∀ (i : ℕ) (h : i < πs.length),
                 IsLUB {mergeR'' (List.take i πs) .initial, πs[↑i]}
                       (mergeR'' (List.take (i + 1) πs) .initial) := λ i hi ↦ h ⟨i, hi⟩
-  apply prop6?!_aux
+  apply prop6_general_aux
   by_contra contra
   simp at contra
   let min₁ : Finset (Fin πs.length) := {n | ∃ i, n < i ∧ ¬(πs[n] <≅> πs[i])}
@@ -619,17 +594,7 @@ lemma prop6?! {πs : List (BalanceProof K₁ K₂ C Pi V)}
   rw [←proposition6] at eq₈
   exact absurd (by tauto) eq₈ 
 
-lemma batch?_eq_of_mem {π₁k π₂k : Option ((Pi × ExtraDataT) × TransactionBatch K₁ K₂ V)}
-  (h₀ : π₁k ≠ .none ∨ π₂k ≠ .none)
-  (h : π₁k ≅ π₂k) : (π₁k.get (by unfold iso at h
-                                 simp [(·≤·)] at h
-                                 aesop)).2 =
-                    (π₂k.get (by unfold iso at h
-                                 simp [(·≤·)] at h
-                                 aesop)).2 := by
-  unfold iso at h
-  simp [(·≤·)] at h
-  aesop
+end MergeLemmas
 
 lemma batch?_neq_of_mem {π₁k π₂k : Option ((Pi × ExtraDataT) × TransactionBatch K₁ K₂ V)}
   (h₀ : π₁k ≠ .none ∧ π₂k ≠ .none)
@@ -864,7 +829,7 @@ theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
         specialize eq π'ₘ; simp only [eqπ'ₘ] at eq
         simp_rw [recπs' (i := m), show List.take m πproofs = πproofs by simp [hm]] at eq
         have : IsLUB {π | π ∈ πproofs} (mergeR'' πproofs .initial) := by
-          apply prop6?!
+          apply prop6_general
           rintro ⟨i, hi⟩
           simp only
           simp_rw [recπs'] at c; specialize c (i + 1) (by omega); simp at c
@@ -891,6 +856,10 @@ theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
       set π₂ := (π₂! key).get (Option.isSome_iff_ne_none.2 mem₂) with eqπ₂
       rcases key with ⟨c, s⟩
       rcases π₁ with ⟨⟨π, salt⟩, t⟩
+      /-
+        PAPER: Also, since both balance proofs are valid, as remarked earlier, we have
+        AD.Verify(π, s, H(t, salt), C) and AD.Verify(π′, s, H(t′, salt′), C).
+      -/
       have π₁valid : AD.Verify π s (H _ (t, salt)) c := by
         have : π₁!.Verify (M := (C × K₁ × ExtraDataT)) := hπs' _ (by simp [π₁!])
         simp [BalanceProof.Verify] at this; simp_rw [←Dict.mem_dict_iff_mem_keys] at this
@@ -904,12 +873,26 @@ theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
         convert this <;> rw [←eqπ₂]
       have tneq : t ≠ t' := by apply batch?_neq_of_mem (by simp; exact ⟨mem₁, mem₂⟩) at hkey; simp [←eqπ₁, ←eqπ₂] at hkey; exact hkey
       by_cases hashEq : H (ω := (C × K₁ × ExtraDataT)) (t, salt) = H _ (t', salt')
-      · have : Function.Injective (H (ω := (C × K₁ × ExtraDataT))) :=
+      · /-
+          PAPER: It follows that that either H(t, salt) = H(t′, salt′)
+          meaning that we have found a hash collision
+
+          NB this is shown by contradiction as the hash function had been assumed injective.
+        -/
+        have : Function.Injective (H (ω := (C × K₁ × ExtraDataT))) :=
           Intmax.CryptoAssumptions.Function.injective_of_CryptInjective (inj := Hinj) -- AXIOMATISED
         have : (t, salt) = (t', salt') := this hashEq
         injection this
         contradiction
-      · have binding := AD.binding
+      · /-
+          PAPER: or H(t, salt)̸ = H(t′, salt′), which means we have broken the binding property
+          of the authenticated dictionary scheme
+
+          NB this is shown by contradiction as breaking the binding property of the authenticated dictionary
+          had been assumed computationally infeasible and the `computationallyInfeasible_axiom`
+          yields the absolute impossibility of this ocurring.
+        -/
+        have binding := AD.binding
         apply computationallyInfeasible_axiom at binding -- AXIOMATISED
         simp at binding
         specialize binding _ _ _ _ _ _ π₁valid _ _ _ _ π₂valid
