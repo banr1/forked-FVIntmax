@@ -621,7 +621,7 @@ def infV (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) (k : Kbar K₁ K₂) :
                   else 0
 
 /--
-Definition 26
+Definition 27
 
 The transition function.
 -/
