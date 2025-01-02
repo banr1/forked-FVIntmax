@@ -287,7 +287,7 @@ variable {n : ℕ}
          {π π' : BalanceProof K₁ K₂ C Pi V} {bs Bstar : List (Block K₁ K₂ C Sigma V)}
 
 /--
-PAPER: Lemma 2. The balance function Bal is monotone in its first argument 
+PAPER: Lemma 4. The balance function Bal is monotone in its first argument 
 -/
 lemma lemma4 (h : π₁ ≤ π₂) : Bal π₁ bs ≤ Bal π₂ bs := by
   simp only [←Bal'_eq_Bal]
