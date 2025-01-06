@@ -19,14 +19,14 @@ inductive Block (K₁ K₂ : Type) (C Sigma : Type) (V : Type) [Nonnegative V] w
   /--
     Btransfer - (2.6 - Btransfer = K1 × {0, 1}∗ × AD.C × P(K) × SA.Σ)
 
-    NB `senders` is currently a list with potentially duplicates, this can morph into a set
-    or at least a list with `List.Nodup`, let's see if this is needed.
+
+
   -/
   | transfer (aggregator : K₁) (extradata : ExtraDataT) (commitment : C) (senders : List K₂) (sigma : Sigma)
   /--
     Bwithdrawal - (2.7 - Bwithdrawal = V^{K_1}_+)
 
-    NB we will see later about total/partial in this particular instance.
+    
   -/
   | withdrawal (withdrawals : K₁ → V₊)
 
