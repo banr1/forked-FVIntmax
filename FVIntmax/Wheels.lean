@@ -35,7 +35,7 @@ end Hashing
 
 end CryptoAssumptions
 
-class abbrev Nonnegative (α : Type) := Preorder α, Zero α
+class abbrev PreWithZero (α : Type) := Preorder α, Zero α
 
 section UniquelyIndexed
 
@@ -53,7 +53,7 @@ noncomputable def attach (α : Type) [Finite α] : UniquelyIndexed α :=
 
 noncomputable instance {α : Type} [Finite α] : Inhabited (UniquelyIndexed α) := ⟨attach α⟩
 
-noncomputable instance {α : Type} [Lattice α] [Zero α] : Nonnegative α := inferInstance
+noncomputable instance {α : Type} [Lattice α] [Zero α] : PreWithZero α := inferInstance
 
 @[simp]
 lemma default_eq_attach (α : Type) [Finite α] : (default : UniquelyIndexed α) = attach α :=
@@ -75,17 +75,17 @@ def isCodomainNonneg {α : Type} [DecidableEq α] {β : Type} [LE β] [OfNat β 
 
 section NonNeg
 
-def NonNeg (α : Type) [Nonnegative α] := { a : α // 0 ≤ a }
+def NonNeg (α : Type) [PreWithZero α] := { a : α // 0 ≤ a }
 
 postfix:max "₊" => NonNeg
 
 section Nonneg
 
-variable {α : Type} [Nonnegative α] {v : α₊}
+variable {α : Type} [PreWithZero α] {v : α₊}
 
 instance : Coe (NonNeg α) α := ⟨(·.1)⟩
 
-instance : Nonnegative α₊ := by unfold NonNeg; infer_instance
+instance : PreWithZero α₊ := by unfold NonNeg; infer_instance
 
 @[simp]
 lemma NonNeg.coe_nonneg : 0 ≤ (↑v : α) := by cases v; aesop

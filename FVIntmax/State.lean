@@ -5,7 +5,7 @@ namespace Intmax
 
 section S
 
-variable [Nonnegative V]
+variable [PreWithZero V]
 
 abbrev S' (K₁ K₂ V : Type) := Kbar K₁ K₂ → V
 
@@ -28,14 +28,14 @@ end S'
 
 instance : Inhabited (S' K₁ K₂ V) := ⟨S'.initial K₁ K₂ V⟩
 
-abbrev S (K₁ K₂ V : Type) [Nonnegative V] := { s : S' K₁ K₂ V // s.isValid }
+abbrev S (K₁ K₂ V : Type) [PreWithZero V] := { s : S' K₁ K₂ V // s.isValid }
 
 instance : CoeFun (S K₁ K₂ V) λ _ ↦ Kbar K₁ K₂ → V :=
   ⟨λ s k ↦ s.1 k⟩
 
 namespace S
 
-def initial (K₁ K₂ V : Type) [Nonnegative V] : S K₁ K₂ V :=
+def initial (K₁ K₂ V : Type) [PreWithZero V] : S K₁ K₂ V :=
   ⟨S'.initial K₁ K₂ V, S'.isValid_initial⟩
 
 @[simp]
@@ -58,6 +58,6 @@ end S
 
 end S
 
-instance [Nonnegative V] : Inhabited (S K₁ K₂ V) := ⟨S.initial K₁ K₂ V⟩
+instance [PreWithZero V] : Inhabited (S K₁ K₂ V) := ⟨S.initial K₁ K₂ V⟩
 
 end Intmax

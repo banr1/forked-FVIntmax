@@ -11,7 +11,7 @@ NB the `V` here does not _yet_ need the fact that it is a latticed-ordered abeli
 
 𝔹 := Bdeposit ⨿ Btransf er ⨿ Bwithdrawal
 -/
-inductive Block (K₁ K₂ : Type) (C Sigma : Type) (V : Type) [Nonnegative V] where
+inductive Block (K₁ K₂ : Type) (C Sigma : Type) (V : Type) [PreWithZero V] where
   /--
     Bdeposit - (2.5 - Bdeposit := K₂ × V+)
   -/
@@ -34,7 +34,7 @@ namespace Block
 
 section Block
 
-variable {K₁ K₂ C Sigma V : Type} [Nonnegative V]
+variable {K₁ K₂ C Sigma V : Type} [PreWithZero V]
 
 def mkDepositBlock (K₁ C Sigma : Type) (addr : K₂) (value : V₊) : Block K₁ K₂ C Sigma V :=
   deposit addr value
@@ -112,7 +112,7 @@ NB we keep `V` as a separate entity during the attack game, instead of merging i
 Furthermore, we do _not_ model Definition 30 explicitly; once again, we take the values separately 
 instead. This helps with housekeeping as it avoids an extra abstraction that is used only once.
 -/
-abbrev Scontract (K₁ K₂ V : Type) [Nonnegative V] (C Sigma : Type) :=
+abbrev Scontract (K₁ K₂ V : Type) [PreWithZero V] (C Sigma : Type) :=
   List (Block K₁ K₂ C Sigma V)
 
 namespace Scontract
@@ -120,7 +120,7 @@ namespace Scontract
 section Defs
 
 variable (K₁ K₂ C Sigma : Type)
-         (V : Type) [Nonnegative V]
+         (V : Type) [PreWithZero V]
 
 def initial : Scontract K₁ K₂ V C Sigma := []
 
@@ -129,7 +129,7 @@ end Defs
 section Lemmas
 
 variable {K₁ K₂ C Sigma : Type}
-         {V : Type} [Nonnegative V]
+         {V : Type} [PreWithZero V]
 
 @[simp]
 lemma length_initial : (@initial K₁ K₂ C Sigma V _).length = 0 := rfl

@@ -33,7 +33,7 @@ section Extraction
 
 section Deposit
 
-variable [Nonnegative V]
+variable [PreWithZero V]
 
 def TransactionsInBlock_deposit
   (b : { b : Block K₁ K₂ C Sigma V // b.isDepositBlock }) : List (Τ K₁ K₂ V) :=
@@ -56,7 +56,7 @@ end Deposit
 section Transfer
 
 variable [Finite K₁] [Finite K₂]
-         [LinearOrder K₁] [LinearOrder K₂] [Nonnegative V]
+         [LinearOrder K₁] [LinearOrder K₂] [PreWithZero V]
 
 def TransactionsInBlock_transfer 
   (π : BalanceProof K₁ K₂ C Pi V) (b : { b : Block K₁ K₂ C Sigma V // b.isTransferBlock }) : List (Τ K₁ K₂ V) :=
@@ -99,7 +99,7 @@ end Transfer
 
 section Withdrawal
 
-variable [LinearOrder K₁] [Finite K₁] [Nonnegative V]
+variable [LinearOrder K₁] [Finite K₁] [PreWithZero V]
 
 def TransactionsInBlock_withdrawal 
   (b : { b : Block K₁ K₂ C Sigma V // b.isWithdrawalBlock }) : List (Τ K₁ K₂ V) :=
@@ -126,7 +126,7 @@ end Withdrawal
 
 variable [Finite K₁] [LinearOrder K₁]
          [Finite K₂] [LinearOrder K₂]
-         [Nonnegative V]
+         [PreWithZero V]
          {b : Block K₁ K₂ C Sigma V}
          {bs : List (Block K₁ K₂ C Sigma V)}
          {π₁ π₂ : BalanceProof K₁ K₂ C Pi V}
@@ -269,7 +269,7 @@ section WithStructuredTypes
 
 section v'
 
-variable [Zero V] [Lattice V] -- NB `Nonnegative V` is implied as `CompleteLattice V` gives `Preorder V`.
+variable [Zero V] [Lattice V] -- NB `PreWithZero V` is implied as `CompleteLattice V` gives `Preorder V`.
 
 def v' (v : V₊) (b : S K₁ K₂ V) (s : Kbar K₁ K₂) : V₊ :=
   match h : s with

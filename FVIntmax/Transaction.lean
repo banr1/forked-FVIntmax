@@ -8,13 +8,13 @@ NB we use Lean's natural associativity for products to get some freebies.
 As such, our tuples are technically `(a, (b, c))` here. Obviously, this is associative
 so not much changes.
 -/
-abbrev Τ' (K₁ K₂ V : Type) [Nonnegative V] := Kbar K₁ K₂ × Kbar K₁ K₂ × Option V₊
+abbrev Τ' (K₁ K₂ V : Type) [PreWithZero V] := Kbar K₁ K₂ × Kbar K₁ K₂ × Option V₊
 
 namespace Τ'
 
 section IsValid
 
-variable [Nonnegative V]
+variable [PreWithZero V]
          {s r : Kbar K₁ K₂} {v? : Option V₊}
 
 def isValid (τ : Τ' K₁ K₂ V) :=
@@ -35,13 +35,13 @@ end IsValid
 
 end Τ'
 
-abbrev Τ (K₁ K₂ V : Type) [Nonnegative V] := { τ : Τ' K₁ K₂ V // τ.isValid }
+abbrev Τ (K₁ K₂ V : Type) [PreWithZero V] := { τ : Τ' K₁ K₂ V // τ.isValid }
 
 namespace Τ
 
 section Τ
 
-variable [Nonnegative V]
+variable [PreWithZero V]
          {v : V₊} {v? : Option V₊}
          {kb₁ kb₂ : Kbar K₁ K₂}
          {τ τ₁ : Τ K₁ K₂ V}
@@ -75,11 +75,11 @@ end Τ
 /--
 PAPER: where the set of transactions is the subset Tc ⊆ T, called the complete transactions
 -/
-abbrev Τc (K₁ K₂ V : Type) [Nonnegative V] : Type := { τ : Τ K₁ K₂ V // τ.isComplete }
+abbrev Τc (K₁ K₂ V : Type) [PreWithZero V] : Type := { τ : Τ K₁ K₂ V // τ.isComplete }
 
 /--
 And the obvious lift from `Τ.isComplete` to `Τ.isValid` to make Lean happy.
 -/
-instance [Nonnegative V] : Coe (Τc K₁ K₂ V) (Τ K₁ K₂ V) := ⟨(↑·)⟩
+instance [PreWithZero V] : Coe (Τc K₁ K₂ V) (Τ K₁ K₂ V) := ⟨(↑·)⟩
 
 end Intmax

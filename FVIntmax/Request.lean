@@ -31,7 +31,7 @@ variable (K₁ : Type) [Finite K₁] (K₂ : Type) [Finite K₂]
 
 section
 
-variable [Nonnegative V]
+variable [PreWithZero V]
 
 /-
 Definition 29
@@ -85,7 +85,7 @@ section Defs
 
 section
 
-variable [Nonnegative V]
+variable [PreWithZero V]
 
 def Request.getWithdrawal (request : Request K₁ K₂ C Sigma Pi V) : Option (BalanceProof K₁ K₂ C Pi V) :=
   match request with

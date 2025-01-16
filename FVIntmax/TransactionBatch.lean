@@ -21,7 +21,7 @@ PAPER: a transaction batch is an element of V₊ᵏ
 -/
 abbrev TransactionBatch (K₁ : Type) [Finite K₁]
                         (K₂ : Type) [Finite K₂]
-                        (V : Type) [Nonnegative V] :=
+                        (V : Type) [PreWithZero V] :=
   Key K₁ K₂ → V₊
 
 section Finite

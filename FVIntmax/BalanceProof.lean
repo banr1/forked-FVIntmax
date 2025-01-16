@@ -16,7 +16,7 @@ section Pi
 
 variable {K₁ : Type} [Finite K₁] [DecidableEq K₁] [Nonempty K₁]
          {K₂ : Type} [Finite K₂] [DecidableEq K₂]
-         {V : Type} [DecidableEq V] [Nonnegative V]
+         {V : Type} [DecidableEq V] [PreWithZero V]
          {C : Type} [Nonempty C]
          {Pi : Type}
          {M : Type} [Nonempty M]
@@ -25,7 +25,7 @@ variable {K₁ : Type} [Finite K₁] [DecidableEq K₁] [Nonempty K₁]
 Π := Dict(AD.C × K2,(AD.Π × {0, 1}∗) × VK+ ).
 -/
 abbrev BalanceProof (K₁ K₂ : Type) [Finite K₁] [Finite K₂]
-                    (C Pi V : Type) [Nonnegative V] : Type :=
+                    (C Pi V : Type) [PreWithZero V] : Type :=
   Dict (C × K₂) ((Pi × ExtraDataT) × TransactionBatch K₁ K₂ V) 
 
 def BalanceProof.initial : BalanceProof K₁ K₂ C Pi V := λ _ ↦ .none
@@ -74,7 +74,7 @@ section BalanceProofLemmas
 
 variable {K₁ : Type} [Finite K₁] 
          {K₂ : Type} [Finite K₂] 
-         {V : Type} [Nonnegative V]
+         {V : Type} [PreWithZero V]
          {C : Type}
          {Pi : Type}
          {M : Type} [Nonempty M]
