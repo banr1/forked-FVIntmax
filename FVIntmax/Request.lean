@@ -22,6 +22,12 @@ noncomputable section
 
 open Classical
 
+/--
+The formalisation differs ever so slightly from the paper by fixing the aggregator.
+However, theorem 1 is independent of how blocks are validated (cf. `attackGame_eq_attackGameBlocks!_normalise`),
+so even though this does technically influence the validity proof, it does not influence
+the main security statement.
+-/
 def AgreedUponAggregator {K₁ : Type} [Nonempty K₁] : K₁ := Classical.arbitrary _
 
 section Request
