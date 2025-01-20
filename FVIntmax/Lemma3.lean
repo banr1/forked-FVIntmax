@@ -68,7 +68,7 @@ private lemma sum_fStar_le_zero_aux (h : ∑ (k : Kbar K₁ K₂), b k ≤ 0) :
   ∑ (k : Kbar K₁ K₂), fStar Tstar b k ≤ 0 := by
   simp [fStar]
   induction Tstar generalizing b with
-  | nil => aesop (add safe apply Finset.sum_nonpos)
+  | nil => aesop
   | cons _ _ ih => exact ih (le_trans sum_f_le_sum h)
 
 /-
