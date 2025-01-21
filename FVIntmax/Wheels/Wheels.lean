@@ -55,7 +55,7 @@ section RubeGoldberg
 /--
 This is _opaque_, we will reason by axioms.
 -/
-opaque ComputationallyInfeasible (p : Prop) : Prop := ¬p
+opaque ComputationallyInfeasible (p : Prop) : Prop := p
 
 /--
 This is not provable because `ComputationallyInfeasible` is opaque; as such, it can NOT be unfolded.
