@@ -3,11 +3,6 @@
 This repository mechanises the main result (`theorem 1`) of [0].
 This subsumes all of the relevant definitions and lemmas from the paper.
 
-Furthermore, we prove various additional properties that follow naturally from the description of the attack game;
-most importantly, we prove that:
-* the behaviour of the attack game does not depend on validity of requests (lemma `attackGame_eq_attackGameBlocks!_normalise`)
-* the sum used to compute `contractBalance` in the proof of `theorem 1` does in fact follow from the model of the attack game (lemma `computeBalance_eq_sum`).
-
 ### Assumptions / Trust base
 
 Strictly technically speaking, the statements we mechanically prove come with a set of assumptions that we merely assume to hold.
@@ -46,4 +41,4 @@ We trust Lean to check the correctness of proofs.
 Using `leanprover/lean4:v4.14.0-rc2` we simply run `lake build` in the root directory.
 Successful compilation of this project means that Lean has checked the proofs of the pertinent statements.
 
-[0] - TODO(the verison on overleaf as of 30.12.2024).
+[0] - https://eprint.iacr.org/2023/1082.pdf.
