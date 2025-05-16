@@ -47,7 +47,7 @@ private lemma lemma5_aux {len : ℕ} {σ : Scontract K₁ K₂ V C Sigma}
         ih (show k = bs.length by simp at hlen; exact hlen)
       ]
       simp only [Finset.univ_eq_attach, id_eq, Int.reduceNeg, Int.Nat.cast_ofNat_Int,
-        eq_mpr_eq_cast, List.getElem_concat_length, Block.deposit_ne_widthdrawal, ↓reduceDIte,
+        eq_mpr_eq_cast, List.getElem_concat_length, Block.deposit_ne_withdrawal, ↓reduceDIte,
         Finset.sum_const_zero, add_zero]
       rw [sub_add]
       congr 1
@@ -80,7 +80,7 @@ private lemma lemma5_aux {len : ℕ} {σ : Scontract K₁ K₂ V C Sigma}
         have hlen : idx < bs.length := Finset.mem_range.1 hidx
         have : (bs ++ [Block.deposit r v])[idx]'(by simp; omega) = bs[idx] := by
           rw [List.getElem_append_left hlen]
-        
+
         refine' dite_congr (by simp [hlen]; omega) (λ h ↦ (dite_congr (by simp [this]) (λ h ↦ _) (by simp))) (by simp)
         split; split; aesop
     · rw [f_transfer_block_source' (by simp)]

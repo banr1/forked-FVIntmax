@@ -41,12 +41,12 @@ abbrev ExtraDataT : Type := ℕ
 instance : Nonempty ExtraDataT := inferInstanceAs (Nonempty ℕ)
 
 /--
-NB we are not here to model assymetric cryptography, we choose whatever.
+NB we are not here to model asymmetric cryptography, we choose whatever.
 -/
 abbrev KₛT : Type := ℕ
 
 /--
-NB we are not here to model assymetric cryptography, we choose whatever.
+NB we are not here to model asymmetric cryptography, we choose whatever.
 -/
 abbrev KₚT : Type := ℕ
 

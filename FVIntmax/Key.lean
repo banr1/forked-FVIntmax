@@ -36,8 +36,8 @@ def Kbar.getK₁ (k : Kbar K₁ K₂) (_h : k.isK₁) : K₁ :=
 section Ordering
 
 /-
-NB the `LinearOrder` is _technically_ too strong, we could be a lot weaker, but for brevity and simplcitiy,
-I think this is fair, because the keys are thought of as some fixed-sized integers, a'la `UInt256` - 
+NB the `LinearOrder` is _technically_ too strong, we could be a lot weaker, but for brevity and simplicity,
+I think this is fair, because the keys are thought of as some fixed-sized integers, a'la `UInt256` -
 these can naturally be equipped with a linear order.
 
 NB further that `LinearOrder` in Lean means _decidable_ linear order.s
@@ -133,7 +133,7 @@ instance : IsAntisymm (K₂ × Key K₁ K₂) lexLe := by
   aesop (add safe forward IsAntisymm.antisymm)
 
 instance : IsTotal (K₂ × Key K₁ K₂) lexLe := by
-  constructor; dsimp [lexLe]  
+  constructor; dsimp [lexLe]
   intros a b
   by_cases eq : a.1 = b.1
   · simp [eq]
@@ -145,7 +145,7 @@ end CanSortWith
 
 end Key
 
-infix:50 " ≠ₖ " => Key.keysUneq 
+infix:50 " ≠ₖ " => Key.keysUneq
 
 instance {k₂ : K₂} {k : Key K₁ K₂} [DecidableEq K₂] : Decidable (k₂ ≠ₖ k) := by
   dsimp [(·≠ₖ·)]

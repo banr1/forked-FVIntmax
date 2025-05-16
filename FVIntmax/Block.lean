@@ -26,7 +26,7 @@ inductive Block (K₁ K₂ : Type) (C Sigma : Type) (V : Type) [PreWithZero V] w
   /--
     Bwithdrawal - (2.7 - Bwithdrawal = V^{K_1}_+)
 
-    
+
   -/
   | withdrawal (withdrawals : K₁ → V₊)
 
@@ -46,7 +46,7 @@ def mkTransferBlock (aggregator : K₁) (extradata : ExtraDataT)
 def mkWithdrawalBlock (K₂ C Sigma : Type) (withdrawals : K₁ → V₊) : Block K₁ K₂ C Sigma V :=
   withdrawal withdrawals
 
-abbrev isDepositBlock (b : Block K₁ K₂ C Sigma V) := b matches (Block.deposit _ _) 
+abbrev isDepositBlock (b : Block K₁ K₂ C Sigma V) := b matches (Block.deposit _ _)
 
 abbrev isTransferBlock (b : Block K₁ K₂ C Sigma V) := b matches (Block.transfer _ _ _ _ _)
 
@@ -80,19 +80,19 @@ lemma withdrawal_ne_deposit :
   (withdrawal ws).isDepositBlock (V := V) (Sigma := Sigma) (C := C) (K₂ := K₂) = False := by aesop
 
 @[simp]
-lemma deposit_ne_transfer : 
+lemma deposit_ne_transfer :
   (deposit s v).isTransferBlock (V := V) (Sigma := Sigma) (C := C) (K₁ := K₁) = False := by aesop
 
 @[simp]
-lemma withdrawal_ne_transfer : 
+lemma withdrawal_ne_transfer :
   (withdrawal ws).isTransferBlock (V := V) (Sigma := Sigma) (C := C) (K₂ := K₂) = False := by aesop
 
 @[simp]
-lemma deposit_ne_widthdrawal : 
+lemma deposit_ne_withdrawal :
   (deposit s v).isWithdrawalBlock (V := V) (Sigma := Sigma) (C := C) (K₁ := K₁) = False := by aesop
 
 @[simp]
-lemma transfer_ne_widthdrawal : 
+lemma transfer_ne_withdrawal :
   (transfer aggregator extradata commitment senders sigma).isWithdrawalBlock (V := V) = False := by aesop
 
 @[simp]
@@ -109,7 +109,7 @@ Definition 28
 - Scontract := `𝔹* × V`
 
 NB we keep `V` as a separate entity during the attack game, instead of merging it with the state.
-Furthermore, we do _not_ model Definition 30 explicitly; once again, we take the values separately 
+Furthermore, we do _not_ model Definition 30 explicitly; once again, we take the values separately
 instead. This helps with housekeeping as it avoids an extra abstraction that is used only once.
 -/
 abbrev Scontract (K₁ K₂ V : Type) [PreWithZero V] (C Sigma : Type) :=
