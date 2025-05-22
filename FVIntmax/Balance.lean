@@ -58,7 +58,7 @@ section Transfer
 variable [Finite K₁] [Finite K₂]
          [LinearOrder K₁] [LinearOrder K₂] [PreWithZero V]
 
-def TransactionsInBlock_transfer 
+def TransactionsInBlock_transfer
   (π : BalanceProof K₁ K₂ C Pi V) (b : { b : Block K₁ K₂ C Sigma V // b.isTransferBlock }) : List (Τ K₁ K₂ V) :=
   match h : b.1 with
   | .transfer _ _ commitment S _ =>
@@ -76,7 +76,7 @@ def TransactionsInBlock_transfer
     let v (s : K₂) (r : Key K₁ K₂) : Option V₊ :=
       if s ∉ S
       then .some 0
-      else 
+      else
         if h : (commitment, s) ∈ π.keys
         then let (_, t) := π[(commitment, s)]
              t r
@@ -101,7 +101,7 @@ section Withdrawal
 
 variable [LinearOrder K₁] [Finite K₁] [PreWithZero V]
 
-def TransactionsInBlock_withdrawal 
+def TransactionsInBlock_withdrawal
   (b : { b : Block K₁ K₂ C Sigma V // b.isWithdrawalBlock }) : List (Τ K₁ K₂ V) :=
   match h : b.1 with
   | .withdrawal withdrawals =>
@@ -120,7 +120,7 @@ lemma length_TransactionsInBlock_withdrawal
   rcases b with ⟨b, h⟩
   match b with
   | Block.withdrawal .. => simp
-  | Block.deposit .. | Block.transfer .. => simp at h 
+  | Block.deposit .. | Block.transfer .. => simp at h
 
 end Withdrawal
 
@@ -133,7 +133,7 @@ variable [Finite K₁] [LinearOrder K₁]
 
 local macro:max (priority := high) "↪" b:term : term => `(⟨$b, by aesop⟩)
 
-def TransactionsInBlock (π : BalanceProof K₁ K₂ C Pi V) (b : Block K₁ K₂ C Sigma V) : List (Τ K₁ K₂ V) := 
+def TransactionsInBlock (π : BalanceProof K₁ K₂ C Pi V) (b : Block K₁ K₂ C Sigma V) : List (Τ K₁ K₂ V) :=
   match h : b with
   | .deposit ..    => TransactionsInBlock_deposit ↪b
   | .transfer ..   => TransactionsInBlock_transfer π ↪b
@@ -261,7 +261,7 @@ lemma nonneg_e : 0 ≤ e i j := by unfold e; aesop
 end e
 
 /-
-We use the full lattice ordered ableian group structure with reckless abandon here.
+We use the full lattice ordered abelian group structure with reckless abandon here.
 There is technically still no need to for all the upcoming definitions
 but we are at the core of the protocol and so might as well.
 -/
@@ -361,7 +361,7 @@ instance : Preorder (Option V₊) := inferInstance
 /--
 PAPER: We then get the induced product preorder on K2 × Maybe(V+).
 
-NB the default behavviour is iso with the Definition 19. (cf. `Prod.mk_le_mk`)
+NB the default behaviour is iso with the Definition 19. (cf. `Prod.mk_le_mk`)
 -/
 instance : Preorder (Kbar K₁ K₂ × Kbar K₁ K₂ × Option V₊) := inferInstance
 
@@ -384,7 +384,7 @@ instance latticePreorder : Preorder V := inferInstance
 PAPER: and give S the subset preorder
 
 NB the default behaviour is iso with the Definition 18. (cf. `Preorder.lift`)
-NB the default behaviour to find the preorder for the underlying function is iso with 
+NB the default behaviour to find the preorder for the underlying function is iso with
 Definition 16. (cf. `Pi.le_def`)
 -/
 instance : Preorder (S K₁ K₂ V) := inferInstance
@@ -392,13 +392,13 @@ instance : Preorder (S K₁ K₂ V) := inferInstance
 /--
 PAPER: Given these preorders on T and S, we get an induced product preorder on T × S
 
-NB the default behavviour is iso with the Definition 19. (cf. `Prod.mk_le_mk`)
+NB the default behaviour is iso with the Definition 19. (cf. `Prod.mk_le_mk`)
 -/
 instance : Preorder (Τ K₁ K₂ V × S K₁ K₂ V) := inferInstance
 
 /--
 How is this not in Mathlib...
--/ 
+-/
 instance [CovariantClass V V (· + ·) (· ≤ ·)] : OrderedAddCommMonoid V := ⟨by aesop⟩
 
 /--
@@ -457,7 +457,7 @@ variable [Lattice V] [AddCommGroup V]
 
 abbrev boundedBelow (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) :=
   { a : Τc K₁ K₂ V × S K₁ K₂ V | (T, b) ≤ (↑a.1, a.2) }
-  
+
 lemma boundedBelow_sset_boundedBelow_of_le {b₁ b₂ : S K₁ K₂ V} {T₁ T₂ : Τ K₁ K₂ V}
   (h : b₁ ≤ b₂) (h₁ : T₁ ≤ T₂) : boundedBelow b₂ T₂ ⊆ boundedBelow b₁ T₁ := by
   unfold boundedBelow
@@ -515,7 +515,7 @@ lemma fc_mono {τc τc' : Τc K₁ K₂ V} {b₁ b₂ : S K₁ K₂ V}
   /-
     `s = .Source`
   -/
-  · simp [fc]; apply h 
+  · simp [fc]; apply h
 
 def V' (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) (k : Kbar K₁ K₂) : Set V :=
   { v : V | v ∈ (fc · k) '' boundedBelow b T }
@@ -532,7 +532,7 @@ private lemma V'_eq_range {b : S K₁ K₂ V} {T : Τ K₁ K₂ V} {k : Kbar K�
   rfl
 
 lemma V'_sset_V'_of_le {b₁ b₂ : S K₁ K₂ V} {T₁ T₂ : Τ K₁ K₂ V} {k : Kbar K₁ K₂}
-  (h : b₁ ≤ b₂) (h₁ : T₁ ≤ T₂) : 
+  (h : b₁ ≤ b₂) (h₁ : T₁ ≤ T₂) :
   V' b₂ T₂ k ⊆ V' b₁ T₁ k := by
   dsimp [V']
   exact Set.subset_image_iff.2 ⟨
@@ -543,9 +543,9 @@ lemma V'_sset_V'_of_le {b₁ b₂ : S K₁ K₂ V} {T₁ T₂ : Τ K₁ K₂ V} 
 section f
 
 /-
-  PAPER: The explicit description of the transition function. 
+  PAPER: The explicit description of the transition function.
 -/
-def f' (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V := 
+def f' (b : S K₁ K₂ V) (T : Τ K₁ K₂ V) : S K₁ K₂ V :=
   ⟨
     λ k ↦
       match h : T with
@@ -704,7 +704,7 @@ lemma f_deposit_source'
   f_deposit_source h
 
 lemma f_deposit_source''
-  (h : b.isDepositBlock) (h₁ : T ∈ TransactionsInBlock π b) : 
+  (h : b.isDepositBlock) (h₁ : T ∈ TransactionsInBlock π b) :
   (f σ T).1 .Source = σ .Source + -T.value.get (isSome_of_deposit ⟨⟨b, h⟩, h₁⟩) :=
   f_deposit_source ⟨⟨b, h⟩, h₁⟩
 
@@ -730,7 +730,7 @@ lemma f_withdraw_source'
   f_withdraw_source h
 
 lemma f_withdraw_source''
-  (h : b.isWithdrawalBlock) (h₁ : T ∈ TransactionsInBlock π b) : 
+  (h : b.isWithdrawalBlock) (h₁ : T ∈ TransactionsInBlock π b) :
   (f σ T).1 .Source = σ .Source + (↑(T.value.get (isSome_of_withdrawal ⟨⟨b, h⟩, h₁⟩)) ⊓ σ T.sender) :=
   f_withdraw_source ⟨⟨b, h⟩, h₁⟩
 
@@ -758,7 +758,7 @@ lemma f_transfer_source'
   (f σ T) .Source = σ .Source := f_transfer_source h
 
 lemma f_transfer_source''
-  (h : b.isTransferBlock) (h₁ : T ∈ TransactionsInBlock π b) : 
+  (h : b.isTransferBlock) (h₁ : T ∈ TransactionsInBlock π b) :
   (f σ T) .Source = σ .Source := f_transfer_source ⟨⟨b, h⟩, h₁⟩
 
 

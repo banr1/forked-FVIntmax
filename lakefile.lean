@@ -8,4 +8,3 @@ package «FVIntmax» where
 
 @[default_target]
 lean_lib «FVIntmax» where
-  
