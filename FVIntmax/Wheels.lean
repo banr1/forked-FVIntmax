@@ -122,7 +122,7 @@ def trivialPreorder {α : Type} : Preorder α :=
     le := λ _ _ ↦ True
     le_refl := by simp
     le_trans := by simp
-    lt_iff_le_not_le := by simp 
+    lt_iff_le_not_le := by simp
   }
 
 section VectorPreorder
@@ -184,7 +184,7 @@ with the custom clumsy preorder.
 
 See `Vec.le_cons` to see what this 'really' does.
 -/
-private lemma le_cons_aux 
+private lemma le_cons_aux
   (eq₁ : v₁ = ⟨hd₁ :: tl₁, len₁⟩) (eq₂ : v₂ = ⟨hd₂ :: tl₂, len₂⟩)
   (h : v₁ ≤ v₂) : hd₁ ≤ hd₂ ∧
   le ⟨tl₁, by simp at len₁; assumption⟩ ⟨tl₂, by simp at len₂; assumption⟩ := by
@@ -327,7 +327,7 @@ lemma map_eq_project_triple {β γ δ : Type}
                             {P : (β × γ × δ) → Prop}
                             {l : List (Subtype P)}
                             {h₀}
-                            {h : i < l.length} : 
+                            {h : i < l.length} :
   l[i]'h = ⟨(s, r, v), h₀⟩ → (l[i]'h).1.2.2 = v := by aesop
 
 lemma map_join_unnecessarily_specific
@@ -407,7 +407,3 @@ theorem nodup_filter_of_nodup [DecidableEq α] [DecidablePred P]
 end Multiset
 
 end Multiset
-
-namespace Nonneg
-
-end Nonneg

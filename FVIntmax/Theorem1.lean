@@ -592,7 +592,7 @@ lemma prop6_general (h : ∀ i : Fin πs.length,
     use idx'_min_min₂.1.1
   unfold BalanceProof.compat at eq₈
   rw [←proposition6] at eq₈
-  exact absurd (by tauto) eq₈ 
+  exact absurd (by tauto) eq₈
 
 end MergeLemmas
 
@@ -753,7 +753,7 @@ theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
   unfold Intmax.isπ at isπ; specialize isπ hValid; dsimp at isπ
   /-
     PAPER: The resulting contract balance can be computed by adding all deposited amounts and subtracting all withdrawn amounts:
-    NB we prove 
+    NB we prove
   -/
   dsimp [adversaryWon] at contra; simp [computeBalance_eq_sum] at contra
   /-
@@ -890,7 +890,7 @@ theorem theorem1 : ¬adversaryWon (attackGame requests) := λ contra ↦ by
 
           NB this is shown by contradiction as breaking the binding property of the authenticated dictionary
           had been assumed computationally infeasible and the `computationallyInfeasible_axiom`
-          yields the absolute impossibility of this ocurring.
+          yields the absolute impossibility of this occurring.
         -/
         have binding := AD.binding
         apply computationallyInfeasible_axiom at binding -- AXIOMATISED

@@ -9,7 +9,7 @@ namespace Intmax
 
 NB the `V` here does not _yet_ need the fact that it is a latticed-ordered abelian group.
 
-𝔹 := Bdeposit ⨿ Btransf er ⨿ Bwithdrawal
+𝔹 := Bdeposit ⨿ Btransfer ⨿ Bwithdrawal
 -/
 inductive Block (K₁ K₂ : Type) (C Sigma : Type) (V : Type) [PreWithZero V] where
   /--
