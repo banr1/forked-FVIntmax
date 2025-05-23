@@ -80,7 +80,7 @@ class ADScheme (K : Type)
 
   `ComputationallyInfeasible P` means `¬P`. (One can cf. the def in `Wheels/Wheels.lean`.)
 
-  NB `comutationallyInfeasible_axiom Binding` gives us:
+  NB `computationallyInfeasible_axiom Binding` gives us:
   `¬∃ (c : C) (k : K) (m₁ m₂ : M) (π₁ π₂ : Pi),
       Verify π₁ k m₁ c = true ∧
       Verify π₂ k m₂ c = true ∧

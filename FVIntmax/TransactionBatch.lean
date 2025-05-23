@@ -53,7 +53,7 @@ noncomputable def univFinmap (K : Type) [Fintype K] [DecidableEq K]
            exact Finset.nodup_toList _
        ⟩,
         by /-
-             We start with the universal set for `K`, which is complete by definiton.
+             We start with the universal set for `K`, which is complete by definition.
              Furthermore, we keep all `K`s and assign them values from the function's range.
              This construction obviously preserves all keys.
            -/
@@ -92,7 +92,7 @@ noncomputable def univFinmap (K : Type) [Fintype K] [DecidableEq K]
                                aesop
     right_inv := by
       /-
-        Triviall follows from `⟨k, v⟩ ∈ m` iff `m.lookup k = v`.
+        Trivial follows from `⟨k, v⟩ ∈ m` iff `m.lookup k = v`.
         The left inverse is more involved because we need do not get the functional property of
         `f : K → V` for free and we have to recover it.
       -/
@@ -100,8 +100,8 @@ noncomputable def univFinmap (K : Type) [Fintype K] [DecidableEq K]
       intros f; ext
       simp [Finmap.lookup_h, Option.get]
       split
-      next _ _ v hv e _ => 
-        simp [Finmap.lookup_eq_some_iff] at e 
+      next _ _ v hv e _ =>
+        simp [Finmap.lookup_eq_some_iff] at e
         exact e.symm
   }
 
